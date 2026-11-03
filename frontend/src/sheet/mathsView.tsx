@@ -3,6 +3,8 @@
 import { decimal, decimalsOf, GAP } from "../decimal";
 import { asFormula } from "../formula";
 import { FormulaCell, FormulaText } from "./formulaView";
+import { HtmlInk, SvgInk, usePlaces } from "./places";
+import { gridTint } from "../places";
 import { KARO, PT } from "../height";
 import { useLetters } from "./context";
 import { type Calc, type Side, SIGNS, type Grid, type MathsBlock, type Exercise } from "./maths";
@@ -12,7 +14,7 @@ import { useRef, useLayoutEffect, type CSSProperties } from "react";
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
 // With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
 export function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean }) {
-  const gap = part === "rest" || part === (e.hide ?? "result");
+  const gap = part === "rest" || part === (e.hide ?? "result") || part === e.also;
   const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
   const euro = money && part !== "rest" ? " €" : "";
   const shown = <FormulaText text={text} />;
@@ -27,6 +29,7 @@ export const side = (s: Side) => (s.op ? `${decimal(s.a as number, 0)} ${SIGNS[s
 // type a whole square too high, on the screen and in every PDF (issue #446).
 export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean; dx: number; sign: boolean }) {
   const S = 10;
+  const tint = gridTint(grid.cells.map(([x, y, ch, kind]) => ({ x, y, ch, kind })), usePlaces());
   const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * S);
   // The task's own grid is narrower than the paper: it moves right, so its ones stand in the paper's last column.
   // A rule from the sign column stays there, so the rule under the sum spans the whole paper, and so does the sign
@@ -43,11 +46,12 @@ export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; co
         if (!solved && kind) return null;
         const formula = asFormula(ch);
         const em = (kind === 2 ? 0.45 : 0.75) * S;
+        const hit = ch.length === 1 ? tint.get(`${x},${y}`) : undefined;
         return formula ? (
           <FormulaCell key={i} source={formula} x={at(x) * S} y={y * S} side={S} em={em} />
         ) : (
-          <text key={i} className={kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill="currentColor">
-            {ch}
+          <text key={i} className={kind ? "answer" : ""} data-place={hit?.place} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill="currentColor" style={hit ? { fill: hit.color } : undefined}>
+            {ch.length > 1 ? <SvgInk text={ch} /> : ch}
           </text>
         );
       })}
@@ -115,7 +119,7 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
       {"sign" in e ? (
         // The ring is empty for the pupil to write the sign in; the answer key writes it there.
         <span>
-          {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
+          <HtmlInk text={side(e.left)} /> <i className="ring">{solved && e.sign}</i> <HtmlInk text={side(e.right)} />
         </span>
       ) : e.grid ? (
         // A division keeps its head on the left, as written.

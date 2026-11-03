@@ -2,6 +2,7 @@
 
 import { sane as saneOp, made as opMade, layout as opLayout, boxAt, opLabel as opLabelOf, noted as opNoted } from "../../operatorfeld";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { OperatorfeldBlock } from "../tasks";
 
 // An Operatorfeld: its fields in columns. Each field is a ring of boxes, or a centre with outer boxes, and each link
@@ -49,7 +50,7 @@ export function Operatorfeld({ block, solved }: { block: OperatorfeldBlock; k: n
                     )}
                     {shows && (
                       <text x={arrow.middle[0]} y={arrow.middle[1]} fontSize={text.length > 3 ? 2.8 : 3.2} textAnchor="middle" dominantBaseline="central"
-                        fill={field.opGiven[j] ? "#222" : "#c0392b"} className={field.opGiven[j] ? "op" : "answer"}>{text}</text>
+                        fill={field.opGiven[j] ? "#222" : "#c0392b"} className={field.opGiven[j] ? "op" : "answer"}><SvgInk text={text} /></text>
                     )}
                   </g>
                 );
@@ -62,7 +63,7 @@ export function Operatorfeld({ block, solved }: { block: OperatorfeldBlock; k: n
                     <rect x={bx - D / 2} y={by - D / 2} width={D} height={D} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={bx} y={by} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"
-                        fill={field.given[j] ? "#222" : "#c0392b"} className={field.given[j] ? "given" : "answer"}>{n}</text>
+                        fill={field.given[j] ? "#222" : "#c0392b"} className={field.given[j] ? "given" : "answer"}><SvgInk text={n} /></text>
                     )}
                   </g>
                 );

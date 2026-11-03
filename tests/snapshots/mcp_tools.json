@@ -554,6 +554,14 @@
               "description": "The first number of the task.",
               "type": "number"
             },
+            "also": {
+              "description": "A second gap, besides hide: \"a\" or \"b\". Set on the last task of a family that is not shown complete. Left out, the task has one gap.",
+              "enum": [
+                "a",
+                "b"
+              ],
+              "type": "string"
+            },
             "b": {
               "description": "The second number of the task.",
               "type": "number"
@@ -893,6 +901,10 @@
                 "$ref": "#/definitions/Page"
               },
               "type": "array"
+            },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
             },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
@@ -2580,12 +2592,13 @@
               "type": "array"
             },
             "family": {
-              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\".",
+              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks, \"analogy\" a package whose first or second number grows by ten. A family has two or three tasks. Default \"none\".",
               "enum": [
                 "none",
                 "swap",
                 "reverse",
-                "neighbour"
+                "neighbour",
+                "analogy"
               ],
               "type": "string"
             },
@@ -2598,6 +2611,10 @@
                 "compare"
               ],
               "type": "string"
+            },
+            "full": {
+              "description": "Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true.",
+              "type": "boolean"
             },
             "gaps": {
               "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
@@ -2637,7 +2654,7 @@
               "type": "boolean"
             },
             "moves": {
-              "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second.",
+              "description": "Which number a neighbouring task moves, or an Analogieaufgabe grows: \"a\" the first, the default, or \"b\" the second.",
               "enum": [
                 "a",
                 "b"
@@ -3279,6 +3296,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {
@@ -8539,6 +8581,14 @@
               "description": "The first number of the task.",
               "type": "number"
             },
+            "also": {
+              "description": "A second gap, besides hide: \"a\" or \"b\". Set on the last task of a family that is not shown complete. Left out, the task has one gap.",
+              "enum": [
+                "a",
+                "b"
+              ],
+              "type": "string"
+            },
             "b": {
               "description": "The second number of the task.",
               "type": "number"
@@ -8889,6 +8939,10 @@
                 "$ref": "#/definitions/Page"
               },
               "type": "array"
+            },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
             },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
@@ -10641,12 +10695,13 @@
               "type": "array"
             },
             "family": {
-              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\".",
+              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks, \"analogy\" a package whose first or second number grows by ten. A family has two or three tasks. Default \"none\".",
               "enum": [
                 "none",
                 "swap",
                 "reverse",
-                "neighbour"
+                "neighbour",
+                "analogy"
               ],
               "type": "string"
             },
@@ -10659,6 +10714,10 @@
                 "compare"
               ],
               "type": "string"
+            },
+            "full": {
+              "description": "Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true.",
+              "type": "boolean"
             },
             "gaps": {
               "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
@@ -10698,7 +10757,7 @@
               "type": "boolean"
             },
             "moves": {
-              "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second.",
+              "description": "Which number a neighbouring task moves, or an Analogieaufgabe grows: \"a\" the first, the default, or \"b\" the second.",
               "enum": [
                 "a",
                 "b"
@@ -11376,6 +11435,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {
@@ -15937,6 +16021,14 @@
               "description": "The first number of the task.",
               "type": "number"
             },
+            "also": {
+              "description": "A second gap, besides hide: \"a\" or \"b\". Set on the last task of a family that is not shown complete. Left out, the task has one gap.",
+              "enum": [
+                "a",
+                "b"
+              ],
+              "type": "string"
+            },
             "b": {
               "description": "The second number of the task.",
               "type": "number"
@@ -16276,6 +16368,10 @@
                 "$ref": "#/definitions/Page"
               },
               "type": "array"
+            },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
             },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
@@ -17963,12 +18059,13 @@
               "type": "array"
             },
             "family": {
-              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\".",
+              "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks, \"analogy\" a package whose first or second number grows by ten. A family has two or three tasks. Default \"none\".",
               "enum": [
                 "none",
                 "swap",
                 "reverse",
-                "neighbour"
+                "neighbour",
+                "analogy"
               ],
               "type": "string"
             },
@@ -17981,6 +18078,10 @@
                 "compare"
               ],
               "type": "string"
+            },
+            "full": {
+              "description": "Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true.",
+              "type": "boolean"
             },
             "gaps": {
               "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
@@ -18020,7 +18121,7 @@
               "type": "boolean"
             },
             "moves": {
-              "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second.",
+              "description": "Which number a neighbouring task moves, or an Analogieaufgabe grows: \"a\" the first, the default, or \"b\" the second.",
               "enum": [
                 "a",
                 "b"
@@ -18662,6 +18763,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {

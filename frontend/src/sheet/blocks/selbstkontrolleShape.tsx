@@ -1,18 +1,29 @@
 // The four ways a shuffled Selbstkontrolle can look, besides the tick list: a plain box, a snake, a caterpillar, a train.
+// A digit of a whole number takes the sheet's place colour, as the other maths blocks do.
 import type { MixLook } from "../../selbstkontrolle";
 import { shapeBox, wound, type ShapeLook } from "../../selbstkontrolle/shape";
+import { HtmlInk, SvgInk } from "../places";
 
 const font = (text: string, full: number) => (text.length > 4 ? full * 0.62 : text.length > 2 ? full * 0.78 : full);
 
 export function Mixed({ look, items }: { look: MixLook; items: string[] }) {
-  if (look === "box") return <ul className="box">{items.map((text, i) => <li key={i}>{text}</li>)}</ul>;
+  if (look === "box")
+    return (
+      <ul className="box">
+        {items.map((text, i) => (
+          <li key={i}>
+            <HtmlInk text={text} />
+          </li>
+        ))}
+      </ul>
+    );
   if (look === "ticks")
     return (
       <ul className="mixed">
         {items.map((text, i) => (
           <li key={i}>
             <span className="tick" />
-            {text}
+            <HtmlInk text={text} />
           </li>
         ))}
       </ul>
@@ -40,7 +51,7 @@ function Shape({ look, items }: { look: ShapeLook; items: string[] }) {
             </>
           )}
           <text x={spots[i][0]} y={spots[i][1] + (look === "caterpillar" && i === 0 ? 3 : 0)} textAnchor="middle" dominantBaseline="central" fontFamily="Andika" fontSize={font(text, 12)}>
-            {text}
+            <SvgInk text={text} />
           </text>
         </g>
       ))}
@@ -67,7 +78,7 @@ function Train({ items }: { items: string[] }) {
             <circle cx={x + 14} cy={y + 40} r={5} fill="white" stroke="#222" strokeWidth={1.2} />
             <circle cx={x + 44} cy={y + 40} r={5} fill="white" stroke="#222" strokeWidth={1.2} />
             <text x={x + (engine ? 29 : 28)} y={y + 23} textAnchor="middle" dominantBaseline="central" fontFamily="Andika" fontSize={font(text, 12)}>
-              {text}
+              <SvgInk text={text} />
             </text>
           </g>
         );

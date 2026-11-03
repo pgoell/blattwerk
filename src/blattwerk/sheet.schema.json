@@ -80,6 +80,10 @@
         "keyAsText": {
           "type": "boolean",
           "description": "Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`."
+        },
+        "places": {
+          "$ref": "#/definitions/Places",
+          "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
         }
       },
       "required": [
@@ -2380,9 +2384,10 @@
             "none",
             "swap",
             "reverse",
-            "neighbour"
+            "neighbour",
+            "analogy"
           ],
-          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\"."
+          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks, \"analogy\" a package whose first or second number grows by ten. A family has two or three tasks. Default \"none\"."
         },
         "moves": {
           "type": "string",
@@ -2390,7 +2395,11 @@
             "a",
             "b"
           ],
-          "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second."
+          "description": "Which number a neighbouring task moves, or an Analogieaufgabe grows: \"a\" the first, the default, or \"b\" the second."
+        },
+        "full": {
+          "type": "boolean",
+          "description": "Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true."
         },
         "gaps": {
           "type": "array",
@@ -2503,6 +2512,14 @@
             "c"
           ],
           "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result."
+        },
+        "also": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ],
+          "description": "A second gap, besides hide: \"a\" or \"b\". Set on the last task of a family that is not shown complete. Left out, the task has one gap."
         },
         "grid": {
           "$ref": "#/definitions/Grid",
@@ -7271,6 +7288,31 @@
         "ratio",
         "cut"
       ]
+    },
+    "Places": {
+      "type": "object",
+      "properties": {
+        "on": {
+          "type": "boolean",
+          "description": "Turns the place colours on. Left out, they stay off."
+        },
+        "einer": {
+          "type": "string",
+          "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green."
+        },
+        "zehner": {
+          "type": "string",
+          "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue."
+        },
+        "hunderter": {
+          "type": "string",
+          "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red."
+        },
+        "tausender": {
+          "type": "string",
+          "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green."
+        }
+      }
     }
   }
 }

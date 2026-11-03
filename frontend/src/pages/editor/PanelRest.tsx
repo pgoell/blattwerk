@@ -1,6 +1,7 @@
 // The Lernwörter and the Ansicht of the format panel.
 import { Eraser, Layers, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
 import { RULINGS, type PageNumbers } from "../../sheet";
+import { MONTESSORI, NAMES, storedPlaces, type PlaceName } from "../../places";
 import { KEY_RED } from "../../sheet/doc";
 import { pasted } from "../../words";
 import Format from "../Format";
@@ -45,6 +46,9 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   const keyColor = typeof hist.doc.keyColor === "string" ? hist.doc.keyColor : undefined;
   const keyAsText = hist.doc.keyAsText === true;
   // A picked colour stays while "Wie der Text" is on, so coming back shows it again.
+  const places = storedPlaces(hist.doc.places) ?? {};
+  const placesOn = places.on === true;
+  const placeColor = (name: PlaceName) => places[name] ?? MONTESSORI[name];
   const answers = (color: string | undefined, asText: boolean) => {
     const next = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : undefined;
     if (keyAsText === asText && keyColor?.toLowerCase() === next) return;
@@ -56,6 +60,28 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
       else delete kept.keyColor;
       return kept;
     }, "keyColor");
+  };
+  // A picked colour stays while the switch is off, so turning it on shows that colour again.
+  const stellen = (on: boolean, name?: PlaceName, color?: string) => {
+    const next = { ...places };
+    if (on) next.on = true;
+    else delete next.on;
+    if (name && color && /^#[0-9a-fA-F]{6}$/.test(color)) {
+      const hex = color.toLowerCase();
+      if (hex === MONTESSORI[name]) delete next[name];
+      else next[name] = hex;
+    }
+    if (!next.on && !NAMES.some((key) => next[key])) {
+      if (!placesOn && !NAMES.some((key) => places[key])) return;
+      update((doc) => {
+        const kept = { ...doc };
+        delete kept.places;
+        return kept;
+      }, "places");
+      return;
+    }
+    if (placesOn === !!next.on && NAMES.every((key) => places[key] === next[key])) return;
+    update((doc) => ({ ...doc, places: next }), "places");
   };
   return (
     <>
@@ -220,6 +246,29 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                   Farbe
                   <input type="color" aria-label="Farbe der Lösungen" value={(keyColor ?? KEY_RED).toLowerCase()} onChange={(e) => answers(e.target.value, false)} />
                 </label>
+              )}
+              <h2>Stellenwerte</h2>
+              <div className="seg" role="group" aria-label="Stellenwerte">
+                <button className={placesOn ? "" : "on"} aria-pressed={!placesOn} onClick={() => stellen(false)}>Ungefärbt</button>
+                <button className={placesOn ? "on" : ""} aria-pressed={placesOn} onClick={() => stellen(true)}>Gefärbt</button>
+              </div>
+              {placesOn && (
+                <>
+                  {(
+                    [
+                      ["einer", "Einer"],
+                      ["zehner", "Zehner"],
+                      ["hunderter", "Hunderter"],
+                      ["tausender", "Tausender"],
+                    ] as const
+                  ).map(([name, label]) => (
+                    <label key={name}>
+                      {label}
+                      <input type="color" aria-label={`Farbe der ${label}`} value={placeColor(name)} onChange={(e) => stellen(true, name, e.target.value)} />
+                    </label>
+                  ))}
+                  <p className="hint">Einer, Zehner, Hunderter und Tausender in jedem Mathe-Block. Text und Dezimalzahlen bleiben schwarz.</p>
+                </>
               )}
               {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>

@@ -28,8 +28,9 @@
 // in, its key result first. A result is `{ text, value }`: `text` as the block prints it in the answer key, `value`
 // the number for a sum, absent where there is none (a sign, a time).
 // - "maths" (Rechenpäckchen, Rechnen in Zeilen, Lückenaufgaben, schriftlich, Vergleichen): one task per exercise,
-//   one result: the part the gap hides (`hide`, the result when absent); with a rest the text "<q> R <r>" and the
-//   value q (the rest is not added); a comparison gives its sign "<", ">" or "=" with no value. Decimals as
+//   one result: the part the gap hides (`hide`, the result when absent), and with `also` that second number too;
+//   with a rest the text "<q> R <r>" and the value q (the rest is not added); a comparison gives its sign
+//   "<", ">" or "=" with no value. Decimals as
 //   `decimal(n, decimalsOf(p), money)` prints them, with " €" for Geld, the value the number.
 // - "zahlenmauer": one task per wall, its stones the child fills (not `given`), from the top row down and each row
 //   left to right; so the key result is the highest empty stone. A wall that is `wrong`, or a block with `empty`,

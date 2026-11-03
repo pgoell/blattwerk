@@ -4,11 +4,12 @@ import type { ReactNode } from "react";
 import { PT } from "../height";
 import { asFormula, parse, sane, splitFormula, type Node } from "../formula";
 import type { FormulaBlock } from "./doc";
+import { HtmlInk, SvgInk } from "./places";
 
 function draw(n: Node): ReactNode {
   switch (n.k) {
     case "text":
-      return n.s;
+      return <HtmlInk text={n.s} />;
     case "row":
       return <span className="f-row">{n.xs.map((x, i) => <span key={i}>{draw(x)}</span>)}</span>;
     case "frac":
@@ -21,7 +22,7 @@ function draw(n: Node): ReactNode {
     case "mixed":
       return (
         <span className="f-mixed">
-          <span>{n.n}</span>
+          <span><HtmlInk text={n.n} /></span>
           {draw({ k: "frac", a: n.a, b: n.b })}
         </span>
       );
@@ -72,10 +73,10 @@ export function Formula({ source }: { source: string }) {
 // A text that may hold `\f{...}` among its words. With none, the words are unchanged.
 export function FormulaText({ text }: { text: string }) {
   const bits = splitFormula(text);
-  if (bits.length === 1 && bits[0].formula === undefined) return <>{text}</>;
+  if (bits.length === 1 && bits[0].formula === undefined) return <HtmlInk text={text} />;
   return (
     <>
-      {bits.map((bit, i) => (bit.formula !== undefined ? <Formula key={i} source={bit.formula} /> : <span key={i}>{bit.text}</span>))}
+      {bits.map((bit, i) => (bit.formula !== undefined ? <Formula key={i} source={bit.formula} /> : <HtmlInk key={i} text={bit.text ?? ""} />))}
     </>
   );
 }
@@ -199,7 +200,7 @@ export function FormulaCell({ source, x, y, side, em }: { source: string; x: num
           <line key={i} x1={m.x} x2={m.x + m.w} y1={m.y} y2={m.y} stroke="currentColor" strokeWidth={Math.max(em * 0.06, 0.12)} />
         ) : (
           <text key={i} x={m.x} y={m.y} fontSize={m.em} fill="currentColor">
-            {m.s}
+            <SvgInk text={m.s} />
           </text>
         ),
       )}
