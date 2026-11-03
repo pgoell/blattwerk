@@ -4,7 +4,7 @@ title: "Block: maths"
 description: "The maths block's limits, layout and exercises."
 tags: [block, maths]
 covers: [maths]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:43:27Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T02:30:37Z }
 ---
 
 # maths
@@ -63,8 +63,9 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | af | list of list of number |  | no | The digits of the first number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. |
 | bf | list of list of number |  | no | The digits of the second number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. |
 | cf | list of list of number |  | no | The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. |
-| family | string | `none`, `swap`, `reverse`, `neighbour` | no | Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks. A family has two or three tasks. Default "none". |
-| moves | string | `a`, `b` | no | Which number a neighbouring task moves: "a" the first, the default, or "b" the second. |
+| family | string | `none`, `swap`, `reverse`, `neighbour`, `analogy` | no | Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks, "analogy" a package whose first or second number grows by ten. A family has two or three tasks. Default "none". |
+| moves | string | `a`, `b` | no | Which number a neighbouring task moves, or an Analogieaufgabe grows: "a" the first, the default, or "b" the second. |
+| full | boolean |  | no | Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. |
 | gaps | list of string | `a`, `b`, `c`, `result` | no | What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. |
 | zero | boolean |  | no | Whether 0 may be a number and a result. Default true. |
 | one | boolean |  | no | Whether 1 may be a factor or a divisor in times and divide tasks. Default true. |

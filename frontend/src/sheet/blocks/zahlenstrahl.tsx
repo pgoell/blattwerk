@@ -1,6 +1,7 @@
 // Draws one Zahlenstrahl block.
 
 import { sane as saneStrahl, made as drawnStrahl, xOf, below, arrowXs, arrowTip, tickLine, LEFT as STRAHL_LEFT, boxUnder } from "../../zahlenstrahl";
+import { SvgInk } from "../places";
 import type { ZahlenstrahlBlock } from "../tasks";
 
 // A Zahlenstrahl, drawn in the block's mm as the contract at the top of zahlenstrahl.ts says.
@@ -52,7 +53,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
             <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
               {stroke && <line x1={x} y1={stroke.y1} x2={x} y2={stroke.y2} stroke="#222" strokeWidth={0.4} />}
               {t.label && !t.task && (
-                <text className="label" x={x} y={y + 5} fontSize={FS} textAnchor="middle" dominantBaseline="hanging" fill="#222">{t.value}</text>
+                <text className="label" x={x} y={y + 5} fontSize={FS} textAnchor="middle" dominantBaseline="hanging" fill="#222"><SvgInk text={t.value} /></text>
               )}
               {t.task === "box" && (
                 <g className="box">
@@ -65,7 +66,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
                   )}
                   <rect x={x - bw / 2} y={top} width={bw} height={bh} fill="none" stroke="#222" strokeWidth={0.3} />
                   {solved && (
-                    <text className="answer" x={x} y={top + bh / 2} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
+                    <text className="answer" x={x} y={top + bh / 2} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b"><SvgInk text={t.value} /></text>
                   )}
                 </g>
               )}
@@ -76,7 +77,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
           const ax = axs[k];
           return (
             <g key={v} className="arrow" data-value={v}>
-              <text className="given" x={ax} y={base} fontSize={FS} textAnchor="middle" fill="#222">{v}</text>
+              <text className="given" x={ax} y={base} fontSize={FS} textAnchor="middle" fill="#222"><SvgInk text={v} /></text>
               {base + 0.4 < y - 5 && <line x1={ax} y1={Math.max(base + 0.4, y - 7)} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />}
               {solved && <path className="answer" d={`M ${ax} ${y - 5} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
             </g>
@@ -88,7 +89,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
           return (
             <g key={`${a.from}-${a.to}`} className="arc" data-from={a.from} data-to={a.to}>
               <path d={`M ${x1} ${y - 0.5} A ${rx} ${ry} 0 0 1 ${x2} ${y - 0.5}`} fill="none" stroke="#222" strokeWidth={0.3} />
-              <text x={x1 + rx} y={y - ry - 2} fontSize={FS} textAnchor="middle" fill="#222">{a.label}</text>
+              <text x={x1 + rx} y={y - ry - 2} fontSize={FS} textAnchor="middle" fill="#222"><SvgInk text={a.label} /></text>
             </g>
           );
         })}

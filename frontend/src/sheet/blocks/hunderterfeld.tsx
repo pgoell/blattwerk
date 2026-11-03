@@ -1,6 +1,7 @@
 // Draws one Hunderterfeld block.
 
 import { sane as saneFeld, made as drawnFeld, dotAt, TINT, GREY } from "../../hunderterfeld";
+import { SvgInk } from "../places";
 import type { HunderterfeldBlock } from "../tasks";
 
 // A cell next to a hole loses the shared line: the hole is the gap, not an empty square.
@@ -80,12 +81,12 @@ export function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k:
                     {open && edges(c.i, holes).map(([x1, y1, x2, y2], n) => <line key={n} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#222" strokeWidth={line} />)}
                     {c.shown && (
                       <text className="given" x={x + 5} y={y + 5} fontSize={size} textAnchor="middle" dominantBaseline="central" fill="#222">
-                        {c.value}
+                        <SvgInk text={c.value} />
                       </text>
                     )}
                     {!c.shown && solved && (
                       <text className="answer" x={x + 5} y={y + 5} fontSize={size} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
-                        {c.value}
+                        <SvgInk text={c.value} />
                       </text>
                     )}
                   </g>

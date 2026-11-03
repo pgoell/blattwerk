@@ -1,5 +1,6 @@
 // The sheet document, and reading one that an older build saved.
 
+import { storedPlaces, type Places } from "../places";
 import type { Breaks } from "../syllables";
 import { type Box, tall } from "./box";
 import { RULINGS, kindOf, rowsOf } from "./look";
@@ -149,6 +150,8 @@ export type Doc = {
   keyColor?: string;
   /** Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`. */
   keyAsText?: boolean;
+  /** Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured. */
+  places?: Places;
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
 // The red the answers have always used. "Wie der Text" draws in #222222, the sheet's own ink.
@@ -178,7 +181,7 @@ export function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks, keyColor, keyAsText }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks, keyColor, keyAsText, places }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   // A sheet from the API may lack its guides and grid, or hold them wrong: then it has none.
   guides: guides && typeof guides === "object" && Array.isArray(guides.x) && Array.isArray(guides.y) ? guides : { x: [], y: [] },
@@ -191,6 +194,7 @@ export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumber
   // A colour the editor did not write is dropped, so the answers stay red.
   keyColor: typeof keyColor === "string" && HEX.test(keyColor) ? keyColor : undefined,
   keyAsText: keyAsText === true ? true : undefined,
+  places: storedPlaces(places),
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.

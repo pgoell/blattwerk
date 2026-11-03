@@ -204,13 +204,20 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
               </option>
             ))}
           </select>
-          {p.family === "neighbour" && !three && (
+          {(p.family === "neighbour" || p.family === "analogy") && !three && (
             <div className="seg">
-              <button aria-label="1. Zahl wandert" className={(p.moves ?? "a") === "a" ? "on" : ""} aria-pressed={(p.moves ?? "a") === "a"} onClick={() => limit({ moves: "a" })}>
+              <button aria-label={p.family === "analogy" ? "1. Zahl wächst" : "1. Zahl wandert"} className={(p.moves ?? "a") === "a" ? "on" : ""} aria-pressed={(p.moves ?? "a") === "a"} onClick={() => limit({ moves: "a" })}>
                 1. Zahl
               </button>
-              <button aria-label="2. Zahl wandert" className={p.moves === "b" ? "on" : ""} aria-pressed={p.moves === "b"} onClick={() => limit({ moves: "b" })}>
+              <button aria-label={p.family === "analogy" ? "2. Zahl wächst" : "2. Zahl wandert"} className={p.moves === "b" ? "on" : ""} aria-pressed={p.moves === "b"} onClick={() => limit({ moves: "b" })}>
                 2. Zahl
+              </button>
+            </div>
+          )}
+          {fam && (
+            <div className="seg switch">
+              <button className={p.full !== false ? "on" : ""} aria-pressed={p.full !== false} onClick={() => limit({ full: p.full === false })}>
+                Vollständig anzeigen
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@
 
 import { sane as saneMagic, made as magicMade, layout as magicLayout } from "../../magischesquadrat";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { MagischesQuadratBlock } from "../tasks";
 
 // A Magisches Quadrat: its squares side by side. Each has its given numbers on the sheet; in the key the others too,
@@ -20,7 +21,7 @@ export function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlo
             <g key={i} className={`square${s.wrong ? " wrong" : ""}${s.many ? " many" : ""}`} data-square={i}>
               {p.showSum && !s.wrong && (
                 <text className="sum" x={x0 + TW / 2} y={y0 + SUM_H / 2} fontSize={SUM_H * 0.6} textAnchor="middle" dominantBaseline="central">
-                  {`Zielzahl: ${s.sum}`}
+                  <SvgInk text={`Zielzahl: ${s.sum}`} />
                 </text>
               )}
               {s.cells.map((row, r) =>
@@ -32,7 +33,7 @@ export function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlo
                       <rect x={x} y={y} width={CELL} height={CELL} fill="white" stroke="#222" strokeWidth={0.4} />
                       {state && (
                         <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(n).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
-                          fill={state === "given" ? "#222" : "#c0392b"} className={state}>{n}</text>
+                          fill={state === "given" ? "#222" : "#c0392b"} className={state}><SvgInk text={n} /></text>
                       )}
                     </g>
                   );

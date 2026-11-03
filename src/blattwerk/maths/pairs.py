@@ -15,6 +15,7 @@ from blattwerk.maths.model import (
     gaps_of,
     nth,
     pick,
+    places,
     three,
 )
 from blattwerk.maths.pattern import for_op, operands, result_ok
@@ -304,6 +305,12 @@ def relatives(s: Settings, op: str, a: int, b: int) -> list[tuple[str, int, int]
         return [(op, a, b), (op, b, a)] if a != b else []
     if kind == "reverse":
         return [(op, a, b), (REVERSE[op], result(op, a, b), b)]
+    if kind == "analogy":
+        # Ten, as the pupil reads it. One place after the comma stores tenths, so ten is 100.
+        step = 10 * 10 ** places(s)
+        if s.moves == "a":
+            return [(op, a, b), (op, a + step, b), (op, a + 2 * step, b)]
+        return [(op, a, b), (op, a, b + step), (op, a, b + 2 * step)]
     if op == "/" and s.moves == "a":
         return [(op, a, b), (op, a - b, b), (op, a + b, b)]
     if s.moves == "a":

@@ -1,17 +1,22 @@
 // Draws one Karofeld block.
 
 import { fontOf, isoLines, sane } from "../../karofeld";
+import { gridTint } from "../../places";
 import type { KarofeldBlock } from "../tasks";
 import type { Square } from "../../karofeld";
+import { SvgInk, usePlaces } from "../places";
 
 // A free grid: one digit or sign to a square. The viewBox is the field in mm, so a square of `size` mm
 // keeps that size when the block is `boxOf`, and the letter is `fontOf(size)`.
 export function Karofeld({ block, onSquare }: { block: KarofeldBlock; onSquare?: (col: number, row: number) => void }) {
   const p = sane(block.props);
+  const places = usePlaces();
   const { cols, rows, size, look } = p;
   const [w, h] = [cols * size, rows * size];
   const cells = p.cells ?? [];
   const [cc, cr] = p.caret ?? [0, 0];
+  const flat = cells.flatMap((row, r) => (row ?? []).flatMap((cell, c) => (cell.sign?.length === 1 ? [{ x: c, y: r, ch: cell.sign, kind: 0, decimal: cell.mark === "," || cell.mark === "." }] : [])));
+  const tint = gridTint(flat, places);
   const at = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * size);
   const sq = (c: number, r: number): Square => cells[r]?.[c] ?? {};
   return (
@@ -64,6 +69,7 @@ export function Karofeld({ block, onSquare }: { block: KarofeldBlock; onSquare?:
         {Array.from({ length: rows }, (_, r) =>
           Array.from({ length: cols }, (_, c) => {
             const cell = sq(c, r);
+            const hit = cell.sign?.length === 1 ? tint.get(`${c},${r}`) : undefined;
             const edges = cell.thick ?? [];
             const sides: [boolean, number, number, number, number][] = [
               [!!edges[0], c * size, r * size, (c + 1) * size, r * size],
@@ -76,8 +82,8 @@ export function Karofeld({ block, onSquare }: { block: KarofeldBlock; onSquare?:
                 {sides.map(([on, x1, y1, x2, y2], i) => on && <line key={i} className="thick" x1={x1} y1={y1} x2={x2} y2={y2} />)}
                 {cell.line && <line className="loesung" x1={(c + 0.15) * size} x2={(c + 0.85) * size} y1={(r + 0.78) * size} y2={(r + 0.78) * size} />}
                 {cell.sign && (
-                  <text x={(c + 0.5) * size} y={(r + 0.5) * size} fontFamily="Andika" fontSize={fontOf(size)} textAnchor="middle" dominantBaseline="central" fill="#222">
-                    {cell.sign}
+                  <text x={(c + 0.5) * size} y={(r + 0.5) * size} fontFamily="Andika" fontSize={fontOf(size)} textAnchor="middle" dominantBaseline="central" fill="#222" data-place={hit?.place} style={hit ? { fill: hit.color } : undefined}>
+                    {cell.sign.length > 1 ? <SvgInk text={cell.sign} /> : cell.sign}
                     {cell.mark ?? ""}
                   </text>
                 )}
