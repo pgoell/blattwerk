@@ -184,6 +184,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 feed={feed}
                 onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
                 onInsert={typeChar}
+                markEven={session.markEven}
                 toList={() => setTab("Lernwörter")}
               />
               {helping && help && (

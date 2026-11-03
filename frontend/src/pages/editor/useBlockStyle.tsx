@@ -229,6 +229,10 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
     const off = new Set(b.props.hidden ?? []);
     return !off.has(i) && (b.props.fields ?? FIELDS).every((_, j) => j === i || off.has(j));
   };
+  // One switch for the page: every Lösungsfeld shares a width, or none of them do.
+  function markEven(on: boolean) {
+    change((bs) => bs.map((b) => (b.type === "loesungsfeld" ? ({ ...b, props: { ...b.props, even: on } } as Block) : b)), "even");
+  }
   function showField(i: number, shown: boolean) {
     change((bs) =>
       bs.map((b) => {
@@ -238,5 +242,5 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
       }),
     );
   }
-    return Object.assign(session, { change, scoreOn, bump, takeList, takeText, feed, listWords, listField, caretAt, addBlatt, rules, screenRows, snug, boxOf, place, style, typeRuling, onlyShown, showField });
+    return Object.assign(session, { change, scoreOn, bump, takeList, takeText, feed, listWords, listField, caretAt, addBlatt, rules, screenRows, snug, boxOf, place, style, typeRuling, onlyShown, showField, markEven });
 }

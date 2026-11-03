@@ -30,6 +30,7 @@ BLOCK_NAMES = set(
     Malquadrat Malquadrate Zerlegungsfeld Zerlegungsfelder Halbschriftlich
     Hunderterfeld Hunderterfelder Textaufgabe Textaufgaben Geobrett Geobretter
     Karofeld Karofelder Diagramm Diagramme Uhr Uhren Selbstkontrolle Selbstkontrollen
+    Lösungsfeld Lösungsfelder
     Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
     Form Formen Formel Formeln Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
 )

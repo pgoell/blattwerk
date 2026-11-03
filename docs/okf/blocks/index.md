@@ -65,3 +65,5 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 * [karofeld](karofeld.md): A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry.
 
 * [diagramm](diagramm.md): A chart (Diagramm) of bars, columns or a pie, drawn from a few values.
+
+* [loesungsfeld](loesungsfeld.md): A blank the pupil writes in.

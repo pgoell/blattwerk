@@ -132,3 +132,10 @@
 .hunderterfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .geobrett svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .diagramm svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }
+/* A Lösungsfeld: the blank fills the line the answer needs. The answer is drawn only in the Lösungen. */
+.loesungsfeld { display: flex; align-items: flex-end; width: 100%; height: 100%; font-family: Andika; line-height: 1; color: #222; }
+.loesungsfeld .blank { display: flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; min-height: 1.35em; }
+.loesungsfeld .blank.line { border-bottom: 1px solid currentColor; }
+.loesungsfeld .blank.box { border: 1px solid currentColor; border-radius: .4mm; min-height: 1.6em; }
+.loesungsfeld .answer { color: var(--key, #c0392b); }
+.loesungsfeld img.answer { width: 1.5em; height: 1.5em; object-fit: contain; }

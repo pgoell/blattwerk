@@ -15,6 +15,7 @@ describe("INSERTS", () => {
     expect(INSERTS.ruling()).toEqual({ w: 180, h: 60, type: "ruling", props: { kind: "l1", color: "#555555" } });
     expect(INSERTS.name()).toEqual({ w: 180, h: 10, type: "name", props: {} });
     expect(INSERTS.points()).toEqual({ w: 40, h: 12, type: "points", props: { max: 10 } });
+    expect(INSERTS.loesungsfeld()).toEqual({ w: 40, h: 12, type: "loesungsfeld", props: { kind: "text", text: "", blank: "line", size: 14, even: false } });
   });
 
   it("the seeded blocks take their seed", () => {

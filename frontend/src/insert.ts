@@ -22,6 +22,7 @@ import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "
 import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFor as widthForHalb } from "./halbschriftlich";
 import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
 import { DEFAULTS as TEXTAUFGABE, heightFor as heightForText, sane as saneText } from "./textaufgabe";
+import { DEFAULTS as LOESUNG } from "./loesungsfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -102,6 +103,7 @@ export const INSERTS = {
   diagramm: (seed: number): Fresh => ({ w: 150, h: 90, type: "diagramm", props: { ...DIAGRAMM, points: DIAGRAMM.points.map((p) => ({ ...p })), seed } }),
   uhr: (seed: number): Fresh => ({ w: 180, h: 58.5, type: "uhr", props: { ...UHR, seed } }),
   selbstkontrolle: (seed: number): Fresh => ({ w: 180, h: 30, type: "selbstkontrolle", props: { ...SELBST, seed } }),
+  loesungsfeld: (): Fresh => ({ w: 40, h: 12, type: "loesungsfeld", props: { kind: LOESUNG.kind, text: LOESUNG.text, blank: LOESUNG.blank, size: LOESUNG.size, even: LOESUNG.even } }),
   // "Strecke": a line with ticks.
   strecke: (): Fresh => ({ w: 50, h: 0, type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } }),
   shape: (kind: Kind): Fresh => {

@@ -232,6 +232,7 @@ WRONG = {
     "selbstkontrolle": {**SELBSTKONTROLLE, "size": "x"},
     "textaufgabe": {**TEXTAUFGABE, "max": "x"},
     "geobrett": {"cols": "x", "rows": 5, "bands": [], "task": "leer", "seed": 3},
+    "loesungsfeld": {"kind": "text", "text": 5, "blank": "line", "size": 14, "even": False},
     "diagramm": {
         "kind": 5,
         "points": [],

@@ -77,6 +77,14 @@
           ],
           "type": "object"
         },
+        "Blank": {
+          "enum": [
+            "line",
+            "box",
+            "none"
+          ],
+          "type": "string"
+        },
         "Block": {
           "allOf": [
             {
@@ -462,6 +470,18 @@
               "then": {
                 "$ref": "#/definitions/DiagrammBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "loesungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/LoesungsfeldBlock"
+              }
             }
           ],
           "properties": {
@@ -511,7 +531,8 @@
                 "geobrett",
                 "formula",
                 "karofeld",
-                "diagramm"
+                "diagramm",
+                "loesungsfeld"
               ],
               "type": "string"
             },
@@ -996,6 +1017,13 @@
             "zehn2",
             "zwanzig",
             "hundert"
+          ],
+          "type": "string"
+        },
+        "FieldKind": {
+          "enum": [
+            "text",
+            "image"
           ],
           "type": "string"
         },
@@ -1641,12 +1669,33 @@
         },
         "HunderterfeldProps": {
           "properties": {
+            "anchor": {
+              "description": "Top-left cell of a \"rect\" cut, 0 to 99, row by row. A rectangle past the right or bottom edge is clipped. Default 0.",
+              "maximum": 99,
+              "minimum": 0,
+              "type": "number"
+            },
+            "blank": {
+              "description": "How a hidden cell of the Tafel is drawn. \"empty\": the square stays and the number is gone. \"grey\": the square is grey. \"gone\": the square is not drawn. The answer key still prints the number. Ignored while `cut` is on. Default \"empty\".",
+              "enum": [
+                "empty",
+                "grey",
+                "gone"
+              ],
+              "type": "string"
+            },
             "color": {
               "$ref": "#/definitions/Tint",
               "description": "The colour of a tint from \"even\", \"times\", \"row\" or \"column\": 1 yellow, 2 blue. Default 1."
             },
+            "cover": {
+              "description": "The row or column hidden with `show` \"row\" or \"column\", 1 to 10 from the top or the left. For \"diagonal\", 1 is top left to bottom right and 2 is the other; any other value is read as 1. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "cut": {
-              "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
+              "description": "Cut-out (Ausschnitt): when true, only the cut's cells are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
               "type": "boolean"
             },
             "dots": {
@@ -1670,13 +1719,19 @@
               },
               "type": "array"
             },
-            "from": {
-              "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1.",
+            "form": {
+              "description": "Which cells a cut draws. \"cells\": the cells in `shape`. \"rect\": the rectangle `wide` by `tall` from `anchor`. \"row\": the row `place`. \"column\": the column `place`. Default \"cells\".",
               "enum": [
-                0,
-                1
+                "cells",
+                "rect",
+                "row",
+                "column"
               ],
-              "type": "number"
+              "type": "string"
+            },
+            "from": {
+              "$ref": "#/definitions/Start",
+              "description": "The first number of the Tafel. 0 gives 0 to 99. 1, 101, 201, … 901 give that page of a hundred (301 gives 301 to 400). Anything else is read as 1. Default 1."
             },
             "given": {
               "description": "The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.",
@@ -1711,26 +1766,46 @@
               ],
               "type": "string"
             },
+            "muster": {
+              "$ref": "#/definitions/MusterName",
+              "description": "The picture hidden with `show` \"muster\": \"herz\", \"pfeil\", or a letter \"a\" to \"z\". An unknown name is read as \"herz\". Default \"herz\"."
+            },
+            "place": {
+              "description": "The row or column of a \"row\" or \"column\" cut, 1 to 10 from the top or the left. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "seed": {
               "description": "Seed for the random hidden cells with `show` \"random\". The same seed always hides the same cells.",
               "type": "number"
             },
             "shape": {
-              "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
+              "description": "Cell indices (0 to 99) drawn when `cut` is on and `form` is \"cells\". Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
               "items": {
                 "type": "number"
               },
               "type": "array"
             },
             "show": {
-              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\".",
+              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. \"row\" and \"column\": the row or column `cover`. \"diagonal\": one diagonal, `cover` 1 from the top left or 2 from the top right. \"muster\": the picture `muster`. Default \"all\".",
               "enum": [
                 "all",
                 "none",
                 "random",
-                "free"
+                "free",
+                "row",
+                "column",
+                "diagonal",
+                "muster"
               ],
               "type": "string"
+            },
+            "tall": {
+              "description": "Height of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             },
             "times": {
               "description": "The row of the Einmaleins that \"times\" tints, 1 to 10. Default 2.",
@@ -1766,6 +1841,12 @@
                 "type": "array"
               },
               "type": "array"
+            },
+            "wide": {
+              "description": "Width of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             }
           },
           "type": "object"
@@ -2071,6 +2152,133 @@
             "fold"
           ],
           "type": "string"
+        },
+        "LoesungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/LoesungsfeldProps",
+              "description": "A blank the pupil writes in. The Lösungen print its text or its picture, and nowhere else."
+            },
+            "type": {
+              "const": "loesungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "LoesungsfeldProps": {
+          "properties": {
+            "blank": {
+              "$ref": "#/definitions/Blank",
+              "description": "How the blank looks on the pupil's sheet: \"line\" an underline (Unterstrich), \"box\" a frame (Rahmen), \"none\" nothing. Default \"line\"."
+            },
+            "code": {
+              "description": "The OpenMoji code of the Lösungsbild, from the symbol library. Absent for a Lösungstext, or when the picture is an upload.",
+              "type": "string"
+            },
+            "even": {
+              "description": "True makes this field as wide as the widest even Lösungsfeld on the page, so the line length gives nothing away. Default false.",
+              "type": "boolean"
+            },
+            "kind": {
+              "$ref": "#/definitions/FieldKind",
+              "description": "What the Lösungen print: \"text\" a one-line Lösungstext, \"image\" a Lösungsbild. Default \"text\"."
+            },
+            "ratio": {
+              "description": "The uploaded picture's width over its height. 1 for a square. Absent means 1.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Font size of the Lösungstext in pt. Default 14.",
+              "maximum": 48,
+              "minimum": 8,
+              "type": "number"
+            },
+            "text": {
+              "description": "The Lösungstext, one line. The pupil's sheet leaves it blank. Default \"\".",
+              "type": "string"
+            },
+            "upload": {
+              "description": "The id of an uploaded picture used as the Lösungsbild. Absent when the picture is a symbol.",
+              "type": "number"
+            },
+            "wrongs": {
+              "description": "Wrong answers (falsche Lösungen) for a Selbstkontrolle and later for digital sheets. Absent means none.",
+              "items": {
+                "$ref": "#/definitions/Wrong"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "Look": {
           "enum": [
@@ -2767,6 +2975,39 @@
             "caterpillar",
             "train",
             "box"
+          ],
+          "type": "string"
+        },
+        "MusterName": {
+          "enum": [
+            "herz",
+            "pfeil",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j",
+            "k",
+            "l",
+            "m",
+            "n",
+            "o",
+            "p",
+            "q",
+            "r",
+            "s",
+            "t",
+            "u",
+            "v",
+            "w",
+            "x",
+            "y",
+            "z"
           ],
           "type": "string"
         },
@@ -4811,6 +5052,22 @@
           },
           "type": "object"
         },
+        "Start": {
+          "enum": [
+            0,
+            1,
+            101,
+            201,
+            301,
+            401,
+            501,
+            601,
+            701,
+            801,
+            901
+          ],
+          "type": "number"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -6080,6 +6337,49 @@
             "back"
           ],
           "type": "string"
+        },
+        "Wrong": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "text",
+                  "description": "A wrong Lösungstext.",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "The wrong text, one line.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "code": {
+                  "description": "The OpenMoji code of the wrong picture, from the symbol library. Absent when it is an upload.",
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "image",
+                  "description": "A wrong Lösungsbild.",
+                  "type": "string"
+                },
+                "upload": {
+                  "description": "The id of an uploaded wrong picture. Absent when the picture is a symbol.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            }
+          ]
         },
         "ZahlenhausBlock": {
           "properties": {
@@ -7783,6 +8083,9 @@
             },
             {
               "$ref": "#/definitions/DiagrammProps"
+            },
+            {
+              "$ref": "#/definitions/LoesungsfeldProps"
             }
           ],
           "description": "the block's settings; partial is fine"
@@ -7823,7 +8126,8 @@
             "geobrett",
             "formula",
             "karofeld",
-            "diagramm"
+            "diagramm",
+            "loesungsfeld"
           ]
         },
         "version": {
@@ -8116,6 +8420,14 @@
             "fill"
           ],
           "type": "object"
+        },
+        "Blank": {
+          "enum": [
+            "line",
+            "box",
+            "none"
+          ],
+          "type": "string"
         },
         "Block": {
           "allOf": [
@@ -8502,6 +8814,18 @@
               "then": {
                 "$ref": "#/definitions/DiagrammBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "loesungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/LoesungsfeldBlock"
+              }
             }
           ],
           "properties": {
@@ -8551,7 +8875,8 @@
                 "geobrett",
                 "formula",
                 "karofeld",
-                "diagramm"
+                "diagramm",
+                "loesungsfeld"
               ],
               "type": "string"
             },
@@ -9047,6 +9372,13 @@
             "zehn2",
             "zwanzig",
             "hundert"
+          ],
+          "type": "string"
+        },
+        "FieldKind": {
+          "enum": [
+            "text",
+            "image"
           ],
           "type": "string"
         },
@@ -9717,12 +10049,33 @@
         },
         "HunderterfeldProps": {
           "properties": {
+            "anchor": {
+              "description": "Top-left cell of a \"rect\" cut, 0 to 99, row by row. A rectangle past the right or bottom edge is clipped. Default 0.",
+              "maximum": 99,
+              "minimum": 0,
+              "type": "number"
+            },
+            "blank": {
+              "description": "How a hidden cell of the Tafel is drawn. \"empty\": the square stays and the number is gone. \"grey\": the square is grey. \"gone\": the square is not drawn. The answer key still prints the number. Ignored while `cut` is on. Default \"empty\".",
+              "enum": [
+                "empty",
+                "grey",
+                "gone"
+              ],
+              "type": "string"
+            },
             "color": {
               "$ref": "#/definitions/Tint",
               "description": "The colour of a tint from \"even\", \"times\", \"row\" or \"column\": 1 yellow, 2 blue. Default 1."
             },
+            "cover": {
+              "description": "The row or column hidden with `show` \"row\" or \"column\", 1 to 10 from the top or the left. For \"diagonal\", 1 is top left to bottom right and 2 is the other; any other value is read as 1. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "cut": {
-              "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
+              "description": "Cut-out (Ausschnitt): when true, only the cut's cells are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
               "type": "boolean"
             },
             "dots": {
@@ -9746,13 +10099,19 @@
               },
               "type": "array"
             },
-            "from": {
-              "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1.",
+            "form": {
+              "description": "Which cells a cut draws. \"cells\": the cells in `shape`. \"rect\": the rectangle `wide` by `tall` from `anchor`. \"row\": the row `place`. \"column\": the column `place`. Default \"cells\".",
               "enum": [
-                0,
-                1
+                "cells",
+                "rect",
+                "row",
+                "column"
               ],
-              "type": "number"
+              "type": "string"
+            },
+            "from": {
+              "$ref": "#/definitions/Start",
+              "description": "The first number of the Tafel. 0 gives 0 to 99. 1, 101, 201, … 901 give that page of a hundred (301 gives 301 to 400). Anything else is read as 1. Default 1."
             },
             "given": {
               "description": "The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.",
@@ -9787,26 +10146,46 @@
               ],
               "type": "string"
             },
+            "muster": {
+              "$ref": "#/definitions/MusterName",
+              "description": "The picture hidden with `show` \"muster\": \"herz\", \"pfeil\", or a letter \"a\" to \"z\". An unknown name is read as \"herz\". Default \"herz\"."
+            },
+            "place": {
+              "description": "The row or column of a \"row\" or \"column\" cut, 1 to 10 from the top or the left. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "seed": {
               "description": "Seed for the random hidden cells with `show` \"random\". The same seed always hides the same cells.",
               "type": "number"
             },
             "shape": {
-              "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
+              "description": "Cell indices (0 to 99) drawn when `cut` is on and `form` is \"cells\". Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
               "items": {
                 "type": "number"
               },
               "type": "array"
             },
             "show": {
-              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\".",
+              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. \"row\" and \"column\": the row or column `cover`. \"diagonal\": one diagonal, `cover` 1 from the top left or 2 from the top right. \"muster\": the picture `muster`. Default \"all\".",
               "enum": [
                 "all",
                 "none",
                 "random",
-                "free"
+                "free",
+                "row",
+                "column",
+                "diagonal",
+                "muster"
               ],
               "type": "string"
+            },
+            "tall": {
+              "description": "Height of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             },
             "times": {
               "description": "The row of the Einmaleins that \"times\" tints, 1 to 10. Default 2.",
@@ -9842,6 +10221,12 @@
                 "type": "array"
               },
               "type": "array"
+            },
+            "wide": {
+              "description": "Width of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             }
           },
           "required": [
@@ -10168,6 +10553,140 @@
             "fold"
           ],
           "type": "string"
+        },
+        "LoesungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/LoesungsfeldProps",
+              "description": "A blank the pupil writes in. The Lösungen print its text or its picture, and nowhere else."
+            },
+            "type": {
+              "const": "loesungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "LoesungsfeldProps": {
+          "properties": {
+            "blank": {
+              "$ref": "#/definitions/Blank",
+              "description": "How the blank looks on the pupil's sheet: \"line\" an underline (Unterstrich), \"box\" a frame (Rahmen), \"none\" nothing. Default \"line\"."
+            },
+            "code": {
+              "description": "The OpenMoji code of the Lösungsbild, from the symbol library. Absent for a Lösungstext, or when the picture is an upload.",
+              "type": "string"
+            },
+            "even": {
+              "description": "True makes this field as wide as the widest even Lösungsfeld on the page, so the line length gives nothing away. Default false.",
+              "type": "boolean"
+            },
+            "kind": {
+              "$ref": "#/definitions/FieldKind",
+              "description": "What the Lösungen print: \"text\" a one-line Lösungstext, \"image\" a Lösungsbild. Default \"text\"."
+            },
+            "ratio": {
+              "description": "The uploaded picture's width over its height. 1 for a square. Absent means 1.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Font size of the Lösungstext in pt. Default 14.",
+              "maximum": 48,
+              "minimum": 8,
+              "type": "number"
+            },
+            "text": {
+              "description": "The Lösungstext, one line. The pupil's sheet leaves it blank. Default \"\".",
+              "type": "string"
+            },
+            "upload": {
+              "description": "The id of an uploaded picture used as the Lösungsbild. Absent when the picture is a symbol.",
+              "type": "number"
+            },
+            "wrongs": {
+              "description": "Wrong answers (falsche Lösungen) for a Selbstkontrolle and later for digital sheets. Absent means none.",
+              "items": {
+                "$ref": "#/definitions/Wrong"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "blank",
+            "size",
+            "even"
+          ],
+          "type": "object"
         },
         "Look": {
           "enum": [
@@ -10896,6 +11415,39 @@
             "caterpillar",
             "train",
             "box"
+          ],
+          "type": "string"
+        },
+        "MusterName": {
+          "enum": [
+            "herz",
+            "pfeil",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j",
+            "k",
+            "l",
+            "m",
+            "n",
+            "o",
+            "p",
+            "q",
+            "r",
+            "s",
+            "t",
+            "u",
+            "v",
+            "w",
+            "x",
+            "y",
+            "z"
           ],
           "type": "string"
         },
@@ -13006,6 +13558,22 @@
           },
           "type": "object"
         },
+        "Start": {
+          "enum": [
+            0,
+            1,
+            101,
+            201,
+            301,
+            401,
+            501,
+            601,
+            701,
+            801,
+            901
+          ],
+          "type": "number"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -14322,6 +14890,49 @@
           ],
           "type": "string"
         },
+        "Wrong": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "text",
+                  "description": "A wrong Lösungstext.",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "The wrong text, one line.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "code": {
+                  "description": "The OpenMoji code of the wrong picture, from the symbol library. Absent when it is an upload.",
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "image",
+                  "description": "A wrong Lösungsbild.",
+                  "type": "string"
+                },
+                "upload": {
+                  "description": "The id of an uploaded wrong picture. Absent when the picture is a symbol.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            }
+          ]
+        },
         "ZahlenhausBlock": {
           "properties": {
             "angle": {
@@ -15570,6 +16181,14 @@
           ],
           "type": "object"
         },
+        "Blank": {
+          "enum": [
+            "line",
+            "box",
+            "none"
+          ],
+          "type": "string"
+        },
         "Block": {
           "allOf": [
             {
@@ -15955,6 +16574,18 @@
               "then": {
                 "$ref": "#/definitions/DiagrammBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "loesungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/LoesungsfeldBlock"
+              }
             }
           ],
           "properties": {
@@ -16004,7 +16635,8 @@
                 "geobrett",
                 "formula",
                 "karofeld",
-                "diagramm"
+                "diagramm",
+                "loesungsfeld"
               ],
               "type": "string"
             },
@@ -16489,6 +17121,13 @@
             "zehn2",
             "zwanzig",
             "hundert"
+          ],
+          "type": "string"
+        },
+        "FieldKind": {
+          "enum": [
+            "text",
+            "image"
           ],
           "type": "string"
         },
@@ -17134,12 +17773,33 @@
         },
         "HunderterfeldProps": {
           "properties": {
+            "anchor": {
+              "description": "Top-left cell of a \"rect\" cut, 0 to 99, row by row. A rectangle past the right or bottom edge is clipped. Default 0.",
+              "maximum": 99,
+              "minimum": 0,
+              "type": "number"
+            },
+            "blank": {
+              "description": "How a hidden cell of the Tafel is drawn. \"empty\": the square stays and the number is gone. \"grey\": the square is grey. \"gone\": the square is not drawn. The answer key still prints the number. Ignored while `cut` is on. Default \"empty\".",
+              "enum": [
+                "empty",
+                "grey",
+                "gone"
+              ],
+              "type": "string"
+            },
             "color": {
               "$ref": "#/definitions/Tint",
               "description": "The colour of a tint from \"even\", \"times\", \"row\" or \"column\": 1 yellow, 2 blue. Default 1."
             },
+            "cover": {
+              "description": "The row or column hidden with `show` \"row\" or \"column\", 1 to 10 from the top or the left. For \"diagonal\", 1 is top left to bottom right and 2 is the other; any other value is read as 1. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "cut": {
-              "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
+              "description": "Cut-out (Ausschnitt): when true, only the cut's cells are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false.",
               "type": "boolean"
             },
             "dots": {
@@ -17163,13 +17823,19 @@
               },
               "type": "array"
             },
-            "from": {
-              "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1.",
+            "form": {
+              "description": "Which cells a cut draws. \"cells\": the cells in `shape`. \"rect\": the rectangle `wide` by `tall` from `anchor`. \"row\": the row `place`. \"column\": the column `place`. Default \"cells\".",
               "enum": [
-                0,
-                1
+                "cells",
+                "rect",
+                "row",
+                "column"
               ],
-              "type": "number"
+              "type": "string"
+            },
+            "from": {
+              "$ref": "#/definitions/Start",
+              "description": "The first number of the Tafel. 0 gives 0 to 99. 1, 101, 201, … 901 give that page of a hundred (301 gives 301 to 400). Anything else is read as 1. Default 1."
             },
             "given": {
               "description": "The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.",
@@ -17204,26 +17870,46 @@
               ],
               "type": "string"
             },
+            "muster": {
+              "$ref": "#/definitions/MusterName",
+              "description": "The picture hidden with `show` \"muster\": \"herz\", \"pfeil\", or a letter \"a\" to \"z\". An unknown name is read as \"herz\". Default \"herz\"."
+            },
+            "place": {
+              "description": "The row or column of a \"row\" or \"column\" cut, 1 to 10 from the top or the left. Default 1.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
+            },
             "seed": {
               "description": "Seed for the random hidden cells with `show` \"random\". The same seed always hides the same cells.",
               "type": "number"
             },
             "shape": {
-              "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
+              "description": "Cell indices (0 to 99) drawn when `cut` is on and `form` is \"cells\". Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing.",
               "items": {
                 "type": "number"
               },
               "type": "array"
             },
             "show": {
-              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\".",
+              "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. \"row\" and \"column\": the row or column `cover`. \"diagonal\": one diagonal, `cover` 1 from the top left or 2 from the top right. \"muster\": the picture `muster`. Default \"all\".",
               "enum": [
                 "all",
                 "none",
                 "random",
-                "free"
+                "free",
+                "row",
+                "column",
+                "diagonal",
+                "muster"
               ],
               "type": "string"
+            },
+            "tall": {
+              "description": "Height of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             },
             "times": {
               "description": "The row of the Einmaleins that \"times\" tints, 1 to 10. Default 2.",
@@ -17259,6 +17945,12 @@
                 "type": "array"
               },
               "type": "array"
+            },
+            "wide": {
+              "description": "Width of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "number"
             }
           },
           "type": "object"
@@ -17564,6 +18256,133 @@
             "fold"
           ],
           "type": "string"
+        },
+        "LoesungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/LoesungsfeldProps",
+              "description": "A blank the pupil writes in. The Lösungen print its text or its picture, and nowhere else."
+            },
+            "type": {
+              "const": "loesungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "LoesungsfeldProps": {
+          "properties": {
+            "blank": {
+              "$ref": "#/definitions/Blank",
+              "description": "How the blank looks on the pupil's sheet: \"line\" an underline (Unterstrich), \"box\" a frame (Rahmen), \"none\" nothing. Default \"line\"."
+            },
+            "code": {
+              "description": "The OpenMoji code of the Lösungsbild, from the symbol library. Absent for a Lösungstext, or when the picture is an upload.",
+              "type": "string"
+            },
+            "even": {
+              "description": "True makes this field as wide as the widest even Lösungsfeld on the page, so the line length gives nothing away. Default false.",
+              "type": "boolean"
+            },
+            "kind": {
+              "$ref": "#/definitions/FieldKind",
+              "description": "What the Lösungen print: \"text\" a one-line Lösungstext, \"image\" a Lösungsbild. Default \"text\"."
+            },
+            "ratio": {
+              "description": "The uploaded picture's width over its height. 1 for a square. Absent means 1.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Font size of the Lösungstext in pt. Default 14.",
+              "maximum": 48,
+              "minimum": 8,
+              "type": "number"
+            },
+            "text": {
+              "description": "The Lösungstext, one line. The pupil's sheet leaves it blank. Default \"\".",
+              "type": "string"
+            },
+            "upload": {
+              "description": "The id of an uploaded picture used as the Lösungsbild. Absent when the picture is a symbol.",
+              "type": "number"
+            },
+            "wrongs": {
+              "description": "Wrong answers (falsche Lösungen) for a Selbstkontrolle and later for digital sheets. Absent means none.",
+              "items": {
+                "$ref": "#/definitions/Wrong"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "Look": {
           "enum": [
@@ -18260,6 +19079,39 @@
             "caterpillar",
             "train",
             "box"
+          ],
+          "type": "string"
+        },
+        "MusterName": {
+          "enum": [
+            "herz",
+            "pfeil",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j",
+            "k",
+            "l",
+            "m",
+            "n",
+            "o",
+            "p",
+            "q",
+            "r",
+            "s",
+            "t",
+            "u",
+            "v",
+            "w",
+            "x",
+            "y",
+            "z"
           ],
           "type": "string"
         },
@@ -20304,6 +21156,22 @@
           },
           "type": "object"
         },
+        "Start": {
+          "enum": [
+            0,
+            1,
+            101,
+            201,
+            301,
+            401,
+            501,
+            601,
+            701,
+            801,
+            901
+          ],
+          "type": "number"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -21573,6 +22441,49 @@
             "back"
           ],
           "type": "string"
+        },
+        "Wrong": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "text",
+                  "description": "A wrong Lösungstext.",
+                  "type": "string"
+                },
+                "text": {
+                  "description": "The wrong text, one line.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "code": {
+                  "description": "The OpenMoji code of the wrong picture, from the symbol library. Absent when it is an upload.",
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "image",
+                  "description": "A wrong Lösungsbild.",
+                  "type": "string"
+                },
+                "upload": {
+                  "description": "The id of an uploaded wrong picture. Absent when the picture is a symbol.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            }
+          ]
         },
         "ZahlenhausBlock": {
           "properties": {
@@ -23271,6 +24182,9 @@
             },
             {
               "$ref": "#/definitions/DiagrammProps"
+            },
+            {
+              "$ref": "#/definitions/LoesungsfeldProps"
             }
           ],
           "description": "the props to change"
