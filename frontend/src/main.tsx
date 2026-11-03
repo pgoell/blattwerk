@@ -23,6 +23,7 @@ import "./styles/sheet.css";
 import "./styles/school.css";
 import "./styles/tables.css";
 import "./styles/text.css";
+import "./styles/formula.css";
 import "./styles/panel.css";
 
 createRoot(document.getElementById("root")!).render(

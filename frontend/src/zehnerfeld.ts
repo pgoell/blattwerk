@@ -43,9 +43,9 @@
 // 1 ≤ b ≤ a, r = a − b (so r ≥ 0). The field shows the task: Plus dots 0 to a − 1 in colour 1 and dots a to a + b − 1
 // in colour 2; Minus dots 0 to a − 1 in colour 1, and of them the dots a − b to a − 1 struck through. The other dots
 // are empty.
-// The Zehnerübergang (#838): Plus a + b crosses a ten exactly when (a mod 10) + (b mod 10) >= 10, so a sum of 10
-// carries 1; Minus exactly when the Einer of a is smaller than the Einer of b, so the digit would go below 0. So
-// 8 + 5, 6 + 4, 13 - 5 and 10 - 4 cross, 6 + 3 and 16 - 4 do not, and 45 + 30 does not (only the Einer count).
+// The Zehnerübergang (#838): Plus a + b crosses a ten exactly when (a mod 10) + (b mod 10) > 10; Minus exactly when
+// the Einer of a is smaller than the Einer of b, so the digit would go below 0. So 8 + 5, 13 - 5 and 10 - 4 cross,
+// 6 + 4 = 10, 7 + 3 and 16 - 4 do not, and 45 + 30 does not (only the Einer count).
 // "yes" needs the crossing, "no" forbids it.
 //
 // The drawn tasks (`made`, memo of 50, `rng` from zahlenmauer.ts). A drawn task keeps, besides the rule, the Zahlenraum

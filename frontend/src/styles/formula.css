@@ -1,0 +1,21 @@
+/* A formula is text in the block's font. Fractions, powers and roots are shares of that size. */
+.formula { display: inline-flex; align-items: center; white-space: nowrap; line-height: 1; vertical-align: middle; font-family: inherit; }
+.formula .f-row { display: inline-flex; align-items: center; gap: 0.15em; }
+.formula .f-frac { display: inline-flex; flex-direction: column; align-items: center; font-size: 0.7em; line-height: 1.05; margin: 0 0.04em; }
+.formula .f-num { border-bottom: 0.08em solid currentColor; padding: 0 0.18em 0.05em; }
+.formula .f-den { padding: 0.05em 0.18em 0; }
+.formula .f-mixed { display: inline-flex; align-items: center; gap: 0.08em; }
+.formula .f-script { display: inline-flex; align-items: center; }
+.formula .f-sup { font-size: 0.7em; align-self: flex-start; line-height: 1; }
+.formula .f-sub { font-size: 0.7em; align-self: flex-end; line-height: 1; }
+.formula .f-scripts { display: inline-flex; flex-direction: column; font-size: 0.7em; line-height: 1.05; }
+.formula .f-root { display: inline-flex; align-items: stretch; }
+.formula .f-sign { display: inline-flex; align-items: center; line-height: 1; padding-right: 0.02em; }
+.formula .f-body { border-top: 0.06em solid currentColor; padding: 0.04em 0.12em 0; }
+.formula .f-blank { display: inline-block; width: 1.6em; height: 0.9em; border-bottom: 0.08em solid currentColor; }
+.formula-box { display: flex; align-items: center; height: 100%; line-height: 1; font-family: Andika, sans-serif; color: #222222; }
+.formula-box.left { justify-content: flex-start; }
+.formula-box.center { justify-content: center; }
+.formula-box.right { justify-content: flex-end; }
+.formula-preview { font: 22px/1 Andika, sans-serif; min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
+.formula-gallery { flex-wrap: wrap; }

@@ -1,6 +1,7 @@
 // Draws a table.
 
 import { cellEntries } from "../bank";
+import { FormulaText } from "./formulaView";
 import { heightsOf, spansOf, rectOf } from "../cells";
 import { edged, linesOf, type Pen } from "../edges";
 import { pairOf, splitting, Bows } from "./bows";
@@ -186,7 +187,8 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
     ...gapVar(width, k),
   };
   // A gap cell holds its text as a gap does; the open cell's field goes after it.
-  const wrap = (text: string, i: number) => (gaps?.[Math.floor(i / cols.length)]?.[i % cols.length] === true ? <span className="gap" data-gap="true"><span>{text}</span></span> : text);
+  const body = (text: string) => <FormulaText text={text} />;
+  const wrap = (text: string, i: number) => (gaps?.[Math.floor(i / cols.length)]?.[i % cols.length] === true ? <span className="gap" data-gap="true"><span>{body(text)}</span></span> : body(text));
   // A trace text fades cell by cell: along the row for "row", from row to row for "rows". The lines stay solid.
   const fade = fadeOf(block.props);
   const shade = (i: number): CSSProperties | undefined =>

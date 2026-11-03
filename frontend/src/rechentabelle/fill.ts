@@ -10,7 +10,7 @@ export const FIRST: Record<RechentabelleProps["first"], number[]> = {
 };
 
 // What each place of a + b (op "+") or a − b (op "-") crosses, units first (#838). A place beyond the list crosses not.
-// Plus: the digits sum to 10 or more, so a sum of 10 carries 1. Minus: the row's digit is smaller than the column's. Nothing runs on.
+// Plus: the digits sum to more than 10. A sum of 10 (7 + 3) does not. Minus: the row's digit is smaller than the column's. Nothing runs on.
 export function carryList(op: "+" | "-", a: number, b: number): number[] {
   const width = Math.max(String(a).length, String(b).length);
   return Array.from({ length: width }, (_, i) => (crossesAt(op, a, b, i) ? 1 : 0));
@@ -53,7 +53,7 @@ function fits(
   if (op === "+" ? r + c > p.max : r < c) return false;
   const list = carryList(op, r, c);
   // The places the panel shows: the Zehnerübergang, and from max 1000 the Hunderterübergang. "none" at the top one
-  // holds for every place above it too. A sum of exactly 10 carries 1, so 20 + 80 crosses a hundred.
+  // holds for every place above it too. A sum of exactly 10 is no crossing, so 20 + 80 = 100 is allowed.
   const top = p.max >= 1000 ? 2 : 1;
   const above = p.carry[top - 1] === "none" ? "none" : "either";
   // Every place the numbers reach, and the places the list does not reach carry 0 (#962).

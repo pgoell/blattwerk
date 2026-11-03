@@ -106,11 +106,11 @@ def digit(n, place):
 
 
 def crosses(op, a, b, place):
-    """Whether place 0 (a ten) or place 1 (a hundred) crosses: Plus the digits sum to 10 or more, Minus the
-    first number's digit is smaller. 395 + 7 does not cross a hundred."""
+    """Whether place 0 (a ten) or place 1 (a hundred) crosses: Plus the digits sum to more than 10, Minus the
+    first number's digit is smaller. 7 + 3 and 395 + 7 do not cross."""
     da, db = (a // 10**place) % 10, (b // 10**place) % 10
     if op == "+":
-        return da + db >= 10
+        return da + db > 10
     return da < db
 
 
