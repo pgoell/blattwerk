@@ -249,8 +249,8 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
               )}
               <h2>Stellenwerte</h2>
               <div className="seg" role="group" aria-label="Stellenwerte">
-                <button className={placesOn ? "" : "on"} aria-pressed={!placesOn} onClick={() => stellen(false)}>Aus</button>
-                <button className={placesOn ? "on" : ""} aria-pressed={placesOn} onClick={() => stellen(true)}>An</button>
+                <button className={placesOn ? "" : "on"} aria-pressed={!placesOn} onClick={() => stellen(false)}>Ungefärbt</button>
+                <button className={placesOn ? "on" : ""} aria-pressed={placesOn} onClick={() => stellen(true)}>Gefärbt</button>
               </div>
               {placesOn && (
                 <>
