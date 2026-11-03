@@ -80,6 +80,10 @@
         "keyAsText": {
           "type": "boolean",
           "description": "Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`."
+        },
+        "places": {
+          "$ref": "#/definitions/Places",
+          "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
         }
       },
       "required": [
@@ -7109,6 +7113,31 @@
         "ratio",
         "cut"
       ]
+    },
+    "Places": {
+      "type": "object",
+      "properties": {
+        "on": {
+          "type": "boolean",
+          "description": "Turns the place colours on. Left out, they stay off."
+        },
+        "einer": {
+          "type": "string",
+          "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green."
+        },
+        "zehner": {
+          "type": "string",
+          "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue."
+        },
+        "hunderter": {
+          "type": "string",
+          "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red."
+        },
+        "tausender": {
+          "type": "string",
+          "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green."
+        }
+      }
     }
   }
 }

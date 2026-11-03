@@ -1,6 +1,7 @@
 // Draws one Textaufgabe block: story, question, optional drawing box, Karo for the Rechnung, Antwort line.
 
 import { sane, made, layout, visible } from "../../textaufgabe";
+import { HtmlInk } from "../places";
 import type { TextaufgabeBlock } from "../tasks";
 
 export function Textaufgabe({ block, k, solved }: { block: TextaufgabeBlock; k: number; solved: boolean }) {
@@ -17,8 +18,8 @@ export function Textaufgabe({ block, k, solved }: { block: TextaufgabeBlock; k: 
         const antwort = visible("antwort", p, solved);
         return (
           <article key={i} className="task" data-task={i} data-fit={t.fit ? "yes" : "no"} style={{ boxSizing: "border-box", height: px(L.taskH), paddingTop: px(L.PAD), marginBottom: i + 1 < tasks.length ? px(L.GAP) : 0 }}>
-            <p className="text" data-part="text" style={{ height: px(L.TEXT_LINES * L.LINE) }}>{t.text}</p>
-            <p className="frage" data-part="frage" data-open={frage ? "yes" : "no"} style={{ height: px(L.FRAGE_LINES * L.LINE) }}>{frage ? t.frage : ""}</p>
+            <p className="text" data-part="text" style={{ height: px(L.TEXT_LINES * L.LINE) }}><HtmlInk text={t.text} /></p>
+            <p className="frage" data-part="frage" data-open={frage ? "yes" : "no"} style={{ height: px(L.FRAGE_LINES * L.LINE) }}>{frage ? <HtmlInk text={t.frage} /> : ""}</p>
             {p.sketch && <div className="sketch" data-part="sketch" style={{ height: px(L.SKETCH) }} />}
             <div
               className="rechnung"
@@ -31,10 +32,10 @@ export function Textaufgabe({ block, k, solved }: { block: TextaufgabeBlock; k: 
                 backgroundSize: `${px(L.Q)}px ${px(L.Q)}px`,
               }}
             >
-              {rechnung && <span className={ink(rechnung, p.rechnung)}>{t.rechnung}</span>}
+              {rechnung && <span className={ink(rechnung, p.rechnung)}><HtmlInk text={t.rechnung} /></span>}
             </div>
             <p className="antwort" data-part="antwort" data-open={antwort ? "yes" : "no"} style={{ height: px(L.ANTWORT) }}>
-              Antwort: {antwort ? <span className={ink(antwort, p.antwort)}>{t.antwort}</span> : <span className="line" />}
+              Antwort: {antwort ? <span className={ink(antwort, p.antwort)}><HtmlInk text={t.antwort} /></span> : <span className="line" />}
             </p>
           </article>
         );

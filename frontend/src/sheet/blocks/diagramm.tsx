@@ -1,6 +1,7 @@
 // Draws one Diagramm, on screen and in print.
 
 import { VIEW, chart, sane } from "../../diagramm";
+import { SvgInk } from "../places";
 import type { DiagrammBlock } from "../tasks";
 
 export function Diagramm({ block, solved }: { block: DiagrammBlock; k: number; solved: boolean }) {
@@ -22,21 +23,21 @@ export function Diagramm({ block, solved }: { block: DiagrammBlock; k: number; s
           <path key={s.i} className={s.answer ? "slice answer" : "slice"} d={s.d} fill={s.color} />
         ))}
         {drawn.ticks.map((t, i) => (
-          <text key={i} className="tick" x={t.x} y={t.y} textAnchor={t.anchor} dominantBaseline="middle" fontSize={4.5} fill="#222">{t.text}</text>
+          <text key={i} className="tick" x={t.x} y={t.y} textAnchor={t.anchor} dominantBaseline="middle" fontSize={4.5} fill="#222"><SvgInk text={t.text} /></text>
         ))}
         {drawn.cats.map((c) => (
-          <text key={c.i} className="cat" x={c.x} y={c.y} textAnchor={c.anchor} dominantBaseline="middle" fontSize={5} fill="#222">{c.text}</text>
+          <text key={c.i} className="cat" x={c.x} y={c.y} textAnchor={c.anchor} dominantBaseline="middle" fontSize={5} fill="#222"><SvgInk text={c.text} /></text>
         ))}
         {drawn.values.map((v) => (
-          <text key={v.i} className={v.answer ? "value answer" : "value"} data-place={p.values} x={v.x} y={v.y} textAnchor={v.anchor} dominantBaseline="middle" fontSize={5} fill="#222">{v.text}</text>
+          <text key={v.i} className={v.answer ? "value answer" : "value"} data-place={p.values} x={v.x} y={v.y} textAnchor={v.anchor} dominantBaseline="middle" fontSize={5} fill="#222"><SvgInk text={v.text} /></text>
         ))}
         {drawn.titles.map((t) => (
-          <text key={t.axis} className="title" data-axis={t.axis} x={t.x} y={t.y} textAnchor="middle" dominantBaseline="middle" fontSize={5} fill="#222" transform={t.axis === "y" ? `rotate(-90 ${t.x} ${t.y})` : undefined}>{t.text}</text>
+          <text key={t.axis} className="title" data-axis={t.axis} x={t.x} y={t.y} textAnchor="middle" dominantBaseline="middle" fontSize={5} fill="#222" transform={t.axis === "y" ? `rotate(-90 ${t.x} ${t.y})` : undefined}><SvgInk text={t.text} /></text>
         ))}
         {drawn.legend.map((item) => (
           <g key={item.i} className="legend">
             <rect x={item.x} y={item.y - 2.2} width={4.4} height={4.4} fill={item.color} />
-            <text x={item.x + 6} y={item.y} textAnchor="start" dominantBaseline="middle" fontSize={4.5} fill="#222">{item.text}</text>
+            <text x={item.x + 6} y={item.y} textAnchor="start" dominantBaseline="middle" fontSize={4.5} fill="#222"><SvgInk text={item.text} /></text>
           </g>
         ))}
       </svg>

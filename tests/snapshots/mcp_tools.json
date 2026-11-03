@@ -894,6 +894,10 @@
               },
               "type": "array"
             },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
+            },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
               "items": {
@@ -3241,6 +3245,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {
@@ -8656,6 +8685,10 @@
               },
               "type": "array"
             },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
+            },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
               "items": {
@@ -11104,6 +11137,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {
@@ -15881,6 +15939,10 @@
               },
               "type": "array"
             },
+            "places": {
+              "$ref": "#/definitions/Places",
+              "description": "Colours each digit of a whole number by its place, in every maths block. Left out, digits keep the block's own ink. Text and decimals are not coloured."
+            },
             "words": {
               "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none.",
               "items": {
@@ -18228,6 +18290,31 @@
             }
           ],
           "type": "array"
+        },
+        "Places": {
+          "properties": {
+            "einer": {
+              "description": "Colour of the units (Einer), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "hunderter": {
+              "description": "Colour of the hundreds (Hunderter), as \"#rrggbb\". Left out, the Montessori red.",
+              "type": "string"
+            },
+            "on": {
+              "description": "Turns the place colours on. Left out, they stay off.",
+              "type": "boolean"
+            },
+            "tausender": {
+              "description": "Colour of the thousands (Tausender), as \"#rrggbb\". Left out, the Montessori green.",
+              "type": "string"
+            },
+            "zehner": {
+              "description": "Colour of the tens (Zehner), as \"#rrggbb\". Left out, the Montessori blue.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Point": {
           "properties": {

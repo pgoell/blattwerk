@@ -2,6 +2,7 @@
 
 import { numberSize } from "../../zahlenhaus";
 import { sane as saneZerlegungsfeld, made as zerlegungsfeldMade, layout as zerlegungsfeldLayout, opLabel as zerlegungsfeldOp } from "../../zerlegungsfeld";
+import { SvgInk } from "../places";
 import type { ZerlegungsfeldBlock } from "../tasks";
 import { ZERLEGUNG_LINES } from "./malquadrat";
 
@@ -30,7 +31,7 @@ export function Zerlegungsfeld({ block, solved }: { block: ZerlegungsfeldBlock; 
                           <rect x={x} y={y} width={BW} height={BH} fill="white" stroke="#222" strokeWidth={0.4} />
                           {state && (
                             <text x={x + BW / 2} y={y + BH / 2} fontSize={numberSize(String(t.values[pos]).length, BW * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
-                              fill={state === "given" ? "#222" : "#c0392b"} className={state}>{t.values[pos]}</text>
+                              fill={state === "given" ? "#222" : "#c0392b"} className={state}><SvgInk text={t.values[pos]} /></text>
                           )}
                         </g>
                       );
