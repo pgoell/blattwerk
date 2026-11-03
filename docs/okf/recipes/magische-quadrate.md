@@ -4,7 +4,7 @@ title: "Magische Quadrate"
 description: A heading, a name line, and two 3 × 3 Magische Quadrate bis 20 with the Zielzahl shown and four cells given.
 tags: [magischesquadrat, zahlenquadrat, klasse-3]
 covers: [text, name, magischesquadrat]
-generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
 ---
 
 # Magische Quadrate

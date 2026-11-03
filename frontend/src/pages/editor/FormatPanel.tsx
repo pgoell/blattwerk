@@ -7,6 +7,7 @@ import { canHelp } from "../../texthelp";
 import Format from "../Format";
 import TextHelp from "../TextHelp";
 import { Tool } from "./Tool";
+import { FormenFields } from "./FormenFields";
 import { FRAMES, DASHES, LABELS, ALIGNS, pickName, TABS, lines, step } from "./palette";
 import { useTools } from "./useTools";
 import PanelRest from "./PanelRest";
@@ -306,6 +307,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                       </button>
                     ))}
                   </div>
+                  <FormenFields boxes={boxes} look={look} />
                   {/* A circle, triangle or star keeps its text in a share of its outline, and a linked text grows on. */}
                   {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
                     <label className="tick">

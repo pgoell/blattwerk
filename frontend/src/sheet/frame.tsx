@@ -12,6 +12,8 @@ import { inset, fontOf, traceOf, INK, FONTS, SIDE, DOTTED_SIDE, fadeOf, fadeMask
 import { withTracking } from "./tracking";
 import { Rich } from "./rich";
 import { RulerMarks } from "./ruler";
+import { showsSketch, replaces } from "./formen";
+import { Sketch } from "./sketch";
 import { dashes, gapWidth, fitOf, OUTLINES, tailReach, radiusOf, Bank, classes, gapVar, clear, tint, Dashes, POINTS, Outline, Ring } from "./shape";
 import { type ShapeBlock, far, type TextBlock, boxed, parasOf, shownParas, listColsOf, holesOf, lineOf } from "./text";
 import { type ReactNode, useContext, useRef, useState, useLayoutEffect, useEffect, type CSSProperties } from "react";
@@ -61,7 +63,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
   // A bubble keeps its lowest quarter for its tail: its text lies in a row three times as high as the empty one under
   // it, so the body holds it however much there is. Flipped top to bottom the tail is the top quarter, and the empty
   // row lies over the text (`.frame.tailed` in styles.css names the row of the text).
-  const tailed = p.kind === "bubble";
+  const tailed = p.kind === "bubble" || p.kind === "thought";
   const words = !linked && typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
   const paras = shownParas(p, sheet);
   const cols = linked ? listColsOf(p) : undefined;
@@ -166,13 +168,15 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
   const estimate = Math.round((block.h - 2 * down) / rowMM);
   const mask = fade && Number.isFinite(rowMM) && rowMM > 0 && fadeMask(fade, lines ?? estimate, rowMM * k, (px) => `calc(var(--ink-up, 0px) + ${px}px)`);
   // A kind nobody knows draws as a rectangle, also one that names a part of every object ("toString").
-  const d = Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2, p) : undefined;
+  // A new Form, or a square or round option, is drawn by Sketch. A CSS box would ignore it.
+  const replace = replaces(p);
+  const d = !replace && Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2, p) : undefined;
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
-  const solid = !d && !p.dash && edge > 0;
+  const solid = !replace && !d && !p.dash && edge > 0;
   // Each browser draws the dashes of a CSS border its own way, so a box's dashes are drawn over it, as a line's are.
   // A box no larger than two strokes has no room for them, and keeps the border.
-  const ring = !d && !!p.dash && edge > 0 && Math.min(block.w, block.h) > 2 * edge;
+  const ring = !replace && !d && !!p.dash && edge > 0 && Math.min(block.w, block.h) > 2 * edge;
   // An outline is no border, so the padding alone keeps the text where a border would.
   const own = d || ring || solid ? 0 : edge;
   // Sheets saved before had a CSS border, which the print rounded down to whole pixels. The padding leaves the room
@@ -222,7 +226,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.
         ...(linked && { height: "auto", minHeight: "100%" }),
-        background: d ? undefined : clear(p),
+        background: d || replace ? undefined : clear(p),
         border: own ? `${edge * k}px ${p.dash} ${tint(p.stroke, p.strokeOpacity)}` : undefined,
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${tint(p.stroke, p.strokeOpacity)}` : undefined,
         borderRadius: radius,
@@ -234,9 +238,10 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
           : { justifyContent: UP[p.valign ?? "top"] }),
-        ...((d || ring) && { position: "relative", isolation: "isolate" }),
+        ...((d || ring || showsSketch(p)) && { position: "relative", isolation: "isolate" }),
       }}
     >
+      {showsSketch(p) && <Sketch w={block.w} h={block.h} edge={edge} p={p} flip={flipped(block)} />}
       {d && (
         // A linked text's outline goes with its frame when the words make that higher than the block.
         <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} preserveAspectRatio={linked ? "none" : undefined} style={{ ...over, ...flipped(block) }}>

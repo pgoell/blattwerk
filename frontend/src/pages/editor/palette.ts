@@ -1,6 +1,6 @@
 // The names, the shapes and the small geometry the editor shares.
 import { memo, type TouchEvent } from "react";
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowRight, Circle, MessageSquare, Minus, MoveHorizontal, Square, Squircle, Star, Triangle, type LucideIcon } from "lucide-react";
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowRight, ChartPie, Circle, Cloud, Diamond, Hexagon, IterationCw, MessageSquare, Minus, MoveHorizontal, Spline, Square, SquareSplitHorizontal, Squircle, Star, Triangle, type LucideIcon } from "lucide-react";
 import { DRAWERS } from "../../components/Blank";
 import { fresh } from "../../history";
 import { newer } from "../../saves";
@@ -43,7 +43,7 @@ export const takes = (b: Block): readonly (keyof Coat)[] => {
 // `valign` stands at the top, where a shape's would stand in the middle.
 export const BARE: Record<string, string | number> = { fill: "none", stroke: "none", strokeWidth: 0.5, valign: "top" };
 // The frames a text or a shape can have: the kinds from insert.ts, with their labels.
-export const FRAME_LABELS: Record<string, string> = { rect: "Eckig", rounded: "Abgerundet", circle: "Rund", triangle: "Dreieck", star: "Stern", bubble: "Sprechblase" };
+export const FRAME_LABELS: Record<string, string> = { rect: "Eckig", rounded: "Abgerundet", circle: "Rund", triangle: "Dreieck", star: "Stern", bubble: "Sprechblase", diamond: "Raute", polygon: "Vieleck", thought: "Gedankenwolke", pie: "Bruchkreis", bars: "Bruchrechteck" };
 export const FRAMES: [Kind, string][] = FRAME_KINDS.map((kind) => [kind, FRAME_LABELS[kind]]);
 export const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
 export const LABELS = [[undefined, "Keine"], ["show", "Blatt"], ["key", "Lösungen"]] as const;
@@ -57,6 +57,13 @@ export const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
   ["double", "Doppelpfeil", MoveHorizontal],
+  ["diamond", "Raute", Diamond],
+  ["polygon", "Vieleck", Hexagon],
+  ["arc", "Bogen", Spline],
+  ["bow", "Gebogener Pfeil", IterationCw],
+  ["thought", "Gedankenwolke", Cloud],
+  ["pie", "Bruchkreis", ChartPie],
+  ["bars", "Bruchrechteck", SquareSplitHorizontal],
 ];
 // The six ways to line blocks up: the axis, the share of the room a block leaves before it, and the name.
 export const ALIGNS: [Axis, number, string, LucideIcon][] = [

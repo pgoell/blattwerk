@@ -761,7 +761,7 @@
         },
         "kind": {
           "$ref": "#/definitions/Kind",
-          "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+          "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
         },
         "fill": {
           "type": "string",
@@ -854,6 +854,48 @@
         "fade": {
           "$ref": "#/definitions/Fade",
           "description": "How the grey of a trace text fades: \"row\" fades each row from left to right, \"rows\" fades the rows step by step down the block. Absent means no fade. Needs `trace`."
+        },
+        "corners": {
+          "type": "number",
+          "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+          "minimum": 5,
+          "maximum": 15
+        },
+        "spikes": {
+          "type": "number",
+          "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+          "minimum": 3,
+          "maximum": 35
+        },
+        "bulge": {
+          "type": "number",
+          "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "parts": {
+          "type": "number",
+          "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+          "minimum": 2,
+          "maximum": 50
+        },
+        "filled": {
+          "type": "number",
+          "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "hub": {
+          "type": "boolean",
+          "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark."
+        },
+        "form": {
+          "type": "string",
+          "enum": [
+            "square",
+            "round"
+          ],
+          "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box."
         }
       },
       "required": [
@@ -983,7 +1025,14 @@
         "bubble",
         "line",
         "arrow",
-        "double"
+        "double",
+        "diamond",
+        "polygon",
+        "arc",
+        "bow",
+        "thought",
+        "pie",
+        "bars"
       ]
     },
     "Fade": {
@@ -1005,7 +1054,7 @@
           "properties": {
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "fill": {
               "type": "string",
@@ -1255,6 +1304,48 @@
             "fade": {
               "$ref": "#/definitions/Fade",
               "description": "How the grey of a trace text fades: \"row\" fades each row from left to right, \"rows\" fades the rows step by step down the block. Absent means no fade. Needs `trace`."
+            },
+            "corners": {
+              "type": "number",
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "minimum": 5,
+              "maximum": 15
+            },
+            "spikes": {
+              "type": "number",
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "minimum": 3,
+              "maximum": 35
+            },
+            "bulge": {
+              "type": "number",
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "parts": {
+              "type": "number",
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "minimum": 2,
+              "maximum": 50
+            },
+            "filled": {
+              "type": "number",
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "hub": {
+              "type": "boolean",
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark."
+            },
+            "form": {
+              "type": "string",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box."
             }
           },
           "required": [
