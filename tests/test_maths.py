@@ -206,9 +206,12 @@ def test_names_the_limit_to_loosen():
     assert out == {"exercises": [], "loosen": ["carry", "a", "b"]}
     out = generate(settings_for(a=[(0, 9), (6, 9)], b=[(0, 9), (6, 9)]))
     assert out == {"exercises": [], "loosen": ["a", "b", "max"]}
+    # The divisor is 1, so a remainder is impossible. Rest, the divisor and Rest 0 vermeiden
+    # are each in the way.
     assert generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True))["loosen"] == [
         "rest",
         "b",
+        "avoid0",
     ]
     seven = generate(settings_for(ops=["/"], max=1_000_000, a=[(7, 7)] + [(0, 0)] * 6, count=9))
     assert [e["b"] for e in seven["exercises"]] == [7] or seven["loosen"]
