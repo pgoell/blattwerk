@@ -206,12 +206,11 @@ def test_names_the_limit_to_loosen():
     assert out == {"exercises": [], "loosen": ["carry", "a", "b"]}
     out = generate(settings_for(a=[(0, 9), (6, 9)], b=[(0, 9), (6, 9)]))
     assert out == {"exercises": [], "loosen": ["a", "b", "max"]}
-    # The only divisor is 1, and dividing by 1 never leaves a remainder. Mit Rest keeps
-    # those tasks out, and the default Rest 0 vermeiden keeps a remainder of 0 out as well.
+    # The divisor is 1, so a remainder is impossible. Rest, the divisor and Rest 0 vermeiden
+    # are each in the way. With the switch off, the same divisor fills the block.
     blocked = generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True))
     assert blocked["exercises"] == []
     assert blocked["loosen"] == ["rest", "b", "avoid0"]
-    # With the switch off, the same divisor fills the block, and every remainder is 0.
     opened = generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True, avoid0=False))
     assert len(opened["exercises"]) == 5 and opened["loosen"] is None
     assert all(e["b"] == 1 and e["rest"] == 0 for e in opened["exercises"])
