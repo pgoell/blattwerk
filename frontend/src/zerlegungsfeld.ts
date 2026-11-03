@@ -81,6 +81,7 @@
 // task with many and not wrong "Aufgabe i: Es gibt mehr als eine Lösung." Buttons "Eigene Zahlen entfernen" (with
 // typed), "Neu würfeln" (changes only the seed).
 
+import { candidates, clean } from "./zerlegungsfeld/pattern";
 import { rng } from "./zahlenmauer";
 
 /** A number the teacher typed: the task's index (from 0), the position (0 to 5), the value (0 to 9999). */
@@ -110,6 +111,12 @@ export type ZerlegungsfeldProps = {
   seed: number;
   /** Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with "hunderter" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers. */
   typed?: ZerlegungsfeldTyped[];
+  /** Pattern of the first number. "X" is any digit, a digit is fixed, the length is the number of digits ("X3"). Empty means none. */
+  pa?: string;
+  /** Pattern of the second number, as `pa`. Empty means none. */
+  pb?: string;
+  /** Whether the digit 0 may occur in the numbers. Default true. */
+  nil?: boolean;
 };
 
 // A task: its six values at the positions of the contract (0 where unknown), which positions show on the pupils' sheet,
@@ -170,7 +177,15 @@ export function sane(p: ZerlegungsfeldProps): ZerlegungsfeldProps {
     }
   }
   const kept = [...typed.values()];
-  return { count, columns, op, max, step, big, task, seed, ...(kept.length ? { typed: kept } : {}) };
+  const pa = clean(p.pa);
+  const pb = clean(p.pb);
+  return {
+    count, columns, op, max, step, big, task, seed,
+    ...(pa ? { pa } : {}),
+    ...(pb ? { pb } : {}),
+    ...(p.nil === false ? { nil: false } : {}),
+    ...(kept.length ? { typed: kept } : {}),
+  };
 }
 
 export function unit(p: ZerlegungsfeldProps): 10 | 100 {
@@ -278,11 +293,7 @@ export function made(props: ZerlegungsfeldProps): Made {
     else lo = Math.max(lo, u);
     return lo <= hi ? [lo, hi] : null;
   };
-  const A: number[] = [];
-  for (let a = g; a <= p.max; a += g) {
-    if (a % u === 0 || (p.op === "-" && a < u)) continue;
-    if (bRange(a)) A.push(a);
-  }
+  const { A, pickB } = candidates(p.op, p.max, u, g, p.pa ?? "", p.pb ?? "", p.nil !== false, bRange);
   const next = rng(p.seed);
   const drawn: [number, number][] = [];
   const tasks: Task[] = [];
@@ -294,17 +305,19 @@ export function made(props: ZerlegungsfeldProps): Made {
   for (let i = 0; i < p.count; i++) {
     let a = 0;
     let b = 0;
-    for (let k = 0; k < 20; k++) {
-      a = A[Math.floor(next() * A.length)];
-      const [lo, hi] = bRange(a)!;
-      b = lo + g * Math.floor(next() * ((hi - lo) / g + 1));
-      if (!drawn.some(([x, y]) => x === a && y === b)) break;
+    if (A.length) {
+      for (let k = 0; k < 20; k++) {
+        a = A[Math.floor(next() * A.length)];
+        b = pickB(a, next);
+        if (!drawn.some(([x, y]) => x === a && y === b)) break;
+      }
+      drawn.push([a, b]);
     }
-    drawn.push([a, b]);
-    const values = full(p.op, u, a, b);
+    const values = A.length ? full(p.op, u, a, b) : [0, 0, 0, 0, 0, 0];
     const mine = (p.typed ?? []).filter((e) => e[0] === i);
     if (mine.length === 0) {
-      tasks.push({ op: p.op, values, given: given(p.task), wrong: false, many: false });
+      const empty = A.length === 0;
+      tasks.push({ op: p.op, values, given: empty ? [false, false, false, false, false, false] : given(p.task), wrong: empty, many: false });
       continue;
     }
     const known = [0, 1, 2, 3, 4, 5].map((pos) => mine.find((e) => e[1] === pos)?.[2] ?? null);
