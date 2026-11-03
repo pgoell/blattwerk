@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { RechentabelleBlock } from "../sheet";
 import { draw } from "../bank";
 import { FIRST, made, sane, type CarryRule, type Op, type RechentabelleProps, type RechentabelleTyped, type Tint } from "../rechentabelle";
+import { Reihen } from "./Reihen";
 
 type CarryTuple = [CarryRule, CarryRule];
 
@@ -201,23 +202,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
       </label>
       {mal ? (
         <>
-          <div className="reihen">
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-              const on = p.reihen.includes(n);
-              return (
-                <label key={n}>
-                  <input
-                    type="checkbox"
-                    aria-label={`${n}er-Reihe`}
-                    checked={on}
-                    disabled={on && p.reihen.length === 1}
-                    onChange={() => apply({ reihen: on ? p.reihen.filter((x) => x !== n) : [...p.reihen, n].sort((a, b) => a - b) })}
-                  />
-                  {n}
-                </label>
-              );
-            })}
-          </div>
+          <Reihen reihen={p.reihen} lockLast onChange={(reihen) => apply({ reihen })} />
           <label>
             Anordnung
             <select aria-label="Anordnung" value={p.order} onChange={(e) => apply({ order: e.target.value as RechentabelleProps["order"] })}>

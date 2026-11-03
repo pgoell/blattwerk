@@ -579,11 +579,12 @@
               "description": "The working on squared paper for this task. Left out, the task has none."
             },
             "hide": {
-              "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result.",
+              "description": "The number a gap stands for: \"a\", \"b\", \"c\" or \"rest\". \"rest\" hides the remainder of a division and no other number. Left out, the gap hides the result.",
               "enum": [
                 "a",
                 "b",
-                "c"
+                "c",
+                "rest"
               ],
               "type": "string"
             },
@@ -2541,6 +2542,10 @@
               },
               "type": "array"
             },
+            "avoid0": {
+              "description": "Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true.",
+              "type": "boolean"
+            },
             "b": {
               "description": "The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit.",
               "items": {
@@ -2673,13 +2678,14 @@
               "type": "boolean"
             },
             "gaps": {
-              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
+              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", the \"result\", or the \"rest\" of a division. \"rest\" hides no number. Left out, a gap hides any number and never the result.",
               "items": {
                 "enum": [
                   "a",
                   "b",
                   "c",
-                  "result"
+                  "result",
+                  "rest"
                 ],
                 "type": "string"
               },
@@ -2769,6 +2775,13 @@
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
               "type": "boolean"
+            },
+            "reihen": {
+              "description": "Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
             },
             "rest": {
               "description": "Whether a division leaves a remainder. false, the default, gives even divisions only.",
@@ -8678,11 +8691,12 @@
               "description": "The working on squared paper for this task. Left out, the task has none."
             },
             "hide": {
-              "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result.",
+              "description": "The number a gap stands for: \"a\", \"b\", \"c\" or \"rest\". \"rest\" hides the remainder of a division and no other number. Left out, the gap hides the result.",
               "enum": [
                 "a",
                 "b",
-                "c"
+                "c",
+                "rest"
               ],
               "type": "string"
             },
@@ -10716,6 +10730,10 @@
               },
               "type": "array"
             },
+            "avoid0": {
+              "description": "Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true.",
+              "type": "boolean"
+            },
             "b": {
               "description": "The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit.",
               "items": {
@@ -10848,13 +10866,14 @@
               "type": "boolean"
             },
             "gaps": {
-              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
+              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", the \"result\", or the \"rest\" of a division. \"rest\" hides no number. Left out, a gap hides any number and never the result.",
               "items": {
                 "enum": [
                   "a",
                   "b",
                   "c",
-                  "result"
+                  "result",
+                  "rest"
                 ],
                 "type": "string"
               },
@@ -10944,6 +10963,13 @@
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
               "type": "boolean"
+            },
+            "reihen": {
+              "description": "Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
             },
             "rest": {
               "description": "Whether a division leaves a remainder. false, the default, gives even divisions only.",
@@ -16178,11 +16204,12 @@
               "description": "The working on squared paper for this task. Left out, the task has none."
             },
             "hide": {
-              "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result.",
+              "description": "The number a gap stands for: \"a\", \"b\", \"c\" or \"rest\". \"rest\" hides the remainder of a division and no other number. Left out, the gap hides the result.",
               "enum": [
                 "a",
                 "b",
-                "c"
+                "c",
+                "rest"
               ],
               "type": "string"
             },
@@ -18140,6 +18167,10 @@
               },
               "type": "array"
             },
+            "avoid0": {
+              "description": "Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true.",
+              "type": "boolean"
+            },
             "b": {
               "description": "The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit.",
               "items": {
@@ -18272,13 +18303,14 @@
               "type": "boolean"
             },
             "gaps": {
-              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result.",
+              "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", the \"result\", or the \"rest\" of a division. \"rest\" hides no number. Left out, a gap hides any number and never the result.",
               "items": {
                 "enum": [
                   "a",
                   "b",
                   "c",
-                  "result"
+                  "result",
+                  "rest"
                 ],
                 "type": "string"
               },
@@ -18368,6 +18400,13 @@
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
               "type": "boolean"
+            },
+            "reihen": {
+              "description": "Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
             },
             "rest": {
               "description": "Whether a division leaves a remainder. false, the default, gives even divisions only.",
