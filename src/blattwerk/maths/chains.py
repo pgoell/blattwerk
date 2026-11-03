@@ -47,8 +47,8 @@ def calm(ranges: list[Range], other: int, op: str, first: bool = False) -> list[
     for i, (lo, hi) in enumerate(ranges):
         d = other // 10**i % 10
         if op == "+":
-            # A sum of 10 is no crossing, so the digit may reach 10 minus the other digit.
-            hi = min(hi, 10 - d)
+            # A sum of 10 carries 1, so the digit may reach 9 minus the other digit.
+            hi = min(hi, 9 - d)
         elif first:
             lo = max(lo, d)
         else:

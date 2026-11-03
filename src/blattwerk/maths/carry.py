@@ -1,7 +1,8 @@
 """Whether a plus or minus task crosses a place (#838).
 
-Plus crosses a place when the two digits there sum to more than 10. A sum of 10
-(7 + 3, 17 + 23) does not, and nothing is carried on to the next place. Minus
+Plus crosses a place when the two digits there sum to 10 or more, so a sum of
+10 carries 1 (7 + 3, the Einer of 17 + 23, the Zehner of 20 + 80). Nothing is
+carried on to the next place, so 395 + 7 does not cross a hundred. Minus
 crosses a place when that digit of the first number is smaller than the second's,
 so the digit would go below 0.
 
@@ -44,7 +45,7 @@ def crosses_at(op: str, a: int, b: int, place: int) -> bool:
     da = a // 10**place % 10
     db = b // 10**place % 10
     if op == "+":
-        return da + db > 10
+        return da + db >= 10
     return da < db
 
 

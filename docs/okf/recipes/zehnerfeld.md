@@ -4,7 +4,7 @@ title: "Zehnerfeld"
 description: A heading, a name line, and four Plusaufgaben bis 20 on a Zwanzigerfeld with the Zehnerübergang, the dots given and the sums to write.
 tags: [zehnerfeld, zehnerübergang, klasse-1]
 covers: [text, name, zehnerfeld]
-generated: { by: "human:pgoell", at: 2026-11-03T01:38:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T01:27:00Z }
 ---
 
 # Zehnerfeld
@@ -18,7 +18,7 @@ When a teacher asks for: "Ein Arbeitsblatt mit vier Plusaufgaben im Zwanzigerfel
 * `op` is "+" (Plus, the default) or "-" (Minus).
 * `task` is the Aufgabentyp: "dots" (Punkte gegeben, the default for this recipe), "write" (Aufgabe gegeben, Punkte malen) or "mixed" (gemischt).
 * `max` is the Zahlenraum: 5, 10, 20, 50 or 100 (default 20 here), at most the field's size.
-* `cross` is the Zehnerübergang: "yes" (every task crosses a ten: Plus the Einer sum to more than 10, as in 8 + 5, and 6 + 4 and 7 + 3 do not; Minus the first number's Einer is smaller, as in 13 - 5 and 10 - 4), "no" (none does) or "any" (default). It counts only on the Zwanzigerfeld and the Hunderterfeld. For this recipe use "yes".
+* `cross` is the Zehnerübergang: "yes" (every task crosses a ten: Plus the Einer sum to 10 or more, as in 8 + 5 and 6 + 4, and 6 + 3 does not; Minus the first number's Einer is smaller, as in 13 - 5 and 10 - 4), "no" (none does) or "any" (default). It counts only on the Zwanzigerfeld and the Hunderterfeld. For this recipe use "yes".
 * `lines` set to true (default) draws a strong line after each five dots. `colors` is "color" (default), "grey" for a black and white copy, or "own" with `color1` and `color2`.
 * `manual` set to true lets the teacher set the dots by hand in `marks`, and the number boxes stay empty for the pupil.
 * The block's height follows its tasks. Four tasks in two columns are 127 mm wide and 53 mm tall, the size the insert gives.

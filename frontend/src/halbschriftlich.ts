@@ -31,8 +31,8 @@
 //
 // The rule every task keeps, drawn or typed: a ≥ 1, b ≥ 1; Plus r = a + b ≤ 9999; Minus r = a − b ≥ 0.
 // The Übergang at place p (p = 0 the Einer, 1 the Zehner) is that place's digits alone (#838). Plus crosses when they
-// sum to more than 10 (7 + 3 and 395 + 7 at the Zehner do not; 8 + 5 and 370 + 280 do). Minus crosses when the first
-// number's digit is smaller than the second's (10 - 4 does). A carry does not run on. "yes" needs the crossing, "no"
+// sum to 10 or more, so a sum of 10 carries 1 (7 + 3 and 370 + 280 do; 395 + 7 at the Zehner does not). Minus crosses
+// when the first number's digit is smaller than the second's (10 - 4 does). A carry does not run on. "yes" needs the crossing, "no"
 // forbids it.
 //
 // The drawn tasks (`made`, memo of 50, `rng` from zahlenmauer.ts). The drawn task keeps, besides the rule: a ≤ max,
