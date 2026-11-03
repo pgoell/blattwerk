@@ -6,7 +6,7 @@ from blattwerk.maths import Settings, generate, scaled, school
 
 MAX = st.sampled_from([10, 20, 100, 1000, 1_000_000]) | st.integers(1, 1_000_000)
 CARRY = st.sampled_from(["none", "required", "either"])
-FAMILY = st.sampled_from(["swap", "reverse", "neighbour"])
+FAMILY = st.sampled_from(["swap", "reverse", "neighbour", "analogy"])
 MOVES = st.sampled_from(["a", "b"])
 
 families = st.builds(
@@ -57,12 +57,23 @@ def value(op, a, b):
     return {"+": a + b, "-": a - b, "*": a * b}[op]
 
 
-def expected(kind, moves, op, a, b):
+def pace(s):
+    """Ten as the pupil reads it, in the whole numbers the generator stores."""
+    if any(op in "*/" for op in s.ops):
+        return 10
+    return 10 * 10 ** (2 if s.money else s.decimals)
+
+
+def expected(kind, moves, op, a, b, step=10):
     """The tasks of a family, in order, from its drawn task: worked out here from the rules."""
     if kind == "swap":
         return [(op, a, b), (op, b, a)]
     if kind == "reverse":
         return [(op, a, b), ({"+": "-", "-": "+", "*": "/", "/": "*"}[op], value(op, a, b), b)]
+    if kind == "analogy":
+        if moves == "a":
+            return [(op, a, b), (op, a + step, b), (op, a + 2 * step, b)]
+        return [(op, a, b), (op, a, b + step), (op, a, b + 2 * step)]
     if op == "/" and moves == "a":
         return [(op, a, b), (op, a - b, b), (op, a + b, b)]
     if moves == "a":
@@ -77,11 +88,11 @@ def task(op, a, b):
     return {"op": op, "a": a, "b": b, "result": value(op, a, b), "rest": 0}
 
 
-def members(kind, moves, op, a, b):
+def members(kind, moves, op, a, b, step=10):
     """The tasks of the family of one task, or [] when it has none, worked out here."""
     if kind == "swap":
-        return [] if a == b else expected(kind, moves, op, a, b)
-    return expected(kind, moves, op, a, b)
+        return [] if a == b else expected(kind, moves, op, a, b, step)
+    return expected(kind, moves, op, a, b, step)
 
 
 def holds(s, op, a, b):
@@ -123,7 +134,7 @@ def test_every_task_of_a_family_keeps_every_limit_and_its_result_is_right(s):
         fam = [(e["op"], e["a"], e["b"]) for e in exercises if e["family"] == n]
         size = 2 if kind in ("swap", "reverse") else 3
         assert len(fam) == size
-        assert fam == expected(kind, s.moves, *fam[0])
+        assert fam == expected(kind, s.moves, *fam[0], pace(s))
         assert len(set(fam)) == len(fam)
         found.append(frozenset(fam))
     assert len(set(found)) == len(found)
@@ -165,7 +176,7 @@ def test_no_family_is_missed_in_a_small_zahlenraum(s):
                 continue
             if s.family == "swap" and a == b:
                 continue
-            fam = members(s.family, s.moves, op, a, b)
+            fam = members(s.family, s.moves, op, a, b, pace(s))
             if not fam:
                 continue
             if all(holds(wide, *t) for t in fam):
@@ -174,7 +185,7 @@ def test_no_family_is_missed_in_a_small_zahlenraum(s):
     exercises = generate(s)["exercises"]
     got = {e["family"] for e in exercises}
     assert len(got) <= min(s.count, distinct)
-    if s.family != "neighbour" or len(got) == s.count:
+    if s.family not in ("neighbour", "analogy") or len(got) == s.count:
         return
     # Short of the count, a family that shares no task with the block is refused only as a
     # plain one, and only once the plain share is full.

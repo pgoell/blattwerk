@@ -4,7 +4,7 @@ title: What the server computes
 description: What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 tags: [maths, seed, exercises, server]
 covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-11-03T01:44:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T02:31:00Z }
 ---
 
 # What the server computes
@@ -19,6 +19,7 @@ A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest
 * `replace_doc`: a doc must carry every maths field, so pass `"exercises": []` and `"loosen": null`. `replace_doc` fills an empty list from the server. A block that already has exercises keeps them.
 * `update_block` with a new limit: the server draws new exercises from the block's seed. Pass a new `seed` for new tasks. The editor's panel does the same.
 * Same seed and same limits give the same tasks. A new seed gives new tasks.
+* `family` `"analogy"` draws a package of three tasks. The first number, or the second when `moves` is `"b"`, grows by ten: 3 + 4, 13 + 4, 23 + 4. With `full` false, the last task of each family hides one more number, so the pupil uses the pattern. Left out, `full` is true and every number of the family shows.
 * `loosen` says which limit is in the way when fewer tasks came than you asked for. It is `null` when the count is met. Then loosen that limit, or ask for fewer exercises.
 * `update_block` refuses a change whose height would reach past the page's foot ([the text](tools/errors-and-limits.md)). Move the block up or ask for fewer exercises, then write again. `add_block` and `replace_doc` only warn that the block leaves the printable area.
 

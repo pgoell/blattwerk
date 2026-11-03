@@ -55,7 +55,7 @@ def test_a1_the_panel_offers_the_four_families_for_zeile_and_luecke_only(editor)
     fam = panel.get_by_label("Aufgabenfamilien", exact=True)
     expect(fam).to_be_visible()
     expect(fam.locator("option")).to_have_text(
-        ["Keine", "Tauschaufgaben", "Umkehraufgaben", "Nachbaraufgaben"]
+        ["Keine", "Tauschaufgaben", "Umkehraufgaben", "Nachbaraufgaben", "Analogieaufgaben"]
     )
     panel.get_by_role("button", name="Schriftlich", exact=True).click()
     expect(fam).to_have_count(0)
