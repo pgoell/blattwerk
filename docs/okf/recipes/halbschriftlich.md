@@ -4,7 +4,7 @@ title: "Halbschriftlich rechnen"
 description: A heading, a name line, and six Plusaufgaben bis 1000 for the halbschriftliche Rechnen with the Zehnerübergang in the Einer step, the second number split place by place, with the first and the second number given and the steps and the result to fill in.
 tags: [halbschriftlich, zehnerübergang, klasse-2]
 covers: [text, name, halbschriftlich]
-generated: { by: "human:pgoell", at: 2026-11-03T01:38:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Halbschriftlich rechnen

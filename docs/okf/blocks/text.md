@@ -4,7 +4,7 @@ title: "Block: text"
 description: "The text box's words and look."
 tags: [block, text]
 covers: [text]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T00:41:12Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T05:37:31Z }
 ---
 
 # text
@@ -43,6 +43,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | breaks | object |  | no | The words the teacher split by hand into syllables. Absent means the program alone splits the words. |
 | tints | list of string |  | no | The two colours the syllables take in turn, the first and then the second, such as blue and red. Absent means the syllables are not coloured in turn. |
 | tintsAcross | boolean |  | no | True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour. |
+| marks | object |  | no | Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. |
 | gapWidth | number | at most 200 | no | Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm. |
 | bank | number |  | no | Seed for the box of hidden words set under the text (Lösungswörter). The box shows the words shuffled in an order this seed sets. Absent means no box. |
 | lines | number |  | no | Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers. |

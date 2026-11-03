@@ -4,6 +4,7 @@ import { edgesSpliced } from "../borders";
 import { type Span, heightsOf, spansOf } from "../cells";
 import type { Lines } from "../edges";
 import { PT } from "../height";
+import type { LetterMarks } from "../letters";
 import type { Breaks } from "../syllables";
 import type { Box, Align } from "./box";
 import type { Font, Tints, Fade } from "./look";
@@ -41,6 +42,8 @@ export type TableBlock = Box & {
     tints?: Tints;
     /** Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour. */
     tintsAcross?: boolean;
+    /** Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. */
+    marks?: LetterMarks;
     /** Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does. */
     gaps?: boolean[][];
     /** Width of the gaps in mm, all the same. The editor takes 5 mm or more.

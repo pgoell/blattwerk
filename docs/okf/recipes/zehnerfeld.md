@@ -4,7 +4,7 @@ title: "Zehnerfeld"
 description: A heading, a name line, and four Plusaufgaben bis 20 on a Zwanzigerfeld with the Zehnerübergang, the dots given and the sums to write.
 tags: [zehnerfeld, zehnerübergang, klasse-1]
 covers: [text, name, zehnerfeld]
-generated: { by: "human:pgoell", at: 2026-11-03T01:38:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Zehnerfeld

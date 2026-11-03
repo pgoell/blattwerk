@@ -1,7 +1,9 @@
 // Draws a lineatur: the lines, the house, and the letters in the squares.
 
 import { PT } from "../height";
+import { inkAt, sane } from "../letters";
 import { pairOf, useSplitter, splitting, Bows } from "./bows";
+import { Inks } from "./inks";
 import { useBreaks, Words } from "./context";
 import { useRealFonts } from "./fontReady";
 import { RULINGS, kindOf, rowsOf, colsOf, traceOf, fadeOf, fontScale, fontOf, writtenStyle, indentOf, bandOf, bandColorOf, houseOf, houseWidth, houseTintOf, HOUSE, fadeAt, FONTS } from "./look";
@@ -89,6 +91,9 @@ export function Lines({ block, k, children }: { block: RulingBlock; k: number; c
       }
     }
   }
+  // A letter mark wins over a syllable colour. Karo reads the colour by the square's offset.
+  const marked = sane(block.props.marks);
+  if (marked) for (const [o, hue] of inkAt(shownText, marked)) colour.set(o, hue);
   // A bow under each syllable, cut where its letters leave a row of squares; a row past the block's rows gets none.
   const bowed = block.props.syllables && module ? syllables.flatMap(({ plain: syl, hue, offsets }, n) => {
     const runs: { y: number; x0: number; x1: number }[] = [];
@@ -195,15 +200,16 @@ export function Lines({ block, k, children }: { block: RulingBlock; k: number; c
         <>
           {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={spaced(block)}>{text}</p>)}
           {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
-          {at && text && (block.props.syllables || block.props.tints) && (
+          {at && text && (block.props.syllables || block.props.tints || marked) && (
             <>
               {/* With colours the copy shows and the field's letters go clear, as in a table's open cell, so the colours stay while typing. */}
-              {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...spaced(block), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
-              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
+              {children && <p className={classes("written", "copy", (pairOf(block.props.tints) || marked) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...spaced(block), visibility: pairOf(block.props.tints) || marked ? undefined : "hidden" }}>{text}</p>}
+              {(block.props.syllables || block.props.tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />}
             </>
           )}
         </>
       )}
+      {marked && <Inks marks={block.props.marks} />}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { FontSelect, unknownFont } from "./font";
 import { Gaps } from "./gaps";
 import { Mix } from "./mix";
 import { Num } from "./num";
+import { Letters } from "./letters";
 import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
@@ -104,6 +105,7 @@ export function TextPanel({
           <Tracking value={text.tracking} warn={sel.some((b) => cursive(boxed(b)?.font))} onChange={(n) => look({ tracking: n }, "tracking")} />
           <TraceControls props={text} font={text.font} onChange={traced} />
           <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />
+          <Letters sel={sel} look={look} style={style} />
           <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />
           <Fed sel={sel} words={words} toList={toList} look={look} link={link} feed={feed} />
           <Mix sel={sel} look={look} words={words} />

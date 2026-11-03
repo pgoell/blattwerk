@@ -4,7 +4,7 @@ title: "Lückentext mit Lösungen"
 description: A text with four gaps for the pupil, a word box under it, and the answer key shown for the teacher.
 tags: [luecken, loesungen, lueckentext, deutsch, klasse-2]
 covers: [text, name]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Lückentext mit Lösungen

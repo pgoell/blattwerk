@@ -41,12 +41,15 @@ export function pairOf(tints: unknown): Tints | undefined {
 // the module makes at the first one. A browser without the registry paints no colours.
 export let tinting: HTMLStyleElement | undefined;
 export const rules = new Map<Highlight, [string, Text]>();
-export function highlight(colour: string): Highlight | undefined {
-  if (!("highlights" in CSS)) return undefined;
-  const name = `tint-${colour.slice(1).toLowerCase()}`;
+export function highlight(colour: string, kind = "tint"): Highlight | undefined {
+  if (!("highlights" in CSS) || !/^#[0-9a-f]{6}$/i.test(colour)) return undefined;
+  const name = `${kind}-${colour.slice(1).toLowerCase()}`;
   let mark = CSS.highlights.get(name);
   if (!mark) {
     mark = new Highlight();
+    // Letter marks paint over syllable colours where both cover one letter. A browser
+    // without `priority` keeps the default order.
+    if (kind === "ink" && "priority" in mark) mark.priority = 1;
     CSS.highlights.set(name, mark);
     tinting ??= document.head.appendChild(document.createElement("style"));
     const rule = document.createTextNode(`::highlight(${name}){color:${colour}}`);
@@ -57,7 +60,7 @@ export function highlight(colour: string): Highlight | undefined {
 }
 // A range a block coloured, in the highlight it went into: the block takes it back before it draws anew. A colour
 // that no letter has any more goes with its rule: a drag through the colour field passes hundreds of them.
-type Mark = [Highlight, globalThis.Range];
+export type Mark = [Highlight, globalThis.Range];
 export const unmark = (marks: Mark[]) =>
   marks.forEach(([mark, range]) => {
     mark.delete(range);

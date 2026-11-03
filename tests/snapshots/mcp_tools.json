@@ -2128,6 +2128,62 @@
           ],
           "type": "string"
         },
+        "LetterGroup": {
+          "description": "One group of letters the teacher named, such as \"sch\", with where it matches and its colour.",
+          "properties": {
+            "color": {
+              "description": "Colour of the letters as a hex colour, such as \"#e02424\".",
+              "type": "string"
+            },
+            "letters": {
+              "description": "The letters to colour, such as \"sch\" or \"ei\". Capitals do not matter. A space or a mark is left out when matching.",
+              "type": "string"
+            },
+            "where": {
+              "$ref": "#/definitions/Where",
+              "description": "Where the letters match: \"any\" anywhere in a word, \"start\" at a word's start, \"end\" at a word's end."
+            }
+          },
+          "required": [
+            "letters",
+            "where",
+            "color"
+          ],
+          "type": "object"
+        },
+        "LetterMarks": {
+          "description": "Which letters of a text are coloured, and in which colour. Absent fields colour nothing.",
+          "properties": {
+            "consonants": {
+              "description": "Colour of every other letter, as a hex colour such as \"#2f9e44\". Absent means those letters are not coloured.",
+              "type": "string"
+            },
+            "first": {
+              "description": "Colour of the first letter of each word, as a hex colour such as \"#f08c00\". Absent means the first letter is not coloured for its place.",
+              "type": "string"
+            },
+            "groups": {
+              "description": "Up to three groups of letters, each with a place and a colour. A fourth group and any group after it are left out.",
+              "items": {
+                "$ref": "#/definitions/LetterGroup"
+              },
+              "type": "array"
+            },
+            "last": {
+              "description": "Colour of the last letter of each word, as a hex colour such as \"#7048e8\". Absent means the last letter is not coloured for its place.",
+              "type": "string"
+            },
+            "umlauts": {
+              "description": "Colour of the umlauts ä, ö and ü, as a hex colour such as \"#1a56db\". Absent means the umlauts are not coloured.",
+              "type": "string"
+            },
+            "vowels": {
+              "description": "Colour of the vowels a, e, i, o and u, as a hex colour such as \"#e02424\". Absent means those vowels are not coloured. Umlauts are not vowels here.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "LineStyle": {
           "enum": [
             "solid",
@@ -4322,6 +4378,10 @@
                   "$ref": "#/definitions/ListMode",
                   "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "syllables": {
                   "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs.",
                   "type": "boolean"
@@ -4759,6 +4819,10 @@
                   "maximum": 4,
                   "minimum": 1,
                   "type": "number"
+                },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
                 },
                 "mix": {
                   "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -5415,6 +5479,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "rows": {
                   "description": "The lowest height of each row, in mm. A row still grows when its text needs more.",
                   "items": {
@@ -5743,6 +5811,10 @@
               "maximum": 4,
               "minimum": 1,
               "type": "number"
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             },
             "mix": {
               "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -6335,6 +6407,14 @@
             "down",
             "diag",
             "back"
+          ],
+          "type": "string"
+        },
+        "Where": {
+          "enum": [
+            "any",
+            "start",
+            "end"
           ],
           "type": "string"
         },
@@ -7532,6 +7612,10 @@
                   "minimum": 1,
                   "type": "number"
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "mix": {
                   "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
                   "type": "number"
@@ -7766,6 +7850,10 @@
                   "$ref": "#/definitions/ListMode",
                   "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "syllables": {
                   "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs.",
                   "type": "boolean"
@@ -7965,6 +8053,10 @@
                   "maximum": 3,
                   "minimum": 0.25,
                   "type": "number"
+                },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
                 },
                 "rows": {
                   "description": "The lowest height of each row, in mm. A row still grows when its text needs more.",
@@ -10529,6 +10621,62 @@
           ],
           "type": "string"
         },
+        "LetterGroup": {
+          "description": "One group of letters the teacher named, such as \"sch\", with where it matches and its colour.",
+          "properties": {
+            "color": {
+              "description": "Colour of the letters as a hex colour, such as \"#e02424\".",
+              "type": "string"
+            },
+            "letters": {
+              "description": "The letters to colour, such as \"sch\" or \"ei\". Capitals do not matter. A space or a mark is left out when matching.",
+              "type": "string"
+            },
+            "where": {
+              "$ref": "#/definitions/Where",
+              "description": "Where the letters match: \"any\" anywhere in a word, \"start\" at a word's start, \"end\" at a word's end."
+            }
+          },
+          "required": [
+            "letters",
+            "where",
+            "color"
+          ],
+          "type": "object"
+        },
+        "LetterMarks": {
+          "description": "Which letters of a text are coloured, and in which colour. Absent fields colour nothing.",
+          "properties": {
+            "consonants": {
+              "description": "Colour of every other letter, as a hex colour such as \"#2f9e44\". Absent means those letters are not coloured.",
+              "type": "string"
+            },
+            "first": {
+              "description": "Colour of the first letter of each word, as a hex colour such as \"#f08c00\". Absent means the first letter is not coloured for its place.",
+              "type": "string"
+            },
+            "groups": {
+              "description": "Up to three groups of letters, each with a place and a colour. A fourth group and any group after it are left out.",
+              "items": {
+                "$ref": "#/definitions/LetterGroup"
+              },
+              "type": "array"
+            },
+            "last": {
+              "description": "Colour of the last letter of each word, as a hex colour such as \"#7048e8\". Absent means the last letter is not coloured for its place.",
+              "type": "string"
+            },
+            "umlauts": {
+              "description": "Colour of the umlauts ä, ö and ü, as a hex colour such as \"#1a56db\". Absent means the umlauts are not coloured.",
+              "type": "string"
+            },
+            "vowels": {
+              "description": "Colour of the vowels a, e, i, o and u, as a hex colour such as \"#e02424\". Absent means those vowels are not coloured. Umlauts are not vowels here.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "LineStyle": {
           "enum": [
             "solid",
@@ -12819,6 +12967,10 @@
                   "$ref": "#/definitions/ListMode",
                   "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "syllables": {
                   "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs.",
                   "type": "boolean"
@@ -13265,6 +13417,10 @@
                   "maximum": 4,
                   "minimum": 1,
                   "type": "number"
+                },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
                 },
                 "mix": {
                   "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -13931,6 +14087,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "rows": {
                   "description": "The lowest height of each row, in mm. A row still grows when its text needs more.",
                   "items": {
@@ -14259,6 +14419,10 @@
               "maximum": 4,
               "minimum": 1,
               "type": "number"
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             },
             "mix": {
               "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -14887,6 +15051,14 @@
             "down",
             "diag",
             "back"
+          ],
+          "type": "string"
+        },
+        "Where": {
+          "enum": [
+            "any",
+            "start",
+            "end"
           ],
           "type": "string"
         },
@@ -18232,6 +18404,62 @@
           ],
           "type": "string"
         },
+        "LetterGroup": {
+          "description": "One group of letters the teacher named, such as \"sch\", with where it matches and its colour.",
+          "properties": {
+            "color": {
+              "description": "Colour of the letters as a hex colour, such as \"#e02424\".",
+              "type": "string"
+            },
+            "letters": {
+              "description": "The letters to colour, such as \"sch\" or \"ei\". Capitals do not matter. A space or a mark is left out when matching.",
+              "type": "string"
+            },
+            "where": {
+              "$ref": "#/definitions/Where",
+              "description": "Where the letters match: \"any\" anywhere in a word, \"start\" at a word's start, \"end\" at a word's end."
+            }
+          },
+          "required": [
+            "letters",
+            "where",
+            "color"
+          ],
+          "type": "object"
+        },
+        "LetterMarks": {
+          "description": "Which letters of a text are coloured, and in which colour. Absent fields colour nothing.",
+          "properties": {
+            "consonants": {
+              "description": "Colour of every other letter, as a hex colour such as \"#2f9e44\". Absent means those letters are not coloured.",
+              "type": "string"
+            },
+            "first": {
+              "description": "Colour of the first letter of each word, as a hex colour such as \"#f08c00\". Absent means the first letter is not coloured for its place.",
+              "type": "string"
+            },
+            "groups": {
+              "description": "Up to three groups of letters, each with a place and a colour. A fourth group and any group after it are left out.",
+              "items": {
+                "$ref": "#/definitions/LetterGroup"
+              },
+              "type": "array"
+            },
+            "last": {
+              "description": "Colour of the last letter of each word, as a hex colour such as \"#7048e8\". Absent means the last letter is not coloured for its place.",
+              "type": "string"
+            },
+            "umlauts": {
+              "description": "Colour of the umlauts ä, ö and ü, as a hex colour such as \"#1a56db\". Absent means the umlauts are not coloured.",
+              "type": "string"
+            },
+            "vowels": {
+              "description": "Colour of the vowels a, e, i, o and u, as a hex colour such as \"#e02424\". Absent means those vowels are not coloured. Umlauts are not vowels here.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "LineStyle": {
           "enum": [
             "solid",
@@ -20426,6 +20654,10 @@
                   "$ref": "#/definitions/ListMode",
                   "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "syllables": {
                   "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs.",
                   "type": "boolean"
@@ -20863,6 +21095,10 @@
                   "maximum": 4,
                   "minimum": 1,
                   "type": "number"
+                },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
                 },
                 "mix": {
                   "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -21519,6 +21755,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "rows": {
                   "description": "The lowest height of each row, in mm. A row still grows when its text needs more.",
                   "items": {
@@ -21847,6 +22087,10 @@
               "maximum": 4,
               "minimum": 1,
               "type": "number"
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             },
             "mix": {
               "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
@@ -22439,6 +22683,14 @@
             "down",
             "diag",
             "back"
+          ],
+          "type": "string"
+        },
+        "Where": {
+          "enum": [
+            "any",
+            "start",
+            "end"
           ],
           "type": "string"
         },
@@ -23631,6 +23883,10 @@
                   "minimum": 1,
                   "type": "number"
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "mix": {
                   "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling.",
                   "type": "number"
@@ -23865,6 +24121,10 @@
                   "$ref": "#/definitions/ListMode",
                   "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
                 },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+                },
                 "syllables": {
                   "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs.",
                   "type": "boolean"
@@ -24064,6 +24324,10 @@
                   "maximum": 3,
                   "minimum": 0.25,
                   "type": "number"
+                },
+                "marks": {
+                  "$ref": "#/definitions/LetterMarks",
+                  "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
                 },
                 "rows": {
                   "description": "The lowest height of each row, in mm. A row still grows when its text needs more.",

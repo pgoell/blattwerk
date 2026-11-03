@@ -4,7 +4,7 @@ title: "Silbenbögen und Silbenfarbe"
 description: A text with a bow under each syllable, the syllables in two colours.
 tags: [silben, silbenboegen, silbenfarbe, deutsch, klasse-1]
 covers: [text, name]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Silbenbögen und Silbenfarbe

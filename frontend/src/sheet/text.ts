@@ -1,6 +1,7 @@
 // What a text or a shape stores, and how its paragraphs are kept.
 
 import { holed } from "../holes";
+import type { LetterMarks } from "../letters";
 import type { Breaks } from "../syllables";
 import type { Align, Valign, Kind, Box, Corner } from "./box";
 import type { Block } from "./doc";
@@ -45,6 +46,7 @@ export type Para = {
 // `syllables` draws a bow under each syllable of each word (Silbenbögen); `breaks` holds the words the teacher
 // split by hand. `tints` colours the syllables in turn (Silbenfarbe): the pair of colours, and with `tintsAcross`
 // the turn runs on from word to word through the block's text, where else each word starts with the first.
+// `marks` colours letters by kind (Zeichen markieren). Punctuation is not coloured.
 // `gapWidth` makes every gap of the text at least so many mm wide, and `bank` adds a box with the hidden words under
 // the text (Lösungswörter): it is the seed their order is shuffled by.
 // `lines` numbers the lines of the text as they break, left of the box (Zeilennummern): every line with 1, every fifth
@@ -71,6 +73,8 @@ export type TextProps = {
   tints?: Tints;
   /** True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour. */
   tintsAcross?: boolean;
+  /** Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. */
+  marks?: LetterMarks;
   /** Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.
    * @maximum 200
    */

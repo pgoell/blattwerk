@@ -10,6 +10,7 @@ import { FormulaInsert } from "./formula";
 import { FontSelect, unknownFont } from "./font";
 import { Gaps } from "./gaps";
 import { Num } from "./num";
+import { Letters } from "./letters";
 import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { syllabled, worded } from "./words";
@@ -224,6 +225,7 @@ export function TablePanel({
           </button>
           <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
+          {!text && <Letters sel={sel} look={look} style={style} />}
           {!text && <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
     </>

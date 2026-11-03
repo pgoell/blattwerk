@@ -1,0 +1,5 @@
+{
+  "prompt": "Ein Text mit dem Satz Schule, Ei und die Maus, die Vokale rot und sch am Wortanfang grün. Lege das Blatt mit dem Titel Eval Zeichen an.",
+  "recipe": "zeichen-markieren",
+  "expect": {"types": ["text"], "text": ["Schule", "Maus"], "match": ["\"vowels\": \"#e02424\"", "\"letters\": \"sch\""]}
+}
