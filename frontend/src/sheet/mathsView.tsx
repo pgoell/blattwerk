@@ -1,6 +1,8 @@
 // Draws the maths exercises of one block.
 
 import { decimal, decimalsOf, GAP } from "../decimal";
+import { asFormula } from "../formula";
+import { FormulaCell, FormulaText } from "./formulaView";
 import { KARO, PT } from "../height";
 import { useLetters } from "./context";
 import { type Calc, type Side, SIGNS, type Grid, type MathsBlock, type Exercise } from "./maths";
@@ -13,7 +15,8 @@ export function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" |
   const gap = part === "rest" || part === (e.hide ?? "result");
   const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
   const euro = money && part !== "rest" ? " €" : "";
-  return <>{gap ? <u>{solved && text}</u> : text}{euro}</>;
+  const shown = <FormulaText text={text} />;
+  return <>{gap ? <u>{solved && shown}</u> : shown}{euro}</>;
 }
 
 // One side of a comparison as it reads: a number, or a term with its sign.
@@ -36,11 +39,18 @@ export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; co
         {each(rows).map((y) => <line key={-y - 1} x2={cols * S} y1={y} y2={y} />)}
       </g>
       {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={(x1 === 0 ? 0 : x1 + dx) * S} x2={(x2 + dx) * S} y1={y * S} y2={y * S} stroke="currentColor" strokeWidth={0.08 * S} />)}
-      {grid.cells.map(([x, y, ch, kind], i) => (solved || !kind) && (
-        <text key={i} className={kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={(kind === 2 ? 0.45 : 0.75) * S} textAnchor="middle" dominantBaseline="central" fill="currentColor">
-          {ch}
-        </text>
-      ))}
+      {grid.cells.map(([x, y, ch, kind], i) => {
+        if (!solved && kind) return null;
+        const formula = asFormula(ch);
+        const em = (kind === 2 ? 0.45 : 0.75) * S;
+        return formula ? (
+          <FormulaCell key={i} source={formula} x={at(x) * S} y={y * S} side={S} em={em} />
+        ) : (
+          <text key={i} className={kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill="currentColor">
+            {ch}
+          </text>
+        );
+      })}
     </svg>
   );
 }

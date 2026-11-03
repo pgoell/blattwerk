@@ -10,6 +10,7 @@ import { linesIn, fitText, leastOf, cutAt, textIn } from "./fit";
 import { useRealFonts } from "./fontReady";
 import { inset, fontOf, traceOf, INK, FONTS, SIDE, DOTTED_SIDE, fadeOf, fadeMask, textStyle } from "./look";
 import { withTracking } from "./tracking";
+import { FormulaText } from "./formulaView";
 import { Rich } from "./rich";
 import { RulerMarks } from "./ruler";
 import { showsSketch, replaces } from "./formen";
@@ -204,7 +205,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
         ) : linked || p.rich ? (
           <Rich paras={paras} holes={holes} cols={cols} />
         ) : (
-          <p>{p.text}</p>
+          <p><FormulaText text={p.text ?? ""} /></p>
         ))}
       {words.length > 0 && <Bank words={words} seed={p.bank!} />}
     </>

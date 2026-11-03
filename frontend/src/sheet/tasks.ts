@@ -4,6 +4,7 @@ import type { DiagrammProps } from "../diagramm";
 import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { HunderterfeldProps } from "../hunderterfeld";
+import type { KarofeldProps } from "../karofeld";
 import type { MagischesQuadratProps } from "../magischesquadrat";
 import type { MalquadratProps } from "../malquadrat";
 import type { OperatorfeldProps } from "../operatorfeld";
@@ -12,6 +13,7 @@ import type { RechendreieckProps } from "../rechendreieck";
 import type { RechenradProps } from "../rechenrad";
 import type { RechentabelleProps } from "../rechentabelle";
 import type { SelbstkontrolleProps } from "../selbstkontrolle";
+import type { TextaufgabeProps } from "../textaufgabe";
 import type { UhrProps } from "../uhr";
 import type { ZahlenhausProps } from "../zahlenhaus";
 import type { ZahlenketteProps } from "../zahlenkette";
@@ -163,6 +165,12 @@ export type HalbschriftlichBlock = Box & {
   /** The Halbschriftlich tasks (semi-written addition and subtraction): each task a + b = r and its steps place by place, the highest place first; Karo or plain, place letters, tint, signs of the steps for the pupils. */
   props: HalbschriftlichProps;
 };
+// A Textaufgabe: its stored shape is the contract at the top of textaufgabe.ts.
+export type TextaufgabeBlock = Box & {
+  type: "textaufgabe";
+  /** Word problems (Textaufgaben): a story, a question, a Rechnung on squared paper and an Antwort line. The numbers come from a text pool, or the teacher writes all four parts. */
+  props: TextaufgabeProps;
+};
 // A Zehnerfeld block: its stored shape is the contract at the top of zehnerfeld.ts.
 export type ZehnerfeldBlock = Box & {
   type: "zehnerfeld";
@@ -198,6 +206,12 @@ export type GeobrettBlock = Box & {
   type: "geobrett";
   /** The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves. */
   props: GeobrettProps;
+};
+// A Karofeld: its stored shape is the contract at the top of karofeld.ts.
+export type KarofeldBlock = Box & {
+  type: "karofeld";
+  /** A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry. */
+  props: KarofeldProps;
 };
 // A Diagramm: its stored shape is the contract at the top of diagramm.ts.
 export type DiagrammBlock = Box & {

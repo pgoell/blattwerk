@@ -6,6 +6,7 @@ import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "./zahlenstrahl";
 import { DEFAULTS as BRETT } from "./geobrett";
 import { DEFAULTS as DIAGRAMM } from "./diagramm";
 import { DEFAULTS as FELD } from "./hunderterfeld";
+import { boxOf as karoBox, sane as saneKaro, DEFAULTS as KARO } from "./karofeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
@@ -20,6 +21,7 @@ import { DEFAULTS as MALQ, heightFor as heightForMalq, sane as saneMalq } from "
 import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "./zerlegungsfeld";
 import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFor as widthForHalb } from "./halbschriftlich";
 import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
+import { DEFAULTS as TEXTAUFGABE, heightFor as heightForText, sane as saneText } from "./textaufgabe";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -39,6 +41,7 @@ const HEIGHTS: Partial<Record<Kind, number>> = { arc: 30, bow: 30, bars: 18 };
 // are made where they are added.
 export const INSERTS = {
   text: (): Fresh => ({ w: 80, h: 12, type: "text", props: { text: "", size: 14, align: "left" } }),
+  formula: (): Fresh => ({ w: 40, h: 18, type: "formula", props: { source: "3/4", size: 18, align: "center" } }),
   heading: (): Fresh => ({ w: 180, h: 14, type: "text", props: { text: "", size: 24, align: "center", bold: true } }),
   symbol: (): Fresh => ({ w: 20, h: 20, type: "symbol", props: { code: "270F" } }),
   table: (): Fresh => ({ w: 180, h: 30, type: "table", props: { cells: Array.from({ length: 3 }, () => ["", "", ""]), cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } }),
@@ -82,6 +85,10 @@ export const INSERTS = {
     const w = round(widthForHalb(props));
     return { w, h: round(heightForHalb(saneHalb(props), w)), type: "halbschriftlich", props };
   },
+  textaufgabe: (seed: number): Fresh => {
+    const props = { ...TEXTAUFGABE, seed };
+    return { w: 180, h: round(heightForText(saneText(props), 180)), type: "textaufgabe", props };
+  },
   zehnerfeld: (seed: number): Fresh => {
     const props = { ...ZEHN, seed };
     const w = round(widthForZehn(props));
@@ -91,6 +98,7 @@ export const INSERTS = {
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
   geobrett: (seed: number): Fresh => ({ w: 100, h: 100, type: "geobrett", props: { ...BRETT, seed } }),
+  karofeld: (seed: number): Fresh => ({ w: 80, h: 64, type: "karofeld", props: { ...KARO, seed } }),
   diagramm: (seed: number): Fresh => ({ w: 150, h: 90, type: "diagramm", props: { ...DIAGRAMM, points: DIAGRAMM.points.map((p) => ({ ...p })), seed } }),
   uhr: (seed: number): Fresh => ({ w: 180, h: 58.5, type: "uhr", props: { ...UHR, seed } }),
   selbstkontrolle: (seed: number): Fresh => ({ w: 180, h: 30, type: "selbstkontrolle", props: { ...SELBST, seed } }),
@@ -159,6 +167,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zerlegungsfeld: [(p, w) => heightForZerl(saneZerl(p), w), ["count", "columns"]],
   halbschriftlich: [(p, w) => heightForHalb(saneHalb(p), w), ["count", "columns", "head", "digits", "max", "typed"]],
   zehnerfeld: [(p, w) => heightForZehn(saneZehn(p), w), ["count", "columns", "field"]],
+  textaufgabe: [(p, w) => heightForText(saneText(p), w), ["count", "steps", "sketch", "rows"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's
@@ -166,6 +175,12 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
 // keeps its place. `doc` is the sheet a Selbstkontrolle counts its tasks in.
 export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> {
   const foot = Math.max(b.h, H - MARGIN - b.y);
+  if (b.type === "karofeld" && next.type === "karofeld") {
+    const was = saneKaro(b.props);
+    const now = saneKaro(next.props);
+    if (was.cols === now.cols && was.rows === now.rows && was.size === now.size) return {};
+    return karoBox(now);
+  }
   if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
     const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
     if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
@@ -192,6 +207,13 @@ function growsTo(b: Block, next: Block) {
 // Whether a change of a GROWS block's props would grow it below the paper's edge, `H` mm down: what hangs there is
 // not printed, so the panel refuses such a change, as it does for a maths block (#911).
 export function pastPaper(b: Block, next: Block, H: number) {
+  if (b.type === "karofeld" && next.type === "karofeld") {
+    const was = saneKaro(b.props);
+    const now = saneKaro(next.props);
+    if (was.rows === now.rows && was.size === now.size) return false;
+    const low = lowest({ ...b, ...tall(b, karoBox(now).h) });
+    return low > H + 0.01 && low > lowest(b) + 0.01;
+  }
   const need = growsTo(b, next);
   if (need === undefined) return false;
   const low = lowest({ ...b, ...tall(b, need) });

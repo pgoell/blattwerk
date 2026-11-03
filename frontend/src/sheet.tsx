@@ -13,12 +13,12 @@ export type { List, Run, Para, TextProps, TextBlock, ShapeBlock } from "./sheet/
 export { startOf, listOf, tied, foldsOf, squares, rowsNeeded, lengthened } from "./sheet/ruling";
 export type { ListMode, RulingBlock } from "./sheet/ruling";
 export { FIELDS, sizeOf, EMPTY, read, wordsIn } from "./sheet/doc";
-export type { NameBlock, PointsBlock, SymbolBlock, ImageBlock, Block, Axis, Guides, Page, Ground, Doc, PageNumbers, Sheet } from "./sheet/doc";
+export type { NameBlock, PointsBlock, SymbolBlock, ImageBlock, FormulaBlock, Block, Axis, Guides, Page, Ground, Doc, PageNumbers, Sheet } from "./sheet/doc";
 export { SIGNS } from "./sheet/maths";
 export type { Op, Range, Grid, Calc, Side, Compare, Exercise, Limits, Made, MathsProps, MathsBlock } from "./sheet/maths";
 export { sum, spliced } from "./sheet/table";
 export type { TableBlock } from "./sheet/table";
-export type { Ways, SuchselProps, SuchselBlock, Typed, ZahlenmauerProps, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, GeobrettBlock, DiagrammBlock } from "./sheet/tasks";
+export type { Ways, SuchselProps, SuchselBlock, Typed, ZahlenmauerProps, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, TextaufgabeBlock, GeobrettBlock, KarofeldBlock, DiagrammBlock } from "./sheet/tasks";
 export { LOOKS, lookOf, counts, numbers, Count } from "./sheet/numbering";
 export { Words, Whole, useBreaks } from "./sheet/context";
 export { reachOf, lowest, rightmost, overFoot, stepOf, fromOf, tailOf, tailReach, innerOf, tipOf, fitOf, radiusOf, handleOf, adjusted } from "./sheet/shape";

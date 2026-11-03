@@ -219,6 +219,11 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Karofeld",
+            "karofeld",
+            {"cols": 10, "rows": 8, "size": 8, "look": "karos"},
+        ),
+        (
             "Selbstkontrolle",
             "selbstkontrolle",
             {
@@ -234,6 +239,11 @@ ZAHLENSTRAHL = {
             "Geobrett",
             "geobrett",
             {"cols": 5, "rows": 5, "bands": [], "task": "leer"},
+        ),
+        (
+            "Formel",
+            "formula",
+            {"source": "3/4", "size": 18, "align": "center"},
         ),
         (
             "Diagramm",
@@ -263,6 +273,9 @@ def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, ki
     expect(page.locator(".panel").get_by_role("heading", name=label, exact=True)).to_be_visible()
     [block] = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == kind]
     props = block["props"]
+    if kind == "formula":
+        assert props == defaults
+        return
     assert isinstance(props["seed"], int)
     assert {k: v for k, v in props.items() if k != "seed"} == defaults
 

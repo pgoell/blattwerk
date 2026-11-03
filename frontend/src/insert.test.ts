@@ -8,6 +8,7 @@ const NO_DOC = {} as Doc;
 describe("INSERTS", () => {
   it("text, heading, symbol, table, ruling, name, points", () => {
     expect(INSERTS.text()).toEqual({ w: 80, h: 12, type: "text", props: { text: "", size: 14, align: "left" } });
+    expect(INSERTS.formula()).toEqual({ w: 40, h: 18, type: "formula", props: { source: "3/4", size: 18, align: "center" } });
     expect(INSERTS.heading()).toEqual({ w: 180, h: 14, type: "text", props: { text: "", size: 24, align: "center", bold: true } });
     expect(INSERTS.symbol()).toEqual({ w: 20, h: 20, type: "symbol", props: { code: "270F" } });
     expect(INSERTS.table()).toEqual({ w: 180, h: 30, type: "table", props: { cells: [["", "", ""], ["", "", ""], ["", "", ""]], cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } });
@@ -30,10 +31,12 @@ describe("INSERTS", () => {
     expect(INSERTS.zerlegungsfeld(7)).toMatchObject({ w: 180, type: "zerlegungsfeld", props: { count: 6, columns: 3, op: "+", max: 20, step: "zehner", big: false, task: "task", seed: 7 } });
     expect(INSERTS.halbschriftlich(7)).toMatchObject({ type: "halbschriftlich", props: { count: 6, columns: 2, op: "+", max: 1000, digits: 3, einer: "any", zehner: "any", seed: 7 } });
     expect(INSERTS.zehnerfeld(7)).toMatchObject({ type: "zehnerfeld", props: { count: 4, columns: 2, field: "zwanzig", op: "+", task: "dots", max: 20, cross: "any", lines: true, colors: "color", manual: false, seed: 7 } });
+    expect(INSERTS.textaufgabe(7)).toMatchObject({ w: 180, h: 83, type: "textaufgabe", props: { count: 2, themes: ["sach"], ops: ["+"], steps: 1, max: 20, numbers: "whole", carry: "any", frage: true, rechnung: false, antwort: false, sketch: false, rows: "auto", manual: false, zeit: "both", seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });
     expect(INSERTS.geobrett(7)).toMatchObject({ w: 100, h: 100, type: "geobrett", props: { cols: 5, rows: 5, bands: [], task: "leer", seed: 7 } });
+    expect(INSERTS.karofeld(7)).toMatchObject({ w: 80, h: 64, type: "karofeld", props: { cols: 10, rows: 8, size: 8, look: "karos", seed: 7 } });
     expect(INSERTS.diagramm(7)).toMatchObject({ w: 150, h: 90, type: "diagramm", props: { kind: "saeulen", legend: true, values: "aussen", axes: "beide", grid: "haupt", seed: 7 } });
     expect(INSERTS.uhr(7)).toMatchObject({ w: 180, h: 58.5, type: "uhr", props: { count: 4, cols: 4, seed: 7 } });
     expect(INSERTS.selbstkontrolle(7)).toMatchObject({ w: 180, h: 30, type: "selbstkontrolle", props: { seed: 7 } });

@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit zwei Sachaufgaben bis 20, die Frage gezeigt und Rechnung und Antwort zum Ausfüllen. Lege das Blatt mit dem Titel Eval Textaufgaben an.",
+  "recipe": "textaufgaben",
+  "expect": {"types": ["textaufgabe"], "text": ["Sachaufgaben"]}
+}

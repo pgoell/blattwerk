@@ -1,6 +1,7 @@
 // Guide lines, and the handles on a line or a shape.
 import { useRef, type PointerEvent } from "react";
 import { flushSync } from "react-dom";
+import { gridPoints, snapped } from "../../karofeld";
 import { adjusted, far, handleOf, type Axis, type Block, type Corner, type ShapeBlock, type TextProps } from "../../sheet";
 import { adjustable, bounds, frameOf, hull, scaledGroup, sized as resized, unfit as unfitted } from "../Format";
 import { turnedAt, KEEP, CENTRE, round } from "./palette";
@@ -36,6 +37,7 @@ export function useGuides(session: ReturnType<typeof useTable>) {
   const seen = session.seen;
   const same = session.same;
   const point = session.point;
+  const blocks = session.blocks;
 // The guide closest to a point, if one lies within the snap distance.
   const near = (at: number, guides: number[]) => guides.filter((g) => Math.abs(g - at) < 6 / k).sort((a, b) => Math.abs(a - at) - Math.abs(b - at))[0];
   // Moves one end of a line with the pointer; the other end stays, or with Ctrl the middle does. It snaps to the
@@ -49,8 +51,20 @@ export function useGuides(session: ReturnType<typeof useTable>) {
     // Shift turns the line in steps of 45 degrees and leaves the guides alone.
     const turn = (Math.round(Math.atan2(at[1] - fy, at[0] - fx) / (Math.PI / 4)) * Math.PI) / 4;
     const reach = Math.hypot(at[0] - fx, at[1] - fy);
-    const gx = mod & KEEP ? fx + Math.cos(turn) * reach : near(at[0], loose ? [] : [fx, ...xs]);
-    const gy = mod & KEEP ? fy + Math.sin(turn) * reach : near(at[1], loose ? [] : [fy, ...ys]);
+    // A line's end snaps to a Karofeld's grid points when one is near, so a figure drawn on the field lands on it.
+    let hit: [number, number] | undefined;
+    if (!(loose || mod & KEEP)) {
+      let left = 6 / k;
+      for (const b of blocks) {
+        if (b.type !== "karofeld") continue;
+        const next = snapped(gridPoints([b.x, b.y], b.props), [at[0], at[1]], left);
+        if (!next) continue;
+        hit = next;
+        left = Math.hypot(next[0] - at[0], next[1] - at[1]);
+      }
+    }
+    const gx = hit ? hit[0] : mod & KEEP ? fx + Math.cos(turn) * reach : near(at[0], loose ? [] : [fx, ...xs]);
+    const gy = hit ? hit[1] : mod & KEEP ? fy + Math.sin(turn) * reach : near(at[1], loose ? [] : [fy, ...ys]);
     setGuide(mod & KEEP ? [] : [gx, gy]);
     const [px, py] = [gx ?? at[0], gy ?? at[1]];
     if (mid) [fx, fy] = [2 * fx - px, 2 * fy - py];

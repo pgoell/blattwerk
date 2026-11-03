@@ -95,16 +95,20 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "zerlegungsfeld",
                 "halbschriftlich",
                 "zehnerfeld",
+                "textaufgabe",
                 "rechendreieck",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
                 "selbstkontrolle",
+                "karofeld",
             ) and whole(props.get("seed")):
                 props["seed"] = derived(props["seed"], letter)
                 # The numbers and operators a teacher typed belong to the stored ones.
                 props.pop("typed", None)
                 props.pop("typedOps", None)
+                if kind == "textaufgabe":
+                    props.pop("written", None)
             elif kind in ("text", "shape"):
                 for key in ("mix", "bank", "holeSeed"):
                     if whole(props.get(key)):

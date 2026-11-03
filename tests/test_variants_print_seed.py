@@ -342,6 +342,38 @@ def test_a_zehnerfeld_gets_another_seed_loses_its_typed_numbers_and_keeps_its_ma
     assert doc["pages"][0]["blocks"][0]["props"] == zehner
 
 
+def test_a_textaufgabe_gets_another_seed_and_loses_its_written_text():
+    """Varianten of #832: B to D give a Textaufgabe a seed of its own and drop `written`; A is as stored."""
+    task = {
+        "count": 2,
+        "themes": ["sach"],
+        "ops": ["+"],
+        "steps": 1,
+        "max": 20,
+        "numbers": "whole",
+        "carry": "any",
+        "frage": True,
+        "rechnung": False,
+        "antwort": False,
+        "sketch": False,
+        "rows": "auto",
+        "manual": True,
+        "zeit": "both",
+        "seed": 7,
+        "written": [{"text": "T", "frage": "F", "rechnung": "R", "antwort": "A"}],
+    }
+    doc = {"pages": [{"blocks": [{"id": "q", "type": "textaufgabe", "props": task}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in task.items() if k != "written"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == task
+
+
 def test_a_halbschriftlich_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #828: B to D give a Halbschriftlich block a seed of its own, drop `typed`; A is as stored."""
     halb = {

@@ -20,7 +20,7 @@ const MATHS_KEYS = [
   "one", "distinct", "small",
 ];
 // The types a Block's `props` may take, each with the seed it is drawn with when added.
-const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "diagramm"] as const;
+const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "karofeld", "diagramm"] as const;
 
 
 function problems(body: any): string[] {
@@ -198,6 +198,7 @@ export function sheetHandlers(api: Api) {
       : type === "points" ? INSERTS.points()
       : type === "symbol" ? INSERTS.symbol()
       : type === "table" ? INSERTS.table()
+      : type === "formula" ? INSERTS.formula()
       : type === "maths" ? { w: MATHS.w, h: 10, type: "maths", props: { ...MATHS.limits(seed), ...MATHS.look } }
       : (SEEDED as readonly string[]).includes(type) ? (INSERTS as any)[type](seed)
       : undefined;
