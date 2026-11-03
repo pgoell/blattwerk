@@ -26,6 +26,13 @@ TURN = [
     "Nachspurtext",
     "Silbenbögen",
     "Silbenfarbe",
+    # Zeichen: five kinds, then Buchstabengruppe, between Silbenfarbe and Lücke.
+    "Vokale",
+    "Umlaute",
+    "Konsonanten",
+    "Erster Buchstabe",
+    "Letzter Buchstabe",
+    "Buchstabengruppe",
     "Lücke",
     "Lücken gleich breit",
     "n",

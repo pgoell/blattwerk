@@ -15,7 +15,7 @@ When a teacher asks for: "Markiere die Vokale rot und sch am Wortanfang grün."
 * `groups` holds up to three groups. Each has `letters` (such as "sch", "ei" or "ie"), `where` (`any`, `start` or `end`) and `color`. A group wins over a place, and a place wins over a kind. A fourth group is left out.
 * Punctuation, digits and spaces are not coloured. They keep the text's own colour.
 * The same `marks` work on a text, a shape, a table and a Lineatur.
-* In the editor the teacher sets this under "Zeichen" in the format panel.
+* In the editor the teacher sets this under "Zeichen" in the format panel of the button "Text". The name line is the button "Namenszeile".
 * See [text](../blocks/text.md) for the other props.
 
 # Doc

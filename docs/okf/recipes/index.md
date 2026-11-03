@@ -32,6 +32,6 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Hilfslinien setzen](hilfslinien.md): Two columns of text that line up on the sheet's guides at 15, 105 and 195 mm.
 * [Lernwörter verknüpfen](lernwoerter-verknuepfen.md): Five Lernwörter in the sheet's list, a ruling that copies them, and a text that blanks out their vowels.
 * [Silbenbögen und Silbenfarbe](silbenboegen.md): A text with a bow under each syllable, the syllables in two colours.
-* [Zeichen farbig markieren](zeichen-markieren.md): A text with vowels in one colour and up to three letter groups, such as "sch" at the start of a word, in another. Punctuation stays uncoloured.
+* [Zeichen farbig markieren](zeichen-markieren.md): A text with vowels in red and a letter group such as "sch" in green. Punctuation stays uncoloured.
 * [Varianten zum Drucken](varianten.md): A maths block and a suchsel with seeds, so each printed variant gets its own tasks and grid.
 * [Lückentext mit Lösungen](loesungen.md): A text with four gaps for the pupil, a word box under it, and the answer key shown for the teacher.
