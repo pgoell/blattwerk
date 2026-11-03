@@ -2,7 +2,7 @@
 import Numbering from "../components/Numbering";
 import type { Owed } from "../saves";
 import { SIGNS, type Limits, type MathsBlock, type MathsProps, type Op } from "../sheet";
-import { AFTER, anyDigits, CARRIES, DIGITS, FAMILIES, FORMATS, FRACTIONS, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
+import { AFTER, anyDigits, asCarry, CARRIES, carryCount, carryLabel, DIGITS, FAMILIES, FORMATS, FRACTIONS, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
 import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
 
@@ -105,18 +105,47 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
         );
       })}
       <Muster p={p} limit={limit} plus={plus} times={times} decimals={open && (money || dec > 0)} />
-      {plus && (
-        <>
-          <h2>Übertrag</h2>
-          <div className="seg">
-            {CARRIES.map(([carry, label]) => (
-              <button key={carry} className={p.carry === carry ? "on" : ""} onClick={() => limit({ carry })}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {plus &&
+        Array.from({ length: carryCount(p.max, dec) }, (_, i) => {
+          const label = carryLabel(i, dec);
+          const now = asCarry(p.carry)[i];
+          const heading =
+            label === "Zehnerübergang" ? (
+              <h2>Zehnerübergang</h2>
+            ) : label === "Hunderterübergang" ? (
+              <h2>Hunderterübergang</h2>
+            ) : label === "Tausenderübergang" ? (
+              <h2>Tausenderübergang</h2>
+            ) : (
+              <h2>{label}</h2>
+            );
+          return (
+            <div key={label}>
+              {heading}
+              <div className="seg">
+                {CARRIES.map(([rule, text]) => (
+                  <button
+                    key={rule}
+                    className={now === rule ? "on" : ""}
+                    onClick={() => {
+                      // The button that is already on asks again and changes nothing, also when an older sheet
+                      // still stores one word for every place.
+                      if (now === rule) {
+                        limit({ carry: p.carry });
+                        return;
+                      }
+                      const next = asCarry(p.carry);
+                      next[i] = rule;
+                      limit({ carry: [...next] });
+                    }}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       {p.ops.includes("/") && p.format !== "compare" && !three && (
         <>
           <h2>Division</h2>

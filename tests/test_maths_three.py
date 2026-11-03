@@ -9,7 +9,6 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from test_maths import (
-    digit_sum,
     in_places,
     places,
     settings_for,
@@ -19,6 +18,7 @@ from blattwerk.maths import (
     Settings,
     generate,
 )
+from blattwerk.maths.carry import keeps as place_keeps
 
 threes = st.builds(
     Settings,
@@ -52,14 +52,6 @@ def steps_of(e):
     return [inner, (o2, apply(*inner), c)]
 
 
-def carried(op, x, y):
-    """Whether a sum or a difference carries or borrows: each one costs nine in the digit sums."""
-    x, y = int(x), int(y)
-    if op == "+":
-        return digit_sum(x) + digit_sum(y) > digit_sum(x + y)
-    return digit_sum(x - y) + digit_sum(y) > digit_sum(x)
-
-
 @given(threes)
 @settings(max_examples=300, deadline=None)
 def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(s):
@@ -73,8 +65,8 @@ def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(s
             if op == "/":
                 assert y > 0 and x % y == 0
             assert 0 <= value <= s.max
-            if op in "+-" and s.carry != "either":
-                assert carried(op, x, y) == (s.carry == "required")
+            if op in "+-":
+                assert place_keeps(s.carry, s.max, op, int(x), int(y))
         shown = (
             f"({a} {o1} {b}) {o2} {c}"
             if paren == "left"
@@ -236,9 +228,7 @@ def test_a_gap_of_three_numbers_has_one_answer(ops):
 
 
 def test_names_the_third_number_as_the_limit_in_the_way():
-    # Only a units digit of 7 is allowed for the third number, and the carries leave 10 tasks.
-    out = generate(
-        settings_for(ops=["+", "-"], max=10, count=20, numbers=3, c=[(7, 7)], carry="required")
-    )
-    assert len(out["exercises"]) == 10
+    # Only a units digit of 7 is allowed for the third number, so a long block cannot fill.
+    out = generate(settings_for(ops=["+", "-"], max=10, count=100, numbers=3, c=[(7, 7)]))
+    assert len(out["exercises"]) < 100
     assert "c" in out["loosen"]

@@ -1479,7 +1479,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -1522,7 +1522,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"
@@ -2499,13 +2499,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -2603,7 +2624,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -3757,7 +3778,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -4447,11 +4468,35 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
                   "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
                 },
                 "parts": {
                   "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
@@ -4469,6 +4514,12 @@
                 "ruler": {
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
+                },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -6708,7 +6759,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -7130,11 +7181,35 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
                   "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
                 },
                 "parts": {
                   "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
@@ -7152,6 +7227,12 @@
                 "ruler": {
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
+                },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -9385,7 +9466,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -9428,7 +9509,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "required": [
@@ -10459,13 +10540,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -10563,7 +10665,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -11771,7 +11873,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -12486,11 +12588,35 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
                   "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
                 },
                 "parts": {
                   "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
@@ -12508,6 +12634,12 @@
                 "ruler": {
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
+                },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -14835,7 +14967,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -16690,7 +16822,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -16733,7 +16865,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"
@@ -17710,13 +17842,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -17814,7 +17967,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -18968,7 +19121,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -19658,11 +19811,35 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
                   "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
                 },
                 "parts": {
                   "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
@@ -19680,6 +19857,12 @@
                 "ruler": {
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
+                },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -21919,7 +22102,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -22336,11 +22519,35 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
                   "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
                 },
                 "parts": {
                   "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
@@ -22358,6 +22565,12 @@
                 "ruler": {
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
+                },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",

@@ -6,6 +6,7 @@ import { list } from "../Field";
 import { canHelp } from "../../texthelp";
 import Format from "../Format";
 import TextHelp from "../TextHelp";
+import FillModes from "../format/fillmode";
 import { Tool } from "./Tool";
 import { FormenFields } from "./FormenFields";
 import { FRAMES, DASHES, LABELS, ALIGNS, pickName, TABS, lines, step } from "./palette";
@@ -251,6 +252,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                       ))}
                     </div>
                   )}
+                  {boxes[0].type === "shape" && boxes[0].props.kind !== "line" && boxes[0].props.kind !== "arrow" && boxes[0].props.kind !== "double" && <FillModes props={boxes[0].props} look={look} />}
                   <label>
                     Füllung
                     <input type="color" value={fill === "none" ? "#ffffff" : fill} onChange={(e) => look({ fill: e.target.value }, "fill")} />
@@ -269,7 +271,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                     />
                   </label>}
                   {/* The next fill is solid again, as in PowerPoint. */}
-                  <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none", opacity: undefined })}>Keine Füllung</button>
+                  {(boxes[0].type !== "shape" || boxes[0].props.kind === "line" || boxes[0].props.kind === "arrow" || boxes[0].props.kind === "double") && <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none", opacity: undefined })}>Keine Füllung</button>}
                   <label>
                     Rand
                     <input type="color" value={stroke === "none" ? "#222222" : stroke} onChange={(e) => look({ stroke: e.target.value }, "stroke")} />

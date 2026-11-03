@@ -1,11 +1,11 @@
 // The pairs that keep a Zehnerfeld's rule, the dots of a pair, and a typed task's numbers.
+import { crossesAt } from "../carry";
 import { rng } from "../zahlenmauer";
 import { acts, sane } from "./props";
 import type { Cross, Made, Task, ZehnerfeldProps } from "./props";
 
 export function crosses(op: "+" | "-", a: number, b: number): boolean {
-  const x = op === "+" ? a : a - b;
-  return (x % 10) + (b % 10) > 10;
+  return crossesAt(op, a, b, 0);
 }
 
 export function picture(op: "+" | "-", a: number, b: number, C: number): number[] {

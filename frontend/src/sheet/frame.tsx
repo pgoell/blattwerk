@@ -14,10 +14,11 @@ import { FormulaText } from "./formulaView";
 import { Rich } from "./rich";
 import { RulerMarks } from "./ruler";
 import { showsSketch, replaces } from "./formen";
+import { Hatch, hatchOf } from "./hatch";
 import { Sketch } from "./sketch";
 import { dashes, gapWidth, fitOf, OUTLINES, tailReach, radiusOf, Bank, classes, gapVar, clear, tint, Dashes, POINTS, Outline, Ring } from "./shape";
 import { type ShapeBlock, far, type TextBlock, boxed, parasOf, shownParas, listColsOf, holesOf, lineOf } from "./text";
-import { type ReactNode, useContext, useRef, useState, useLayoutEffect, useEffect, type CSSProperties } from "react";
+import { type ReactNode, useContext, useId, useRef, useState, useLayoutEffect, useEffect, type CSSProperties } from "react";
 
 // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs. The length stands
 // over the middle, turned so it never reads upside down.
@@ -53,6 +54,8 @@ export const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
 // A text or a shape with its text. The editor passes the field the text is typed in.
 export function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
   useRealFonts();
+  // The page and its thumbnail both draw this block, so the tile's id cannot be the block's own.
+  const hatchId = `h${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const p = boxed(block)!;
   const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
@@ -172,6 +175,11 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
   // A new Form, or a square or round option, is drawn by Sketch. A CSS box would ignore it.
   const replace = replaces(p);
   const d = !replace && Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2, p) : undefined;
+  const hatch = block.type === "shape" ? hatchOf(hatchId, block.props) : undefined;
+  const paint = hatch?.paint ?? p.fill ?? "none";
+  // An arc and a curved arrow have no interior, unless Kreisförmig draws them as a circle. A Muster fills the box,
+  // and the curve is drawn over it.
+  const curve = (p.kind === "arc" || p.kind === "bow") && p.form !== "round";
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
   const solid = !replace && !d && !p.dash && edge > 0;
@@ -227,7 +235,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.
         ...(linked && { height: "auto", minHeight: "100%" }),
-        background: d || replace ? undefined : clear(p),
+        background: d || replace || hatch ? undefined : clear(p),
         border: own ? `${edge * k}px ${p.dash} ${tint(p.stroke, p.strokeOpacity)}` : undefined,
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${tint(p.stroke, p.strokeOpacity)}` : undefined,
         borderRadius: radius,
@@ -239,17 +247,19 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
           : { justifyContent: UP[p.valign ?? "top"] }),
-        ...((d || ring || showsSketch(p)) && { position: "relative", isolation: "isolate" }),
+        ...((d || ring || showsSketch(p) || hatch) && { position: "relative", isolation: "isolate" }),
       }}
     >
-      {showsSketch(p) && <Sketch w={block.w} h={block.h} edge={edge} p={p} flip={flipped(block)} />}
+      {hatch && !d && (!replace || curve) && <Hatch w={block.w} h={block.h} p={p} hatch={hatch} style={over} />}
+      {showsSketch(p) && <Sketch w={block.w} h={block.h} edge={edge} p={p} flip={flipped(block)} paint={paint} defs={replace && !curve ? hatch?.defs : undefined} />}
       {d && (
         // A linked text's outline goes with its frame when the words make that higher than the block.
         <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} preserveAspectRatio={linked ? "none" : undefined} style={{ ...over, ...flipped(block) }}>
+          {hatch?.defs}
           {p.dash && edge > 0 ? (
-            <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2, p)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
+            <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2, p)} edge={edge} p={p} fill={paint} fillOpacity={p.opacity ?? 1} />
           ) : (
-            <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeOpacity={p.strokeOpacity} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+            <Outline d={d} fill={paint} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeOpacity={p.strokeOpacity} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
           )}
         </svg>
       )}

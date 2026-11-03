@@ -3,6 +3,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from blattwerk.maths import ANSWER, CARRY, Settings, generate, places, written
+from blattwerk.maths.carry import keeps as place_keeps
 
 place = st.tuples(st.integers(0, 9), st.integers(0, 9)).map(sorted).map(tuple)
 places_of_digits = st.lists(place, max_size=7)
@@ -28,16 +29,6 @@ decimal_limits = st.builds(
 
 def in_places(n, ranges):
     return all(lo <= n // 10**i % 10 <= hi for i, (lo, hi) in enumerate(ranges))
-
-
-def carried(op, a, b):
-    """Whether a sum or a difference carries or borrows in any place, worked digit by digit."""
-    c, out = 0, False
-    while a or b:
-        c = a % 10 + b % 10 + c > 9 if op == "+" else a % 10 - c < b % 10
-        out = out or bool(c)
-        a, b = a // 10, b // 10
-    return out
 
 
 def text(grid, kinds=(0, 1, 2)):
@@ -82,8 +73,7 @@ def test_every_decimal_task_keeps_every_limit_and_its_result_is_right(s):
         """One step worked out here: its result, and whether its carry keeps the setting."""
         r = x + y if op == "+" else x - y
         assert 0 <= r <= top
-        if s.carry != "either":
-            assert (s.carry == "required") == carried(op, x, y)
+        assert place_keeps(s.carry, top, op, x, y)
         return r
 
     for e in generate(s)["exercises"]:

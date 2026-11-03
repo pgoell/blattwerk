@@ -6,6 +6,7 @@ from collections import Counter
 from functools import lru_cache
 from math import isqrt
 
+from blattwerk.maths.carry import keeps
 from blattwerk.maths.model import (
     SMALL,
     Settings,
@@ -62,7 +63,7 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     if only and all(loose(op, a, b, k) for k in only):
         return False
     if op in "+-":
-        if s.carry != "either" and (s.carry == "required") != any(carries(op, a, b)):
+        if not keeps(s.carry, s.max, op, a, b):
             return False
         if not (a + b <= top if op == "+" else b <= a):
             return False

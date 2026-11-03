@@ -91,8 +91,12 @@ export type Limits = {
   b: Range[];
   /** The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. */
   c?: Range[];
-  /** Whether a plus or minus task must carry (Übertrag): "none" never, "required" always, "either" both kinds. */
-  carry: "none" | "required" | "either";
+  /** Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is "none" (that place does not cross), "required" (it does) or "either" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. "none" at the top place that counts also rules out every place above it. An older single "none", "required" or "either" is read as every place, only the smallest place, or no rule. Default ["either", "either", "either"]. */
+  carry:
+    | ["none" | "required" | "either", "none" | "required" | "either", "none" | "required" | "either"]
+    | "none"
+    | "required"
+    | "either";
   /** Whether a division leaves a remainder. false, the default, gives even divisions only. */
   rest: boolean;
   /** How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. */
@@ -158,7 +162,7 @@ export type Limits = {
 export type Made = {
   /** The exercises the server made for the limits, in the order they stand on the sheet. */
   exercises: Exercise[];
-  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "carry". null when the count is met. */
+  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "zehner". null when the count is met. */
   loosen: string[] | null;
 };
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.

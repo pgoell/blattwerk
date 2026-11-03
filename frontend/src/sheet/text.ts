@@ -241,6 +241,17 @@ export type ShapeBlock = Box & { type: "shape";
   mm?: boolean;
   /** Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. */
   label?: "show" | "key";
+  /** Muster inside the shape: "stripes" bands, "dots" spots, "checks" a chequer, "waves" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead. */
+  motif?: "stripes" | "dots" | "checks" | "waves";
+  /** Size of one repeat of a Muster, in mm. Absent means 5.
+   * @minimum 2
+   * @maximum 20
+   */
+  scale?: number;
+  /** True draws a Muster in black. Absent means the Muster takes the colour in `fill`. */
+  mono?: boolean;
+  /** Lineatur that fills the shape: "mm" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), "k5" Karo 5 mm, "k7" Karo 7 mm, "k10" Karo 10 mm. Absent means none. */
+  paper?: "mm" | "k5" | "k7" | "k10";
 } };
 // A sheet may come from anywhere: 1 to 4 columns, and anything else is 1.
 export const listColsOf = (p: { listCols?: unknown }) => (typeof p.listCols === "number" && Number.isInteger(p.listCols) && p.listCols >= 1 && p.listCols <= 4 ? p.listCols : 1);
