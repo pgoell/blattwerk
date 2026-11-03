@@ -185,6 +185,65 @@ describe("sane", () => {
   });
 });
 
+// #844. The assertions name the page, the cut and the hidden cells a stored sheet must draw.
+// They go through `garbage` so a prop the type does not know yet still reaches `sane`.
+const Q = (over: Record<string, unknown>) => garbage({ ...DEFAULTS, seed: 1, ...over });
+const drawn = (p: HunderterfeldProps) => made(p).cells.filter((c) => c.drawn).map((c) => c.i);
+const blankOf = (p: HunderterfeldProps) => made(p).cells.map((c) => (c as { blank?: string }).blank);
+
+describe("#844 start, cut and muster", () => {
+  it("from 301 is the page 301 to 400, and 0 and 901 stay", () => {
+    const cells = made(Q({ from: 301 })).cells;
+    expect(cells[0].value).toBe(301);
+    expect(cells[99].value).toBe(400);
+    expect(sane(Q({ from: 0 })).from).toBe(0);
+    expect(sane(Q({ from: 901 })).from).toBe(901);
+    expect(sane(Q({ from: 300 })).from).toBe(1);
+    expect(sane(Q({ from: 1001 })).from).toBe(1);
+  });
+
+  it("a 5 by 5 Ausschnitt at the top left draws those 25 cells in a 50 frame", () => {
+    const m = made(Q({ cut: true, form: "rect", anchor: 0, wide: 5, tall: 5 }));
+    expect(drawn(Q({ cut: true, form: "rect", anchor: 0, wide: 5, tall: 5 }))).toEqual(
+      range(0, 4).flatMap((r) => range(0, 4).map((c) => r * 10 + c)),
+    );
+    expect(m.frame).toEqual([0, 0, 50, 50]);
+  });
+
+  it("a 5 by 5 that runs off the corner is clipped, a row is that row, a column is that column", () => {
+    expect(drawn(Q({ cut: true, form: "rect", anchor: 88, wide: 5, tall: 5 }))).toEqual([88, 89, 98, 99]);
+    expect(drawn(Q({ cut: true, form: "row", place: 4 }))).toEqual(range(30, 39));
+    expect(drawn(Q({ cut: true, form: "column", place: 1 }))).toEqual(range(0, 9).map((k) => k * 10));
+  });
+
+  it("show row, column and the two diagonals hide those cells", () => {
+    expect(hiddenDrawn(Q({ show: "row", cover: 2 }))).toEqual(range(10, 19));
+    expect(hiddenDrawn(Q({ show: "column", cover: 3 }))).toEqual(range(0, 9).map((k) => 2 + 10 * k));
+    expect(hiddenDrawn(Q({ show: "diagonal", cover: 1 }))).toEqual([0, 11, 22, 33, 44, 55, 66, 77, 88, 99]);
+    expect(hiddenDrawn(Q({ show: "diagonal", cover: 2 }))).toEqual([9, 18, 27, 36, 45, 54, 63, 72, 81, 90]);
+  });
+
+  it("muster herz, pfeil and a hide those cells, and every letter hides some", () => {
+    expect(hiddenDrawn(Q({ show: "muster", muster: "herz" }))).toEqual([
+      12, 13, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33, 34, 35, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48, 52, 53, 54, 55, 56, 57, 63, 64, 65, 66, 74, 75,
+    ]);
+    expect(hiddenDrawn(Q({ show: "muster", muster: "pfeil" }))).toEqual([
+      14, 15, 23, 24, 25, 26, 32, 33, 34, 35, 36, 37, 41, 42, 43, 44, 45, 46, 47, 48, 54, 55, 64, 65, 74, 75, 84, 85,
+    ]);
+    expect(hiddenDrawn(Q({ show: "muster", muster: "a" }))).toEqual([14, 23, 25, 32, 36, 42, 43, 44, 45, 46, 52, 56, 62, 66, 72, 76]);
+    for (const name of "abcdefghijklmnopqrstuvwxyz") expect(hiddenDrawn(Q({ show: "muster", muster: name })).length).toBeGreaterThan(0);
+  });
+
+  it("grey marks every hidden cell, gone only the hidden row, and a cut-out stays empty", () => {
+    expect(blankOf(Q({ show: "none", blank: "grey" })).every((b) => b === "grey")).toBe(true);
+    const gone = blankOf(Q({ show: "row", cover: 1, blank: "gone" }));
+    expect(gone.slice(0, 10).every((b) => b === "gone")).toBe(true);
+    expect(gone.slice(10).every((b) => b === "empty")).toBe(true);
+    expect(blankOf(Q({ cut: true, show: "none", blank: "gone" })).every((b) => b !== "gone")).toBe(true);
+    expect(shown(Q({ cut: true, show: "none", blank: "gone" }))).toEqual([44]);
+  });
+});
+
 describe("tint colours", () => {
   it("the greys of the two tints, white and the key's red differ pairwise by at least 40", () => {
     const greys = [TINT[1], TINT[2], "#ffffff", "#c0392b"].map(grey);

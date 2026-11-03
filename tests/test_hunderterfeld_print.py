@@ -193,6 +193,18 @@ def test_the_dots_stand_ten_to_a_row_with_a_wider_gap_after_the_fifth(editor):
     assert gap[4] > gap[3]
 
 
+def test_the_number_1000_sits_inside_its_cell(editor):
+    """#844: with 901 to 1000 the number 1000 sits inside its own cell, not over the line."""
+    page = editor(box("h", "hunderterfeld", {**PROPS, "from": 901}, w=100, h=100), client=user())
+    g = at(page, "h").locator("g.cell[data-i='99']")
+    cell, num = g.evaluate(
+        "g => [g.querySelector('rect'), g.querySelector('text')].map(\n"
+        "    e => e.getBoundingClientRect().toJSON())"
+    )
+    assert num["left"] >= cell["left"] and num["right"] <= cell["right"]
+    assert num["top"] >= cell["top"] and num["bottom"] <= cell["bottom"]
+
+
 def test_the_last_number_sits_inside_its_cell(editor):
     """Extra: with 1 to 100 the number 100 sits inside its own cell, not over the cell's line."""
     page = editor(box("h", "hunderterfeld", {**PROPS, "from": 1}, w=100, h=100), client=user())
