@@ -31,7 +31,7 @@ BLOCK_NAMES = set(
     Hunderterfeld Hunderterfelder Textaufgabe Textaufgaben
     Geobrett Geobretter Diagramm Diagramme Uhr Uhren Selbstkontrolle
     Selbstkontrollen Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
-    Form Formen Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
+    Form Formen Formel Formeln Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
 )
 
 # (?<=_) lets "user_id=3" hit, since \b does not sit between "_" and "i".

@@ -164,6 +164,7 @@
             "selbstkontrolle",
             "textaufgabe",
             "geobrett",
+            "formula",
             "diagramm"
           ]
         },
@@ -539,6 +540,18 @@
           },
           "then": {
             "$ref": "#/definitions/GeobrettBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "formula"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/FormulaBlock"
           }
         },
         {
@@ -6501,6 +6514,118 @@
       "required": [
         "dir",
         "at"
+      ]
+    },
+    "FormulaBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "formula"
+        },
+        "props": {
+          "$ref": "#/definitions/FormulaProps",
+          "description": "A formula of fractions, mixed numbers, powers and roots, set in the sheet's font. The same formula can sit inline in a text or a cell."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "FormulaProps": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "The formula in the simple syntax: \"3/4\" a fraction, \"1 3/4\" a mixed number, \"2^3\" a power, \"sqrt(16)\" a root, \"x_2\" a subscript, \"\\\\ \" a gap."
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of the formula in pt. A fraction, a power and a root scale with it. The editor steps it by 2 pt and never goes below 8.",
+          "minimum": 8
+        },
+        "color": {
+          "type": "string",
+          "description": "Colour of the formula as a hex colour, such as \"#222222\". Absent means #222222."
+        },
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Horizontal alignment in the box: \"left\", \"center\" or \"right\". Absent means center."
+        }
+      },
+      "required": [
+        "source",
+        "size"
       ]
     },
     "DiagrammBlock": {

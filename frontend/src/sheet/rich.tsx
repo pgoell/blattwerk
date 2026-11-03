@@ -5,6 +5,7 @@ import { SVG } from "./bows";
 import { K } from "./box";
 import { FONTS, fontOf, GREYS } from "./look";
 import { stepOf, fromOf, classes } from "./shape";
+import { FormulaText } from "./formulaView";
 import { type TextBlock, listColsOf, type Run, type Para } from "./text";
 import { useRef, useLayoutEffect, type CSSProperties, Fragment } from "react";
 
@@ -194,7 +195,7 @@ export function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[];
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   const run = ({ text, bold, italic, underline, color }: Run, key: number) => (
     <span key={key} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
-      {text}
+      <FormulaText text={text} />
     </span>
   );
   // Consecutive gap runs make one gap: its outer span draws the line, its inner one holds the words.
