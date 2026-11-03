@@ -4,6 +4,7 @@ import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEn
 import { DRAWERS } from "../../components/Blank";
 import { fresh } from "../../history";
 import { newer } from "../../saves";
+import type { Motif, Paper as Graph } from "../../sheet/motif";
 import { MARGIN, Paper, RULINGS, boxed, isLine, kindOf, type Axis, type Block, type Box, type Doc, type Fade, type Guides, type Kind, type TextProps } from "../../sheet";
 import { FRAMES as FRAME_KINDS } from "../../insert";
 
@@ -33,11 +34,17 @@ export const LOOK = ["font", "size", "bold", "italic", "underline", "color", "sp
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
 export const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "tracking", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
-export type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string };
+export type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; motif?: Motif; scale?: number; mono?: boolean; paper?: Graph };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 export const takes = (b: Block): readonly (keyof Coat)[] => {
   const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "tracking", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "tracking", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : b.type === "formula" ? ["size", "color", "align"] : [];
-  return [...(isLine(b) ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  // A line gives its stroke. Any other shape gives the frame's look and its Muster or Lineatur. `isLine` as a
+  // predicate would take every shape out of the other branch, so the kind is read here.
+  if (b.type === "shape") {
+    const line = b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double";
+    return [...(line ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : ([...LOOK, "motif", "scale", "mono", "paper"] as const)), "mark"];
+  }
+  return [...(b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.

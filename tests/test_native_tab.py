@@ -80,7 +80,15 @@ ORDER = {
             *TURN,
             *FLIP,
             *OUTLINE,
-            *FILL,
+            "Stern",
+            "Sprechblase",
+            # The shape has no fill, so Keine is off and Tab skips it. The modes then are Farbe, Muster
+            # and Lineatur, and the colour field is Füllung.
+            "Farbe",
+            "Muster",
+            "Lineatur",
+            "Füllung",
+            "Rand",
             "Kein Rand",
             DASH[0],
             "Transparenz Linie",

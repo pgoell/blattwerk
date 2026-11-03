@@ -4,7 +4,7 @@ title: "Block: shape"
 description: "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
 tags: [block, shape]
 covers: [shape]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:31:39Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:34:33Z }
 ---
 
 # shape
@@ -46,6 +46,10 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | ruler | boolean |  | no | Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off. |
 | mm | boolean |  | no | Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`. |
 | label | string | `show`, `key` | no | Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. |
+| motif | string | `stripes`, `dots`, `checks`, `waves` | no | Muster inside the shape: "stripes" bands, "dots" spots, "checks" a chequer, "waves" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead. |
+| scale | number | 2 to 20 | no | Size of one repeat of a Muster, in mm. Absent means 5. |
+| mono | boolean |  | no | True draws a Muster in black. Absent means the Muster takes the colour in `fill`. |
+| paper | string | `mm`, `k5`, `k7`, `k10` | no | Lineatur that fills the shape: "mm" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), "k5" Karo 5 mm, "k7" Karo 7 mm, "k10" Karo 10 mm. Absent means none. |
 | text | string |  | no | The words of the text as one plain string, with no look of their own. Always the same words as `rich`. |
 | rich | list of object |  | no | The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it. |
 | syllables | boolean |  | no | True draws a bow under each syllable of each word (Silbenbögen). Absent means off. |

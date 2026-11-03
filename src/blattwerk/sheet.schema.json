@@ -1083,6 +1083,36 @@
               ],
               "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length."
             },
+            "motif": {
+              "type": "string",
+              "enum": [
+                "stripes",
+                "dots",
+                "checks",
+                "waves"
+              ],
+              "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead."
+            },
+            "scale": {
+              "type": "number",
+              "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+              "minimum": 2,
+              "maximum": 20
+            },
+            "mono": {
+              "type": "boolean",
+              "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`."
+            },
+            "paper": {
+              "type": "string",
+              "enum": [
+                "mm",
+                "k5",
+                "k7",
+                "k10"
+              ],
+              "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none."
+            },
             "text": {
               "type": "string",
               "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`."
