@@ -72,10 +72,10 @@ export default function Muster({
       {field("pa", "1. Zahl", "Muster der 1. Zahl", "z. B. X0")}
       {field("pb", "2. Zahl", "Muster der 2. Zahl", "z. B. X")}
       {p.format !== "compare" && field("pr", "Ergebnis", "Muster des Ergebnisses", "z. B. 100")}
-      <p className="hint" role="status">
+      <p>
         Höchstens zwei der drei Zahlen können feststehen.
+        {decimals ? " Muster gelten für ganze Zahlen." : ""}
       </p>
-      {decimals && <p className="hint">Muster gelten für ganze Zahlen.</p>}
       {(plus || times) && (
         <>
           <h2>Die Null darf vorkommen</h2>
