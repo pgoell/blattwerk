@@ -59,3 +59,5 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 * [textaufgabe](textaufgabe.md): Word problems (Textaufgaben): a story, a question, a Rechnung on squared paper and an Antwort line.
 
 * [geobrett](geobrett.md): The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves.
+
+* [diagramm](diagramm.md): A chart (Diagramm) of bars, columns or a pie, drawn from a few values.

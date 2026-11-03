@@ -8,7 +8,7 @@ export type Content = { type: string; text?: string; data?: string; mimeType?: s
 export type ToolResult = { content: Content; isError?: boolean };
 
 // The block types the MCP server writes. The others stay in the schema for the editor, not for Claude.
-const KEPT_BLOCKS = ["text", "shape", "ruling", "name", "points", "symbol", "image", "maths", "table", "suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett"];
+const KEPT_BLOCKS = ["text", "shape", "ruling", "name", "points", "symbol", "image", "maths", "table", "suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "diagramm"];
 
 export function docDefinitions(schema: any): Record<string, any> {
   const defs = structuredClone(schema.definitions);

@@ -101,6 +101,7 @@
 .zahlenstrahl svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }
 .block .hunderterfeld { height: 100%; font-family: Andika; }
 .block .geobrett { height: 100%; font-family: Andika; }
+.block .diagramm { height: 100%; font-family: Andika; }
 .block .uhr { height: 100%; font-family: Andika; }
 .uhr svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .maths .letter { display: inline-block; flex: none; box-sizing: border-box; width: 1.4em; height: 1.4em; margin-left: .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); vertical-align: middle; text-align: center; line-height: 1.4em; font-style: normal; color: var(--key, #c0392b); }
@@ -120,3 +121,4 @@
 .selbstkontrolle > .fold { border-bottom: 1px dashed #222; text-align: center; font-size: .8em; color: #666; }
 .hunderterfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .geobrett svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.diagramm svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }

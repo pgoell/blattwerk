@@ -1,5 +1,6 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
+import type { DiagrammProps } from "../diagramm";
 import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { TextaufgabeProps } from "../textaufgabe";
@@ -204,4 +205,10 @@ export type GeobrettBlock = Box & {
   type: "geobrett";
   /** The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves. */
   props: GeobrettProps;
+};
+// A Diagramm: its stored shape is the contract at the top of diagramm.ts.
+export type DiagrammBlock = Box & {
+  type: "diagramm";
+  /** A chart (Diagramm) of bars, columns or a pie, drawn from a few values. */
+  props: DiagrammProps;
 };
