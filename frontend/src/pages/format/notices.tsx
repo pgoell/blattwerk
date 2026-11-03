@@ -14,6 +14,7 @@ const FOOT: Record<string, [string, string]> = {
   zerlegungsfeld: ["Das Zerlegungsfeld ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe es nach oben."],
   halbschriftlich: ["Der Block Halbschriftlich rechnen ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe ihn nach oben."],
   zehnerfeld: ["Das Zehnerfeld ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe es nach oben."],
+  textaufgabe: ["Die Textaufgabe ragt unten über den Rand.", "Nimm weniger Aufgaben oder Rechenzeilen oder schiebe sie nach oben."],
   zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
   rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
   uhr: ["Die Uhr ragt unten über den Rand.", "Nimm weniger Uhren oder schiebe sie nach oben."],
@@ -160,6 +161,17 @@ export function Notices({
           z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
       ),
   );
+  const textCovers = sel.some(
+    (z) =>
+      z.type === "textaufgabe" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
   const zehnCovers = sel.some(
     (z) =>
       z.type === "zehnerfeld" &&
@@ -276,6 +288,11 @@ export function Notices({
       {zehnCovers && (
         <p className="hint warn" role="status" data-cover="zehnerfeld">
           Das Zehnerfeld liegt über einem anderen Block. Verschiebe ihn oder mache das Zehnerfeld kleiner.
+        </p>
+      )}
+      {textCovers && (
+        <p className="hint warn" role="status" data-cover="textaufgabe">
+          Die Textaufgabe liegt über einem anderen Block. Verschiebe ihn oder mache die Textaufgabe kleiner.
         </p>
       )}
       {halbCovers && (

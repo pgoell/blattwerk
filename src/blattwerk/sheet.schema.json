@@ -162,6 +162,7 @@
             "hunderterfeld",
             "uhr",
             "selbstkontrolle",
+            "textaufgabe",
             "geobrett",
             "formula",
             "diagramm"
@@ -515,6 +516,18 @@
           },
           "then": {
             "$ref": "#/definitions/SelbstkontrolleBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "textaufgabe"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/TextaufgabeBlock"
           }
         },
         {
@@ -6019,6 +6032,261 @@
         "none",
         "upside",
         "fold"
+      ]
+    },
+    "TextaufgabeBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "textaufgabe"
+        },
+        "props": {
+          "$ref": "#/definitions/TextaufgabeProps",
+          "description": "Word problems (Textaufgaben): a story, a question, a Rechnung on squared paper and an Antwort line. The numbers come from a text pool, or the teacher writes all four parts."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "TextaufgabeProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of Textaufgaben, one under the other. Default 2.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "themes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Theme"
+          },
+          "description": "The Themen the stories are drawn from: \"kurz\" (kurze Texte), \"sach\" (Sachaufgaben), \"raetsel\" (Rätsel), \"zeit\" (Zeit) and \"geld\" (Geld). Default [\"sach\"]."
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TextOp"
+          },
+          "description": "The Rechenarten: \"+\", \"-\", \"*\" (Mal) and \":\" (Geteilt), in that order, each once. Empty or not a list: [\"+\"]. Default [\"+\"]."
+        },
+        "steps": {
+          "type": "number",
+          "enum": [
+            1,
+            2
+          ],
+          "description": "The Komplexität: 1 for one step, 2 for two steps. Any other value gives 1. Default 1."
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: the largest number a task may use, one of 10, 20, 100 or 1000. Geld counts in euros, a Dauer in minutes. Any other value gives 20. Default 20."
+        },
+        "numbers": {
+          "type": "string",
+          "enum": [
+            "whole",
+            "decimal"
+          ],
+          "description": "The Zahlen: \"whole\" for natürliche Zahlen, \"decimal\" for Kommazahlen (two places). Geld is always Kommazahlen, a Zeit stays a clock. Default \"whole\"."
+        },
+        "carry": {
+          "$ref": "#/definitions/Carry",
+          "description": "The Übertrag of an addition or a subtraction: \"any\" (egal), \"yes\" (mit Übergang) or \"no\" (ohne Übergang). It is a ten, or a euro for Kommazahlen. Mal and Geteilt ignore it. Default \"any\"."
+        },
+        "frage": {
+          "type": "boolean",
+          "description": "Whether the Frage is printed for the pupil. The Lösungen fill it when it is not. Default true."
+        },
+        "rechnung": {
+          "type": "boolean",
+          "description": "Whether the Rechnung is printed for the pupil. The Lösungen fill it when it is not. Default false."
+        },
+        "antwort": {
+          "type": "boolean",
+          "description": "Whether the Antwort is printed for the pupil. The Lösungen fill it when it is not. Default false."
+        },
+        "sketch": {
+          "type": "boolean",
+          "description": "Whether a drawing box (Zeichenfeld) stands above the Rechnung. Default false."
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "auto"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "The height of the Rechnung: \"auto\" (one row per step, plus one row to write in) or a number of rows from 1 to 8. Default \"auto\".",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "manual": {
+          "type": "boolean",
+          "description": "Manual mode: the teacher writes the Text, the Frage, the Rechnung and the Antwort. Default false."
+        },
+        "zeit": {
+          "type": "string",
+          "enum": [
+            "punkt",
+            "dauer",
+            "both"
+          ],
+          "description": "Which Zeit stories are drawn when the theme \"zeit\" is on: \"punkt\" (Zeitpunkte), \"dauer\" (Dauern) or \"both\". Default \"both\"."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the stories and the numbers. The same seed always gives the same tasks."
+        },
+        "written": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TextaufgabeWritten"
+          },
+          "description": "The four parts the teacher wrote, one entry per task, in order. Used when manual is on."
+        }
+      },
+      "required": [
+        "count",
+        "themes",
+        "ops",
+        "steps",
+        "max",
+        "numbers",
+        "carry",
+        "frage",
+        "rechnung",
+        "antwort",
+        "sketch",
+        "rows",
+        "manual",
+        "zeit",
+        "seed"
+      ]
+    },
+    "Theme": {
+      "type": "string",
+      "enum": [
+        "kurz",
+        "sach",
+        "raetsel",
+        "zeit",
+        "geld"
+      ]
+    },
+    "TextOp": {
+      "type": "string",
+      "enum": [
+        "+",
+        "-",
+        "*",
+        ":"
+      ]
+    },
+    "Carry": {
+      "type": "string",
+      "enum": [
+        "any",
+        "yes",
+        "no"
+      ]
+    },
+    "TextaufgabeWritten": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The story (Text) the teacher wrote for this task."
+        },
+        "frage": {
+          "type": "string",
+          "description": "The question (Frage) the teacher wrote for this task."
+        },
+        "rechnung": {
+          "type": "string",
+          "description": "The working (Rechnung) the teacher wrote for this task. A line break starts a new row."
+        },
+        "antwort": {
+          "type": "string",
+          "description": "The answer (Antwort) the teacher wrote for this task."
+        }
+      },
+      "required": [
+        "text",
+        "frage",
+        "rechnung",
+        "antwort"
       ]
     },
     "GeobrettBlock": {
