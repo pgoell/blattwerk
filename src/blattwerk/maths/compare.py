@@ -176,7 +176,20 @@ def compared(s: Settings) -> dict:
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
-    names = ("carry", "a", "b", "max", "close", "equal", "zero", "one", "distinct", "small")
+    names = (
+        "carry",
+        "a",
+        "b",
+        "max",
+        "close",
+        "equal",
+        "zero",
+        "one",
+        "distinct",
+        "small",
+        "reihen",
+        "avoid0",
+    )
     # A limit already at its loosest changes nothing, so it is not tried again.
     return {
         "exercises": found,

@@ -14,7 +14,7 @@ When a teacher asks for: "Ein Arbeitsblatt mit zwei Malquadraten zum Einmaleins.
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * In the editor the squares are the button "Malquadrat" in the menu "Mathe-Blöcke" in the insert bar. A Malquadrat is a square of products: the row numbers stand down the left, the column numbers along the top, and each inner cell is the row number times (or plus) the column number. The sum of each row and column sits outside, and the total in the corner.
 * `op` is "*" (Mal, the default) or "+" (Plus, the addition version).
-* `reihen` are the Einmaleins-Reihen the column numbers come from (default 2 to 9). With Mal the factors stay in these rows.
+* `reihen` are the Einmaleins-Reihen the column numbers come from (default 2 to 9). With Mal the factors stay in these rows. The button Kernaufgaben sets `reihen` to 1, 2, 5 and 10.
 * `size` is the number of inner cells per side, 2 to 4 (default 3).
 * `task` says what the pupil fills in: "factors" (default) gives every row and column number, and the pupil fills the rest. "mixed" hides some of the row and column numbers and gives a cell for each. "knobel" does the same, and one hidden row is found only through its sum.
 * `max` is the Zahlenraum for Plus, 20, 100 or 1000 (default 20).

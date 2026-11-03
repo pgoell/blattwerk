@@ -11,8 +11,8 @@ import { useRef, useLayoutEffect, type CSSProperties } from "react";
 
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
 // With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
-export function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean }) {
-  const gap = part === "rest" || part === (e.hide ?? "result");
+export function Part({ e, part, solved, d, money, blank = true }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean; blank?: boolean }) {
+  const gap = part === "rest" ? blank : part === (e.hide ?? "result");
   const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
   const euro = money && part !== "rest" ? " €" : "";
   const shown = <FormulaText text={text} />;
@@ -77,6 +77,8 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
   const groupGaps = decimal(p.max, 0).split(GAP).length - 1;
   const style = { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))`, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0) + 0.3 * groupGaps}ch` };
   const num = { solved, d, money };
+  // A sheet from before the choice keeps the remainder as a gap. A chosen Lücke follows the ticks.
+  const restBlank = p.format !== "gap" || (p.gaps ? p.gaps.includes("rest") : true);
   // Tasks wider than the block shrink the type, as PowerPoint shrinks a text. Everything inside is in em, so the
   // width is linear in the scale and one measurement is enough.
   function fit() {
@@ -128,7 +130,7 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
       ) : (
         <span>
           <Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
-          {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
+          {e.rest > 0 && <> R <Part e={e} part="rest" {...num} blank={restBlank} /></>}
         </span>
       )}
       {letters && <span className="letter" data-task={i}>{solved ? letters[i] ?? "" : ""}</span>}

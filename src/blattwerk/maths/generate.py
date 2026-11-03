@@ -20,6 +20,11 @@ def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random
     exercise: dict = {"op": op, "a": a, "b": b, "result": result, "rest": rest}
     if s.format == "gap":
         allowed = gaps_of(s)
+        # A gap on the remainder alone leaves every number of the task in sight.
+        if not allowed:
+            if s.gaps and "rest" in s.gaps:
+                exercise["hide"] = "rest"
+            return exercise
         hide = rng.choice(allowed)
         # With a 0 that makes any number fit the gap, that number is not hidden: another one is.
         if loose(op, a, b, hide):
@@ -34,9 +39,9 @@ def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
-    # With three numbers the switch counts for nothing: they are drawn the same either way.
+    # With three numbers the switch and the rows count for nothing.
     if three(s):
-        s = s.model_copy(update={"small": False})
+        s = s.model_copy(update={"small": False, "reihen": []})
     d = places(s)
     s = scaled(s)
     if s.format == "compare":
@@ -55,7 +60,20 @@ def generate(s: Settings) -> dict:
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = ("carry", "rest", "a", "b", "max", "family", "zero", "one", "distinct", "small")
+    names = (
+        "carry",
+        "rest",
+        "a",
+        "b",
+        "max",
+        "family",
+        "zero",
+        "one",
+        "distinct",
+        "small",
+        "reihen",
+        "avoid0",
+    )
     loosen = [name for name in names if len(groups(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}
 
