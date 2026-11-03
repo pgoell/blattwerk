@@ -165,6 +165,7 @@
             "textaufgabe",
             "geobrett",
             "formula",
+            "karofeld",
             "diagramm"
           ]
         },
@@ -552,6 +553,18 @@
           },
           "then": {
             "$ref": "#/definitions/FormulaBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "karofeld"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/KarofeldBlock"
           }
         },
         {
@@ -6605,6 +6618,188 @@
       "required": [
         "source",
         "size"
+      ]
+    },
+    "KarofeldBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "karofeld"
+        },
+        "props": {
+          "$ref": "#/definitions/KarofeldProps",
+          "description": "A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "KarofeldProps": {
+      "type": "object",
+      "properties": {
+        "cols": {
+          "type": "number",
+          "description": "Squares across the grid.",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "rows": {
+          "type": "number",
+          "description": "Squares down the grid.",
+          "minimum": 1,
+          "maximum": 40
+        },
+        "size": {
+          "type": "number",
+          "description": "Side of one square in mm. The letter is a fixed share of it.",
+          "minimum": 4,
+          "maximum": 16
+        },
+        "look": {
+          "$ref": "#/definitions/Look",
+          "description": "What is drawn: \"karos\" the squares, \"kreise\" a circle in each square, \"punkte\" a dot in each square, \"iso\" an isometric grid."
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Square"
+            }
+          },
+          "description": "The squares, row by row from the top left. A missing row or square is empty."
+        },
+        "caret": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "The square the next sign goes in, as [column, row] counted from 0. Left out, the first square."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Stored with the block, as the other maths blocks store a seed. The grid does not use it."
+        }
+      },
+      "required": [
+        "cols",
+        "rows",
+        "size",
+        "look",
+        "seed"
+      ]
+    },
+    "Look": {
+      "type": "string",
+      "enum": [
+        "karos",
+        "kreise",
+        "punkte",
+        "iso"
+      ]
+    },
+    "Square": {
+      "type": "object",
+      "properties": {
+        "sign": {
+          "type": "string",
+          "description": "The one digit or sign in the square. Left out, the square is empty."
+        },
+        "mark": {
+          "$ref": "#/definitions/KaroMark",
+          "description": "A comma or a point attached to the digit. Left out, none."
+        },
+        "line": {
+          "type": "boolean",
+          "description": "A Lösungsstrich under the square, for the pupil to write on. Left out, none."
+        },
+        "thick": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "Thick edges, in order top, right, bottom, left. Left out, every edge is thin."
+        },
+        "fill": {
+          "type": "string",
+          "description": "Background colour of the square, a six-digit hex colour such as #ffe066. Left out, none."
+        }
+      }
+    },
+    "KaroMark": {
+      "type": "string",
+      "enum": [
+        ",",
+        "."
       ]
     },
     "DiagrammBlock": {

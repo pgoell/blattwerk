@@ -1,6 +1,7 @@
 // The sheet's shortcuts: moving, zoom, the clipboard and the rest.
 import { flushSync } from "react-dom";
 import { ask } from "../../saves";
+import { backspaced, entered, insertedSign, typeKaro } from "../../karofeld";
 import { boxed, isLine, tied } from "../../sheet";
 import { next } from "../../cells";
 import { has } from "../Format";
@@ -64,6 +65,35 @@ onKey.current = (e) => {
     if (!held) return;
     const { target, shut, turnKey, mark, ours } = held;
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // A Karofeld takes the keys itself: a sign steps to the next square, Enter to the next row, Backspace and
+    // Insert shift the row. The sheet's own keys would move or delete the block.
+    const karo = !editing && sel.length === 1 && free.length === 1 && free[0].type === "karofeld" ? free[0] : undefined;
+    if (karo && !(e.ctrlKey || e.metaKey) && !e.altKey && !target.closest("button, a, summary, .panel, input, textarea, select")) {
+      const apply = (props: object) => (session as unknown as { style: (type: string, props: object, key?: string) => void }).style("karofeld", props, "karo");
+      if (e.key === "Enter") {
+        e.preventDefault();
+        apply(entered(karo.props));
+        return;
+      }
+      if (e.key === "Insert") {
+        e.preventDefault();
+        apply(insertedSign(karo.props));
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        apply(backspaced(karo.props));
+        return;
+      }
+      if (e.key.length === 1 && !e.repeat) {
+        const next = typeKaro(karo.props, e.key);
+        if (next) {
+          e.preventDefault();
+          apply(next);
+          return;
+        }
+      }
+    }
     // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. A locked
     // block, a table and a line on its own do not turn, as the buttons of the panel do not.
     if (turnKey) {

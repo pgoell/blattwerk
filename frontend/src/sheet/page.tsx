@@ -6,8 +6,8 @@ import { uploadAddress } from "../uploadAddress";
 import { Diagramm } from "./blocks/diagramm";
 import { Geobrett } from "./blocks/geobrett";
 import { Halbschriftlich } from "./blocks/halbschriftlich";
-import { Textaufgabe } from "./blocks/textaufgabe";
 import { Hunderterfeld } from "./blocks/hunderterfeld";
+import { Karofeld } from "./blocks/karofeld";
 import { MagischesQuadrat } from "./blocks/magischesQuadrat";
 import { Malquadrat } from "./blocks/malquadrat";
 import { Operatorfeld } from "./blocks/operatorfeld";
@@ -17,6 +17,7 @@ import { Rechenrad } from "./blocks/rechenrad";
 import { Rechentabelle } from "./blocks/rechentabelle";
 import { Selbstkontrolle } from "./blocks/selbstkontrolle";
 import { Suchsel } from "./blocks/suchsel";
+import { Textaufgabe } from "./blocks/textaufgabe";
 import { Uhr } from "./blocks/uhr";
 import { Zahlenhaus } from "./blocks/zahlenhaus";
 import { Zahlenkette } from "./blocks/zahlenkette";
@@ -41,7 +42,7 @@ import type { ReactNode, CSSProperties } from "react";
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
-export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
+export function Draw({ block, k, solved = false, at, reach, onSquare, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; onSquare?: (col: number, row: number) => void; children?: ReactNode }) {
   if (block.type === "formula") return <FormulaBox block={block} k={k} />;
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
@@ -61,6 +62,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
+  if (block.type === "karofeld") return <Karofeld block={block} onSquare={onSquare} />;
   if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
   if (block.type === "selbstkontrolle") return <Selbstkontrolle block={block} k={k} solved={solved} />;
   if (block.type === "geobrett") return <Geobrett block={block} k={k} solved={solved} />;

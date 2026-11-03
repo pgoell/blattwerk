@@ -3,8 +3,8 @@
 import type { DiagrammProps } from "../diagramm";
 import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
-import type { TextaufgabeProps } from "../textaufgabe";
 import type { HunderterfeldProps } from "../hunderterfeld";
+import type { KarofeldProps } from "../karofeld";
 import type { MagischesQuadratProps } from "../magischesquadrat";
 import type { MalquadratProps } from "../malquadrat";
 import type { OperatorfeldProps } from "../operatorfeld";
@@ -13,6 +13,7 @@ import type { RechendreieckProps } from "../rechendreieck";
 import type { RechenradProps } from "../rechenrad";
 import type { RechentabelleProps } from "../rechentabelle";
 import type { SelbstkontrolleProps } from "../selbstkontrolle";
+import type { TextaufgabeProps } from "../textaufgabe";
 import type { UhrProps } from "../uhr";
 import type { ZahlenhausProps } from "../zahlenhaus";
 import type { ZahlenketteProps } from "../zahlenkette";
@@ -205,6 +206,12 @@ export type GeobrettBlock = Box & {
   type: "geobrett";
   /** The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves. */
   props: GeobrettProps;
+};
+// A Karofeld: its stored shape is the contract at the top of karofeld.ts.
+export type KarofeldBlock = Box & {
+  type: "karofeld";
+  /** A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry. */
+  props: KarofeldProps;
 };
 // A Diagramm: its stored shape is the contract at the top of diagramm.ts.
 export type DiagrammBlock = Box & {

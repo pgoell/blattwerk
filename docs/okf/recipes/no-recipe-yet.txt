@@ -2,4 +2,5 @@
 # or is added here on purpose. Remove a line once a recipe uses its type: the test fails until you do.
 geobrett
 formula
+karofeld
 diagramm
