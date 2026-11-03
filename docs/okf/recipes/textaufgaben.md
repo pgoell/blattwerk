@@ -4,7 +4,7 @@ title: "Textaufgaben"
 description: A heading, a name line, and two Sachaufgaben bis 20 with the story and the question shown and the Rechnung and the Antwort left for the pupil.
 tags: [textaufgabe, sachaufgaben, zahlenraum-20, klasse-2]
 covers: [text, name, textaufgabe]
-generated: { by: "human:pgoell", at: 2026-11-03T00:00:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T02:20:00Z }
 ---
 
 # Textaufgaben

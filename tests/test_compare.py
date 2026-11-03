@@ -86,13 +86,15 @@ def test_each_term_keeps_the_limits(editor):
     )
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Ohne").click())
-    assert props["carry"] == "none"
+    assert props["carry"] == ["none", "either", "either"]
     terms = [side for e in props["exercises"] for side in (e["left"], e["right"]) if "op" in side]
     assert terms
     for t in terms:
         assert t["a"] <= 100 and t["b"] <= 100 and 0 <= t["value"] <= 100
         if t["op"] == "+":
-            assert t["a"] % 10 + t["b"] % 10 < 10 and (t["a"] // 10) % 10 + (t["b"] // 10) % 10 < 10
+            assert t["a"] % 10 + t["b"] % 10 <= 10
+        if t["op"] == "-":
+            assert t["a"] % 10 >= t["b"] % 10
     props = changed(page, client, lambda: ctl(page, SIGNS["-"]).click())
     assert set(props["ops"]) == {"+", "-"}
     for t in [side for e in props["exercises"] for side in (e["left"], e["right"]) if "op" in side]:

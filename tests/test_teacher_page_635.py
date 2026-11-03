@@ -29,9 +29,9 @@ def test_635_value_uebertrag_reads_the_lit_button(editor):
     client = user()
     page = editor(box("a", "maths", maths(client)), client=client)
     pick(page, "a")
-    assert tool.value(page, "Übertrag") == "Übertrag is Egal"
+    assert tool.value(page, "Zehnerübergang") == "Zehnerübergang is Egal"
     tool.click(page, "Mit")
-    assert tool.value(page, "Übertrag") == "Übertrag is Mit"
+    assert tool.value(page, "Zehnerübergang") == "Zehnerübergang is Mit"
     with pytest.raises(tool.Refused, match='no field on the page is called "Nein"'):
         tool.value(page, "Nein")
 

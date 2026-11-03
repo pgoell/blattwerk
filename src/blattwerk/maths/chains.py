@@ -3,9 +3,10 @@
 import random
 from math import isqrt
 
+from blattwerk.maths.carry import NAMES, all_none, keeps
 from blattwerk.maths.compare import aimed
 from blattwerk.maths.model import Range, Settings, fits, gaps_of, loosened, pick, plain
-from blattwerk.maths.pairs import bound, carries, propose, result, valid
+from blattwerk.maths.pairs import bound, propose, result, valid
 from blattwerk.maths.pattern import allow, matches
 
 
@@ -13,7 +14,7 @@ def step(s: Settings, op: str, x: int, y: int, top: int) -> int | None:
     """What one step comes to, or None when it breaks a limit: a remainder, a carry, or a result."""
     if op == "/" and (y == 0 or x % y):
         return None
-    if op in "+-" and s.carry != "either" and (s.carry == "required") != any(carries(op, x, y)):
+    if op in "+-" and not keeps(s.carry, s.max, op, x, y):
         return None
     r = result(op, x, y)
     return r if 0 <= r <= top else None
@@ -56,7 +57,8 @@ def calm(ranges: list[Range], other: int, op: str, first: bool = False) -> list[
     for i, (lo, hi) in enumerate(ranges):
         d = other // 10**i % 10
         if op == "+":
-            hi = min(hi, 9 - d)
+            # A sum of 10 is no crossing, so the digit may reach 10 minus the other digit.
+            hi = min(hi, 10 - d)
         elif first:
             lo = max(lo, d)
         else:
@@ -69,7 +71,7 @@ def calm(ranges: list[Range], other: int, op: str, first: bool = False) -> list[
 
 def once(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """One proposed term, kept when it keeps the limits. The caller tries again when it is not."""
-    if s.carry == "none" and op in "+-":
+    if all_none(s.carry, s.max) and op in "+-":
         # Without a carry the second number is drawn from digits that cannot carry: far fewer
         # blind draws would make one, and a chain needs two.
         pair = None
@@ -117,7 +119,7 @@ def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> d
         v = result(op, *pair)
         room = {"+": top - v, "-": v, "*": top // v if v else s.max}[op2]
         ranges = s.c
-        if s.carry == "none" and op2 in "+-":
+        if all_none(s.carry, s.max) and op2 in "+-":
             ranges = calm(s.c, v, op2)
             if ranges is None:
                 return None
@@ -149,10 +151,10 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
     b, c = pair
     w = result(op2, b, c)
     if op == "+":
-        ranges = calm(s.a, w, "+") if s.carry == "none" else s.a
+        ranges = calm(s.a, w, "+") if all_none(s.carry, s.max) else s.a
         a = None if ranges is None else pick(rng, ranges, 0, min(top - w, s.max))
     elif op == "-":
-        ranges = calm(s.a, w, "-", first=True) if s.carry == "none" else s.a
+        ranges = calm(s.a, w, "-", first=True) if all_none(s.carry, s.max) else s.a
         a = None if ranges is None else pick(rng, ranges, w, s.max)
     elif op == "*":
         if small is None:
@@ -339,7 +341,7 @@ def chained(s: Settings) -> dict:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
     names = (
-        "carry",
+        *NAMES,
         "a",
         "b",
         "c",

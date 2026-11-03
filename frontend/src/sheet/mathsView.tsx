@@ -3,6 +3,8 @@
 import { decimal, decimalsOf, GAP } from "../decimal";
 import { asFormula } from "../formula";
 import { FormulaCell, FormulaText } from "./formulaView";
+import { HtmlInk, SvgInk, usePlaces } from "./places";
+import { gridTint } from "../places";
 import { KARO, PT } from "../height";
 import { useLetters } from "./context";
 import { type Calc, type Side, SIGNS, type Grid, type MathsBlock, type Exercise } from "./maths";
@@ -27,6 +29,7 @@ export const side = (s: Side) => (s.op ? `${decimal(s.a as number, 0)} ${SIGNS[s
 // type a whole square too high, on the screen and in every PDF (issue #446).
 export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean; dx: number; sign: boolean }) {
   const S = 10;
+  const tint = gridTint(grid.cells.map(([x, y, ch, kind]) => ({ x, y, ch, kind })), usePlaces());
   const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * S);
   // The task's own grid is narrower than the paper: it moves right, so its ones stand in the paper's last column.
   // A rule from the sign column stays there, so the rule under the sum spans the whole paper, and so does the sign
@@ -43,12 +46,14 @@ export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; co
         // Kind 3 is a place letter: it prints on the pupil's sheet, smaller, and in grey.
         if (!solved && kind && kind !== 3) return null;
         const formula = asFormula(ch);
-        const em = (kind === 2 ? 0.45 : kind === 3 ? (ch.length > 1 ? 0.42 : 0.55) : 0.75) * S;
+        const head = kind === 3;
+        const em = (kind === 2 ? 0.45 : head ? (ch.length > 1 ? 0.42 : 0.55) : 0.75) * S;
+        const hit = !head && ch.length === 1 ? tint.get(`${x},${y}`) : undefined;
         return formula ? (
           <FormulaCell key={i} source={formula} x={at(x) * S} y={y * S} side={S} em={em} />
         ) : (
-          <text key={i} className={kind === 3 ? "head" : kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill={kind === 3 ? "#555" : "currentColor"}>
-            {ch}
+          <text key={i} className={head ? "head" : kind ? "answer" : ""} data-place={hit?.place} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill={head ? "#555" : "currentColor"} style={hit ? { fill: hit.color } : undefined}>
+            {!head && ch.length > 1 ? <SvgInk text={ch} /> : ch}
           </text>
         );
       })}
@@ -116,7 +121,7 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
       {"sign" in e ? (
         // The ring is empty for the pupil to write the sign in; the answer key writes it there.
         <span>
-          {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
+          <HtmlInk text={side(e.left)} /> <i className="ring">{solved && e.sign}</i> <HtmlInk text={side(e.right)} />
         </span>
       ) : e.grid ? (
         // A division keeps its head on the left, as written.

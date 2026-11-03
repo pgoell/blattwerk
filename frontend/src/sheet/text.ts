@@ -129,7 +129,7 @@ export type TextProps = {
   tracking?: number;
   /** Vertical place of the text in its box: "top", "middle" or "bottom". Absent means top. */
   valign?: Valign;
-  /** Outline of the box the text sits in: "rect", "rounded", "circle", "triangle", "star" or "bubble". Absent means rect. */
+  /** Outline of the box: "rect", "rounded", "circle", "triangle", "star", "bubble", "diamond" (Raute), "polygon" (Vieleck), "thought" (Gedankenwolke), "pie" (Bruchkreis), "bars" (Bruchrechteck), "arc" (Bogen), "bow" (a curved arrow), "line", "arrow" or "double". Absent means rect. */
   kind?: Kind;
   /** Colour inside the box as a hex colour. "none" or absent means no fill. */
   fill?: string;
@@ -179,6 +179,35 @@ export type TextProps = {
   trace?: boolean | "outline" | "dotted";
   /** How the grey of a trace text fades: "row" fades each row from left to right, "rows" fades the rows step by step down the block. Absent means no fade. Needs `trace`. */
   fade?: Fade;
+  /** How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.
+   * @minimum 5
+   * @maximum 15
+   */
+  corners?: number;
+  /** How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.
+   * @minimum 3
+   * @maximum 35
+   */
+  spikes?: number;
+  /** How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.
+   * @minimum -1
+   * @maximum 1
+   */
+  bulge?: number;
+  /** How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.
+   * @minimum 2
+   * @maximum 50
+   */
+  parts?: number;
+  /** How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.
+   * @minimum 0
+   * @maximum 50
+   */
+  filled?: number;
+  /** True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark. */
+  hub?: boolean;
+  /** "square" draws the shape in the centred square of its box (Quadratisch). "round" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box. */
+  form?: "square" | "round";
 };
 export type TextBlock = Box & {
   type: "text";
@@ -191,7 +220,7 @@ export type TextBlock = Box & {
 export type ShapeBlock = Box & { type: "shape";
   /** The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too. */
   props: Partial<TextProps> & {
-  /** What to draw: a frame ("rect", "rounded", "circle", "triangle", "star", "bubble") or a line ("line", a plain line, "arrow", a line with a head at its end, "double", a line with a head at each end). */
+  /** What to draw. The same outlines as a text box, including "arc" (Bogen) and "bow" (a curved arrow). "line" is a plain line, "arrow" a line with a head at its end, "double" a line with a head at each end. */
   kind: Kind;
   /** Colour inside the shape as a hex colour. "none" means no fill. */
   fill: string;
@@ -212,6 +241,17 @@ export type ShapeBlock = Box & { type: "shape";
   mm?: boolean;
   /** Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. */
   label?: "show" | "key";
+  /** Muster inside the shape: "stripes" bands, "dots" spots, "checks" a chequer, "waves" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead. */
+  motif?: "stripes" | "dots" | "checks" | "waves";
+  /** Size of one repeat of a Muster, in mm. Absent means 5.
+   * @minimum 2
+   * @maximum 20
+   */
+  scale?: number;
+  /** True draws a Muster in black. Absent means the Muster takes the colour in `fill`. */
+  mono?: boolean;
+  /** Lineatur that fills the shape: "mm" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), "k5" Karo 5 mm, "k7" Karo 7 mm, "k10" Karo 10 mm. Absent means none. */
+  paper?: "mm" | "k5" | "k7" | "k10";
 } };
 // A sheet may come from anywhere: 1 to 4 columns, and anything else is 1.
 export const listColsOf = (p: { listCols?: unknown }) => (typeof p.listCols === "number" && Number.isInteger(p.listCols) && p.listCols >= 1 && p.listCols <= 4 ? p.listCols : 1);

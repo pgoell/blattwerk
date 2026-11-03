@@ -2,6 +2,7 @@
 
 import { sane as saneWall, made as walled, layout as wallLayout, at } from "../../zahlenmauer";
 import { useLetters, LetterBox } from "../context";
+import { SvgInk } from "../places";
 import type { ZahlenmauerBlock } from "../tasks";
 
 // A Zahlenmauer: its walls in columns, row by row, in its own units. A stone is twice as wide as high, and a row
@@ -29,7 +30,7 @@ export function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: num
                 <rect x={x} y={y} width={2 * S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
                 {shows && (
                   <text x={x + S} y={y + S / 2} fontSize={0.6 * S} textAnchor="middle" dominantBaseline="central"
-                    fill={w.given[s] ? "#222" : "#c0392b"} className={w.given[s] ? "given" : "answer"}>{w.numbers[s]}</text>
+                    fill={w.given[s] ? "#222" : "#c0392b"} className={w.given[s] ? "given" : "answer"}><SvgInk text={w.numbers[s]} /></text>
                 )}
               </g>
             );

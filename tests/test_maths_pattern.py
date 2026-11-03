@@ -60,10 +60,10 @@ def test_x7_plus_x5_carries_when_uebertrag_is_required():
 
 
 def test_x0_plus_x_with_uebertrag_names_the_limit():
-    """`X0 + X` never carries: the ones are 0 plus a single digit. Mit leaves no task."""
+    """`X0 + X` never crosses a ten: the ones are 0 plus a digit. Mit names Zehnerübergang and the first pattern."""
     out = generate(block(pa="X0", pb="X", carry="required", count=5))
     assert out["exercises"] == []
-    assert out["loosen"] == ["carry", "pa", "pb"]
+    assert out["loosen"] == ["zehner", "pa"]
 
 
 def test_xx_plus_xx_is_100():

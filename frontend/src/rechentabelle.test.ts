@@ -182,6 +182,7 @@ describe("the Rechentabellen of a block", () => {
     for (const op of ["+", "-"] as const)
       for (const max of [10, 20, 100, 1000])
         for (const carry of carriesFor(max)) {
+          if (max === 10 && op === "+" && carry[0] === "required") continue;
           const colHi = op === "+" ? max - 1 : Math.floor(max / 2);
           const rowHi = op === "+" ? max - 1 : max;
           const fitsSome = range(rowHi).some((i) =>
@@ -210,6 +211,8 @@ describe("the Rechentabellen of a block", () => {
           const carry = (
             max >= 1000 ? [k0, k1] : [k0, "either"]
           ) as RechentabelleProps["carry"];
+          // Plus bis 10 cannot cross a ten: the digits would sum past 10.
+          if (max === 10 && op === "+" && k0 === "required") return true;
           const m = made(P({ seed, op, max, carry, count: 2, rows, cols }));
           for (const t of m.tables)
             t.rows.forEach((r) =>
@@ -227,7 +230,8 @@ describe("the Rechentabellen of a block", () => {
   it("every panel setting, rows and cols 2, 6 and 10, seed 1: every cell keeps the carry rule", () => {
     for (const op of ["+", "-"] as const)
       for (const max of [10, 20, 100, 1000])
-        for (const carry of carriesFor(max))
+        for (const carry of carriesFor(max)) {
+          if (max === 10 && op === "+" && carry[0] === "required") continue;
           for (const rows of [2, 6, 10])
             for (const cols of [2, 6, 10]) {
               const m = made(
@@ -243,6 +247,7 @@ describe("the Rechentabellen of a block", () => {
                   ),
                 );
             }
+        }
   });
 
   it("seed 999987 bis 1000 Minus with a required Hunderterübergang carries into the Hunderter in every cell (#962)", () => {
@@ -268,14 +273,19 @@ describe("the Rechentabellen of a block", () => {
       );
   });
 
-  it("carryList matches maths.py on hand cases", () => {
+  it("carryList is the place rule, and a carry does not run on (#838)", () => {
     expect(carryList("+", 47, 38)).toEqual([1, 0]);
     expect(carryList("-", 52, 27)).toEqual([1, 0]);
     expect(carryList("-", 305, 127)).toEqual([1, 1, 0]);
     expect(carryList("+", 5, 4)).toEqual([0]);
+    expect(carryList("+", 7, 3)).toEqual([0]);
+    expect(carryList("+", 17, 23)).toEqual([0, 0]);
+    expect(carryList("+", 395, 7)).toEqual([1, 0, 0]);
+    expect(carryList("-", 10, 4)).toEqual([1, 0]);
+    expect(carryList("-", 100, 1)).toEqual([1, 0, 0]);
   });
 
-  it("Ohne at the top place rules out the places above: no 20 + 80 = 100 bis 100, no 100 + 900 = 1000 bis 1000 (review of #930)", () => {
+  it("Ohne at the top place rules out that place and the places above it (review of #930)", () => {
     for (const [max, carry] of [
       [100, ["none", "either"]],
       [1000, ["either", "none"]],

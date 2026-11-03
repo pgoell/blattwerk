@@ -51,7 +51,8 @@ DESKTOP = {
         ".stage": [236, 44, 900, 956],
         ".panel": [1136, 44, 264, 956],
         ".sheet": [268, 76, 821, 1161.1],
-        ".dock": [281, 938, 810, 46],
+        # One button wider than before #835: "Weitere Formen" sits at the end of the one row.
+        ".dock": [264, 938, 844, 46],
     },
 }
 PHONE = {

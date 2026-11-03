@@ -2,6 +2,9 @@
 import { post, signed } from "../../api";
 import type { Exercise, Limits, Made, MathsProps, Range } from "../../sheet";
 
+type CarryRule = "none" | "required" | "either";
+type Carry = [CarryRule, CarryRule, CarryRule];
+
 export const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
 export const PLACES = ["E", "Z", "H", "T", "ZT", "HT", "M"];
@@ -15,7 +18,43 @@ export const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 export const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 export const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
 export const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
-export const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", pa: "Muster der 1. Zahl", pb: "Muster der 2. Zahl", pr: "Muster des Ergebnisses", nil: "Die Null darf vorkommen", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien", zero: "Aufgaben mit 0", one: "Aufgaben mit 1 beim Malnehmen und Teilen", distinct: "keine gleichen Zahlen", small: "Kleines Einmaleins" };
+export const LOOSEN: Record<string, string> = { carry: "Übertrag", zehner: "Zehnerübergang", hunderter: "Hunderterübergang", tausender: "Tausenderübergang", einer: "Einerübergang", zehntel: "Zehntelübergang", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", pa: "Muster der 1. Zahl", pb: "Muster der 2. Zahl", pr: "Muster des Ergebnisses", nil: "Die Null darf vorkommen", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien", zero: "Aufgaben mit 0", one: "Aufgaben mit 1 beim Malnehmen und Teilen", distinct: "keine gleichen Zahlen", small: "Kleines Einmaleins" };
+const CARRY_LABEL = ["Zehnerübergang", "Hunderterübergang", "Tausenderübergang"];
+const CARRY_BELOW = ["Einerübergang", "Zehntelübergang"];
+// How many place rules the Zahlenraum reaches, from the smallest, once the places after the comma are counted in.
+export const carryCount = (max: number, decimals: number): number => {
+  const scaled = max * 10 ** decimals;
+  let n = 0;
+  let bound = 10;
+  while (n < 3 && scaled > bound) {
+    n += 1;
+    bound *= 10;
+  }
+  return n;
+};
+// The heading of stored place `index` (0 the smallest) at this many places after the comma.
+export const carryLabel = (index: number, decimals: number): string => {
+  const place = index - decimals;
+  return place >= 0 ? CARRY_LABEL[place] : CARRY_BELOW[-place - 1];
+};
+const isRule = (x: unknown): x is CarryRule => x === "none" || x === "required" || x === "either";
+// An older single switch, or a stored list, as the three place rules.
+export const asCarry = (c: Limits["carry"] | undefined): Carry => {
+  if (c === "none") return ["none", "none", "none"];
+  if (c === "required") return ["required", "either", "either"];
+  if (c === "either" || c == null) return ["either", "either", "either"];
+  if (Array.isArray(c) && c.length === 3 && c.every(isRule)) return [c[0], c[1], c[2]];
+  return ["either", "either", "either"];
+};
+// Keep each rule on its displayed place when the places after the comma change.
+export const shiftCarry = (carry: Carry, from: number, to: number): Carry => {
+  const next: Carry = ["either", "either", "either"];
+  for (let i = 0; i < 3; i++) {
+    const j = i - from + to;
+    if (j >= 0 && j < 3) next[j] = carry[i];
+  }
+  return next;
+};
 export const GAPS = ["a", "b", "c", "result"] as const;
 export const FAMILIES = [["none", "Keine"], ["swap", "Tauschaufgaben"], ["reverse", "Umkehraufgaben"], ["neighbour", "Nachbaraufgaben"]] as const;
 export const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;

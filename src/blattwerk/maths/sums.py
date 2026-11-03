@@ -2,15 +2,17 @@
 
 import random
 
+from blattwerk.maths.carry import NAMES, all_none, coerce_carry, offered
 from blattwerk.maths.model import Settings, fits, loosened, pick
 from blattwerk.maths.pattern import allow, for_op, matches
-from blattwerk.maths.written import sum_carries, written
+from blattwerk.maths.written import written
 
 
 def one_sum(s: Settings, shaped: Settings, rng: random.Random, top: int) -> list[int] | None:
     """One column of `numbers` that keeps the limits, or None when this try misses."""
     n, low = s.numbers, 1
-    nums = quiet(shaped, rng, n, low, top) if s.carry == "none" else loud(shaped, rng, n, low, top)
+    calm = all_none(s.carry, s.max)
+    nums = quiet(shaped, rng, n, low, top) if calm else loud(shaped, rng, n, low, top)
     if nums is None or not accept(s, nums, top):
         return None
     return nums
@@ -79,12 +81,29 @@ def accept(s: Settings, nums: list[int], top: int) -> bool:
         return False
     if not matches(s.pr, sum(nums), zero_ok):
         return False
-    carried = sum_carries(nums)
-    if s.carry == "none" and any(carried):
-        return False
-    if s.carry == "required" and not any(carried):
+    if not keeps_sum(s, nums):
         return False
     return all(fits(s.a if i == 0 else s.b, n) for i, n in enumerate(nums))
+
+
+def crosses(nums: list[int], place: int) -> bool:
+    """Whether the digits at `place` sum to more than 10. A sum of 10 does not cross."""
+    return sum(n // 10**place % 10 for n in nums) > 10
+
+
+def keeps_sum(s: Settings, nums: list[int]) -> bool:
+    """Whether a column sum keeps the same place rules as a plus of two numbers."""
+    rules = coerce_carry(s.carry)
+    n = offered(s.max)
+    for i in range(n):
+        if rules[i] != "either" and crosses(nums, i) != (rules[i] == "required"):
+            return False
+    if n and rules[n - 1] == "none":
+        width = max(len(str(abs(x))) for x in nums)
+        for i in range(n, width):
+            if crosses(nums, i):
+                return False
+    return True
 
 
 def draw(s: Settings, top: int) -> list[list[int]]:
@@ -130,6 +149,6 @@ def summed(s: Settings, decimals: int) -> dict:
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = ("carry", "a", "b", "pa", "pb", "pr", "nil", "max", "zero", "distinct")
+    names = (*NAMES, "a", "b", "pa", "pb", "pr", "nil", "max", "zero", "distinct")
     loosen = [name for name in names if len(draw(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}

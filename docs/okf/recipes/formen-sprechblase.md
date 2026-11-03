@@ -4,7 +4,7 @@ title: "Sprechblase und Rahmen"
 description: A heading, a name line, a speech bubble with a question inside, and a frame to write the answer in.
 tags: [form, sprechblase, rahmen, klasse-1]
 covers: [text, name, shape]
-generated: { by: "human:pgoell", at: 2026-11-02T21:40:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T01:34:33Z }
 ---
 
 # Sprechblase und Rahmen
@@ -13,8 +13,9 @@ When a teacher asks for: "Ein Blatt mit einer Sprechblase als Frage und einem Ra
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * In the editor these are the buttons "Sprechblase" and "Rechteck" in the insert bar, group "Formen". The bubble holds the question in its `text` prop, the frame holds the pupil's answer.
-* The bubble's tail points to the lower left. To point it at a picture or a person elsewhere, set `tail`: where its tip ends, as shares of the box, `[across, down]`, such as `[0.8, 1]` for the lower right. In the editor the teacher drags the yellow handle on the tail. A star's `inner` sets how deep its points cut in, a triangle's `tip` where its tip stands across the top.
-* See [shape](../blocks/shape.md) for the other props.
+* The bubble's tail points to the lower left. To point it at a picture or a person elsewhere, set `tail`: where its tip ends, as shares of the box, `[across, down]`, such as `[0.8, 1]` for the lower right. In the editor the teacher drags the yellow handle on the tail. A star's `inner` sets how deep its points cut in, and `spikes` how many points it has (3 to 35; absent keeps the five-point star). A triangle's `tip` sets where its tip stands across the top.
+* Raute, Vieleck (`corners`, 5 to 15), Bogen and gebogener Pfeil (`bulge`), Gedankenwolke (small bubbles for a tail, text inside like the Sprechblase), Bruchkreis and Bruchrechteck (`parts` and `filled`) are in the menu "Weitere Formen" beside those buttons. A circle's `hub` marks its centre. `form` `"square"` draws Quadratisch and `"round"` draws Kreisförmig.
+* See [shape](../blocks/shape.md) for the other props. A fill can be a Muster (`motif`, with `scale` in mm and `mono` for black) or a Lineatur (`paper`: Millimeterpapier or Karo). The example leaves both off.
 
 # Doc
 

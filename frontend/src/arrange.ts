@@ -179,6 +179,8 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
       });
 
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
-export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
-// Whether a block has an adjust handle: a drawn outline, or a rounded box, whose handle sets its corner.
-export const adjustable = (b: Block) => drawn(b) || ((b.type === "shape" || b.type === "text") && b.props.kind === "rounded");
+const OUTLINES = ["triangle", "star", "bubble", "diamond", "polygon", "thought", "pie", "bars", "arc", "bow"];
+export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && OUTLINES.includes(b.props.kind ?? "");
+// Whether a block has an adjust handle. A polygon's corners and a fraction's parts are numbers, not a handle.
+const HANDLES = ["triangle", "star", "bubble", "rounded", "arc", "bow", "thought"];
+export const adjustable = (b: Block) => (b.type === "shape" || b.type === "text") && HANDLES.includes(b.props.kind ?? "");

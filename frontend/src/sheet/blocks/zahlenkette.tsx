@@ -2,6 +2,7 @@
 
 import { numberSize } from "../../zahlenhaus";
 import { sane as saneChain, made as chained, layout as chainLayout, stepLabel } from "../../zahlenkette";
+import { SvgInk } from "../places";
 import type { ZahlenketteBlock } from "../tasks";
 
 // A Zahlenkette: its chains in columns, in its own units. A ring is a circle, and the arc from one ring to the next
@@ -26,7 +27,7 @@ export function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: num
                     <circle cx={top(j)} cy={y + A + D / 2} r={D / 2} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={top(j)} y={y + A + D / 2} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"
-                        fill={c.given[j] ? "#222" : "#c0392b"} className={c.given[j] ? "given" : "answer"}>{n}</text>
+                        fill={c.given[j] ? "#222" : "#c0392b"} className={c.given[j] ? "given" : "answer"}><SvgInk text={n} /></text>
                     )}
                   </g>
                 );
@@ -41,7 +42,7 @@ export function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: num
                     <path d={`M${x1} ${ya} Q${xm} ${ya - 5} ${x2} ${ya}`} fill="none" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={xm} y={ya - 4.2} fontSize={3.2} textAnchor="middle" dominantBaseline="central"
-                        fill={p.showStep ? "#222" : "#c0392b"} className={p.showStep ? "step" : "answer"}>{stepLabel(p.op, c.step)}</text>
+                        fill={p.showStep ? "#222" : "#c0392b"} className={p.showStep ? "step" : "answer"}><SvgInk text={stepLabel(p.op, c.step)} /></text>
                     )}
                   </g>
                 );
