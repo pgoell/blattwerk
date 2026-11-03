@@ -17,7 +17,7 @@ type Base = { version: number; doc: any };
 const MATHS_KEYS = [
   "ops", "max", "count", "seed", "a", "b", "c", "carry", "rest", "format", "sides", "close", "equal",
   "numbers", "pvs", "brackets", "decimals", "money", "af", "bf", "cf", "family", "moves", "gaps", "zero",
-  "one", "distinct", "small", "reihen", "avoid0",
+  "one", "distinct", "small", "reihen", "avoid0", "pa", "pb", "pr", "nil",
 ];
 // The types a Block's `props` may take, each with the seed it is drawn with when added.
 const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "karofeld", "diagramm"] as const;

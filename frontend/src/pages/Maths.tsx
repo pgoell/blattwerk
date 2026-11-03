@@ -5,6 +5,7 @@ import { SIGNS, type Limits, type MathsBlock, type MathsProps, type Op } from ".
 import { AFTER, anyDigits, CARRIES, DIGITS, FAMILIES, FORMATS, FRACTIONS, GAP_LABEL, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
 import { Reihen } from "./Reihen";
 import { useFlight } from "./maths/flight";
+import Muster from "./maths/muster";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
@@ -113,6 +114,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           </div>
         );
       })}
+      <Muster p={p} limit={limit} plus={plus} times={times} decimals={open && (money || dec > 0)} />
       {plus && (
         <>
           <h2>Übertrag</h2>

@@ -42,6 +42,9 @@ def generate(s: Settings) -> dict:
     # With three numbers the switch and the rows count for nothing.
     if three(s):
         s = s.model_copy(update={"small": False, "reihen": []})
+    # A pattern counts the digits the pupil sees. Places after the comma are not part of it.
+    if places(s):
+        s = s.model_copy(update={"pa": "", "pb": "", "pr": "", "nil": {}})
     d = places(s)
     s = scaled(s)
     if s.format == "compare":
@@ -65,6 +68,10 @@ def generate(s: Settings) -> dict:
         "rest",
         "a",
         "b",
+        "pa",
+        "pb",
+        "pr",
+        "nil",
         "max",
         "family",
         "zero",

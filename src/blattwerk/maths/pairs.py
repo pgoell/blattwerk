@@ -16,6 +16,7 @@ from blattwerk.maths.model import (
     pick,
     three,
 )
+from blattwerk.maths.pattern import for_op, operands, result_ok
 
 
 def carries(op: str, a: int, b: int) -> list[int]:
@@ -53,6 +54,8 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     """Whether an exercise keeps every limit. `top` is the highest result."""
     if not (fits(s.a, a) and fits(s.b, b) and a <= s.max and b <= s.max):
         return False
+    if not operands(s, op, a, b):
+        return False
     if op == "/" and b == 0:
         return False
     # The kleine Einmaleins has no 0 in it, so the switch keeps 0 out of these tasks. Without the
@@ -76,18 +79,24 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     if op in "+-":
         if s.carry != "either" and (s.carry == "required") != any(carries(op, a, b)):
             return False
-        return a + b <= top if op == "+" else b <= a
+        if not (a + b <= top if op == "+" else b <= a):
+            return False
+        return result_ok(s, op, a + b if op == "+" else a - b)
     if op == "*":
-        return a * b <= top
+        if a * b > top:
+            return False
+        return result_ok(s, op, a * b)
     if b <= 0:
         return False
     # Ohne Rest stays even. Mit Rest leaves a remainder, and Rest 0 vermeiden keeps 0 out of it.
     has = a % b > 0
     if s.rest is False:
-        return not has
-    if s.rest and s.avoid0:
-        return has
-    return True
+        ok = not has
+    elif s.rest and s.avoid0:
+        ok = has
+    else:
+        ok = True
+    return ok and result_ok(s, op, a // b)
 
 
 def school(op: str, a: int, b: int) -> bool:
@@ -145,6 +154,7 @@ def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, in
     if s.reihen and op in "*/":
         every = row_pairs(s, op, top)
         return rng.choice(every) if every else None
+    s = for_op(s, op)
     if op in "*/" and rng.random() < s.lean:
         pair = school_pair(s, op, top, rng)
         if pair is not None:
@@ -184,7 +194,9 @@ def bound(s: Settings) -> list[str]:
 
 def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
     """Every pair of numbers that keeps the limits for one operation."""
+    s = for_op(s, op)
     # Only these limits tell whether a pair is valid; a row and a gap take the same pairs.
+    # The patterns ride along: the remembered pairs are checked against them.
     limits = s.model_dump_json(
         include={
             "max",
@@ -198,6 +210,11 @@ def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
             "small",
             "reihen",
             "avoid0",
+            "pa",
+            "pb",
+            "pr",
+            "nil",
+            "numbers",
         }
     )
     only = tuple([] if three(s) else bound(s))
@@ -276,6 +293,7 @@ def chosen(op: str, every: list[tuple[int, int]], count: int, rng: random.Random
 
 def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list[tuple[int, int]]:
     """Up to `count` different exercises of one operation."""
+    s = for_op(s, op)
     sizes = below(s.a, s.max), below(s.b, s.max)
     if not all(sizes):
         return []
@@ -436,13 +454,14 @@ def families(s: Settings, top: int) -> list[list[tuple[str, int, int]]]:
         ops = [op for op in ops if op in "+*"]
     found: dict[frozenset, list] = {}
     tasks: set[tuple[str, int, int]] = set()
-    sizes = below(s.a, s.max), below(s.b, s.max)
-    if not all(sizes):
-        return []
     for i, op in enumerate(ops):
+        shaped = for_op(s, op)
+        sizes = below(shaped.a, shaped.max), below(shaped.b, shaped.max)
+        if not all(sizes):
+            continue
         want = s.count // len(ops) + (i < s.count % len(ops))
         fill = fill_small if sizes[0] * sizes[1] <= SMALL else fill_big
-        fill(s, op, top, want, found, tasks, rng)
+        fill(shaped, op, top, want, found, tasks, rng)
     out = list(found.values())
     if len(ops) > 1:
         rng.shuffle(out)

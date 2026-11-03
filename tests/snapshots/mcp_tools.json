@@ -2622,6 +2622,20 @@
               ],
               "type": "string"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
               "type": "string"
@@ -2644,6 +2658,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -6772,12 +6798,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
@@ -10424,6 +10462,20 @@
               ],
               "type": "string"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
               "type": "string"
@@ -10446,6 +10498,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -14754,12 +14818,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
@@ -17559,6 +17635,20 @@
               ],
               "type": "string"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
               "type": "string"
@@ -17581,6 +17671,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -21709,12 +21811,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
