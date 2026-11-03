@@ -4,7 +4,7 @@ title: "Block: halbschriftlich"
 description: "The Halbschriftlich tasks (semi-written addition and subtraction): each task a + b = r and its steps place by place, the highest place first; Karo or plain, place letters, tint, signs of the steps for the pupils."
 tags: [block, halbschriftlich]
 covers: [halbschriftlich]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:26:52Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:37:58Z }
 ---
 
 # halbschriftlich
@@ -42,8 +42,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | op | string | `+`, `-` | yes | The Rechenart: "+" (Plus: 345 + 123 = 345 + 100 + 20 + 3) or "-" (Minus: 468 − 123 = 468 − 100 − 20 − 3). Default "+". |
 | max | number |  | yes | The Zahlenraum of the first number and the result, 100 or 1000: the first number, and the result of a Plus task, are at most max. Default 1000. |
 | digits | number |  | yes | The places of the second number: 1, 2 or 3 digits (3 only with max 1000, else it acts as 2). One step per digit that is not 0. Default 3. |
-| einer | string | `any`, `yes`, `no` | yes | The Übergang at the Einer, crossing a ten: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, so 7 + 3 does; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), "no" none does, "any" either. Default "any". |
-| zehner | string | `any`, `yes`, `no` | yes | The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to 10 or more, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): "yes", "no" or "any". Counts only with max 1000. Default "any". |
+| einer | string | `any`, `yes`, `no` | yes | The Übergang at the Einer, crossing a ten: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), "no" none does, "any" either. Default "any". |
+| zehner | string | `any`, `yes`, `no` | yes | The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): "yes", "no" or "any". Counts only with max 1000. Default "any". |
 | grid | boolean |  | yes | Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true. |
 | head | boolean |  | yes | Stellenwerte: true draws the place letters T H Z E above each task's numbers. Default false. |
 | tint | boolean |  | yes | true tints the second number and its parts in the steps. Default false. |
