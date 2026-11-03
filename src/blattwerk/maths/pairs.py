@@ -39,6 +39,19 @@ def kleine(op: str, a: int, b: int, low: int = 1) -> bool:
     return low <= b <= 10 and low <= a // b <= 10
 
 
+def in_rows(s: Settings, op: str, a: int, b: int) -> bool:
+    """Whether a times or divide task is of a chosen Einmaleins-Reihe.
+
+    Times: one factor is a chosen row and the other lies from 1 to 10. Divide: the divisor is a
+    chosen row and the quotient lies from 1 to 10. With no rows chosen, every task is.
+    """
+    if not s.reihen:
+        return True
+    if op == "*":
+        return (a in s.reihen and 1 <= b <= 10) or (b in s.reihen and 1 <= a <= 10)
+    return op == "/" and b in s.reihen and 1 <= a // b <= 10
+
+
 def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     """Whether an exercise keeps every limit. `top` is the highest result."""
     if not (fits(s.a, a) and fits(s.b, b) and a <= s.max and b <= s.max):
@@ -50,6 +63,8 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     # The kleine Einmaleins has no 0 in it, so the switch keeps 0 out of these tasks. Without the
     # tasks with 1 its rows start at 2, so a quotient of 1 is out as well.
     if s.small and op in "*/" and not kleine(op, a, b, 1 if s.one else 2):
+        return False
+    if s.reihen and op in "*/" and not in_rows(s, op, a, b):
         return False
     # A written task with a 0 as a number teaches nothing, whatever the operation.
     if s.format == "written" and 0 in (a, b):
@@ -73,9 +88,17 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
         if a * b > top:
             return False
         return result_ok(s, op, a * b)
-    if not (b > 0 and (s.rest is None or s.rest == (a % b > 0))):
+    if b <= 0:
         return False
-    return result_ok(s, op, a // b)
+    # Ohne Rest stays even. Mit Rest leaves a remainder, and Rest 0 vermeiden keeps 0 out of it.
+    has = a % b > 0
+    if s.rest is False:
+        ok = not has
+    elif s.rest and s.avoid0:
+        ok = has
+    else:
+        ok = True
+    return ok and result_ok(s, op, a // b)
 
 
 def school(op: str, a: int, b: int) -> bool:
@@ -129,6 +152,10 @@ def school_pair(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int
 
 def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """Two numbers likely to make an exercise: the second is drawn from what the first leaves."""
+    # Chosen rows are few: draw one of them, or a large Zahlenraum never finds them.
+    if s.reihen and op in "*/":
+        every = row_pairs(s, op, top)
+        return rng.choice(every) if every else None
     s = for_op(s, op)
     if op in "*/" and rng.random() < s.lean:
         pair = school_pair(s, op, top, rng)
@@ -183,6 +210,8 @@ def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
             "one",
             "distinct",
             "small",
+            "reihen",
+            "avoid0",
             "pa",
             "pb",
             "pr",
@@ -220,6 +249,15 @@ def kept(
     )
 
 
+def remainders(s: Settings, b: int) -> list[int] | range:
+    """The remainders a division by `b` may leave."""
+    if s.rest is False:
+        return [0]
+    if s.rest and s.avoid0:
+        return range(1, b)
+    return range(b)
+
+
 def small_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
     """Every kleine Einmaleins pair that keeps the limits. A big Zahlenraum draws too rarely
     from its own pairs to find these, so they are tried one by one."""
@@ -227,11 +265,18 @@ def small_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
         cands = [(a, b) for a in range(1, 11) for b in range(1, 11)]
     else:
         cands = [
-            (q * b + r, b)
-            for q in range(1, 11)
-            for b in range(1, 11)
-            for r in ([0] if s.rest is False else (range(1, b) if s.rest else range(b)))
+            (q * b + r, b) for q in range(1, 11) for b in range(1, 11) for r in remainders(s, b)
         ]
+    return [p for p in cands if valid(s, op, *p, top)]
+
+
+def row_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
+    """Every pair of the chosen Einmaleins-Reihen that keeps the limits."""
+    rows = s.reihen
+    if op == "*":
+        cands = [(a, b) for a in range(1, 11) for b in range(1, 11) if a in rows or b in rows]
+    else:
+        cands = [(q * b + r, b) for b in rows for q in range(1, 11) for r in remainders(s, b)]
     return [p for p in cands if valid(s, op, *p, top)]
 
 
@@ -254,6 +299,8 @@ def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list
     sizes = below(s.a, s.max), below(s.b, s.max)
     if not all(sizes):
         return []
+    if s.reihen and op in "*/":
+        return chosen(op, row_pairs(s, op, top), count, rng)
     if sizes[0] * sizes[1] <= SMALL:
         every = valid_pairs(s, op, top)
         if op in "+-":

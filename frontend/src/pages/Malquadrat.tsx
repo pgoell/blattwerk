@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { MalquadratBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, type MalquadratProps, type MalquadratTyped } from "../malquadrat";
+import { Reihen } from "./Reihen";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -143,23 +144,7 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
         </select>
       </label>
       {p.op === "*" ? (
-        <div className="reihen">
-          {Array.from({ length: 10 }, (_, k) => k + 1).map((r) => {
-            const on = p.reihen.includes(r);
-            return (
-              <label key={r}>
-                <input
-                  type="checkbox"
-                  aria-label={`${r}er-Reihe`}
-                  checked={on}
-                  disabled={on && p.reihen.length === 1}
-                  onChange={() => apply({ reihen: on ? p.reihen.filter((x) => x !== r) : [...p.reihen, r].sort((a, b) => a - b) }, "reihen")}
-                />
-                {r}
-              </label>
-            );
-          })}
-        </div>
+        <Reihen reihen={p.reihen} lockLast onChange={(reihen) => apply({ reihen }, "reihen")} />
       ) : (
         <label>
           Zahlenraum

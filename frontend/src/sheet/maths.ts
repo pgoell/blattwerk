@@ -32,8 +32,8 @@ export type Calc = {
   result: number;
   /** What a division leaves over, 0 when it divides evenly. */
   rest: number;
-  /** The number a gap stands for: "a", "b" or "c". Left out, the gap hides the result. */
-  hide?: "a" | "b" | "c";
+  /** The number a gap stands for: "a", "b", "c" or "rest". "rest" hides the remainder of a division and no other number. Left out, the gap hides the result. */
+  hide?: "a" | "b" | "c" | "rest";
   /** A second gap, besides hide: "a" or "b". Set on the last task of a family that is not shown complete. Left out, the task has one gap. */
   also?: "a" | "b";
   /** The working on squared paper for this task. Left out, the task has none. */
@@ -75,11 +75,12 @@ export type Exercise = Calc | Compare;
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
 // (none by default). `moves` says which number of a Nachbaraufgabe moves, or an Analogieaufgabe grows, "a" by default.
-// `full` is Vollständig anzeigen, on by default. `gaps` says what a
-// gap may hide: the numbers "a", "b" and "c", or the "result". `zero` lets 0 in as a number and as a result, `one`
-// lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. `pa`, `pb` and `pr` are patterns
-// for the first number, the second and the result. `nil` says whether the digit 0 may occur, per operation family.
-// Blocks saved before have none of these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
+// `full` is Vollständig anzeigen, on by default. `gaps` says what a gap may hide: the numbers "a", "b" and "c",
+// the "result", or the "rest". `zero` lets 0 in as a number and as a result, `one` lets 1 in as a factor and as a
+// divisor, and `distinct` keeps equal numbers out. `reihen` picks the Einmaleins-Reihen, and `avoid0` keeps a
+// remainder of 0 out. `pa`, `pb` and `pr` are patterns for the first number, the second and the result. `nil` says
+// whether the digit 0 may occur, per operation family. Blocks saved before have none of these: the gap hides any
+// number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
   /** The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. */
   ops: Op[];
@@ -139,8 +140,8 @@ export type Limits = {
   moves?: "a" | "b";
   /** Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. */
   full?: boolean;
-  /** What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. */
-  gaps?: ("a" | "b" | "c" | "result")[];
+  /** What a gap may hide: any of the numbers "a", "b" and "c", the "result", or the "rest" of a division. "rest" hides no number. Left out, a gap hides any number and never the result. */
+  gaps?: ("a" | "b" | "c" | "result" | "rest")[];
   /** Whether 0 may be a number and a result. Default true. */
   zero?: boolean;
   /** Whether 1 may be a factor or a divisor in times and divide tasks. Default true. */
@@ -149,6 +150,10 @@ export type Limits = {
   distinct?: boolean;
   /** Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. */
   small?: boolean;
+  /** Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10. */
+  reihen?: number[];
+  /** Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true. */
+  avoid0?: boolean;
   /** Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". */
   pa?: string;
   /** Pattern of the second number, as for the first. Empty means no pattern. */
