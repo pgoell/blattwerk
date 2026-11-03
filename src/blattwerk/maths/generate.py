@@ -8,8 +8,9 @@ from blattwerk.auth import Teacher
 from blattwerk.maths.carry import NAMES
 from blattwerk.maths.chains import chained
 from blattwerk.maths.compare import compared
-from blattwerk.maths.model import Settings, gaps_of, loosened, places, scaled, three
+from blattwerk.maths.model import Settings, gaps_of, loosened, places, scaled, stacked, three
 from blattwerk.maths.pairs import groups, kin, loose
+from blattwerk.maths.sums import summed
 from blattwerk.maths.written import written
 
 router = APIRouter(prefix="/api")
@@ -51,7 +52,9 @@ def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random
         if hide != "result":
             exercise["hide"] = hide
     if s.format == "written":
-        exercise["grid"] = written(op, a, b, d, s.money and d > 0)
+        exercise["grid"] = written(
+            op, a, b, d, s.money and d > 0, minus=s.minus, stellen=s.stellen, signs=s.signs
+        )
     return exercise
 
 
@@ -68,6 +71,8 @@ def generate(s: Settings) -> dict:
     s = scaled(s)
     if s.format == "compare":
         return compared(s)
+    if stacked(s):
+        return summed(s, d)
     if three(s):
         return chained(s)
     rng = random.Random(s.seed)

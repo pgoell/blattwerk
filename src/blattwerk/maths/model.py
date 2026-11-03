@@ -15,8 +15,8 @@ Digit = Annotated[int, Field(ge=0, le=9)]
 Range = tuple[Digit, Digit]
 # The signs as German schools write them, with a true minus sign.
 SIGNS = {"+": "+", "-": "\u2212", "*": "·", "/": ":"}
-# Cells of a written exercise: printed on the sheet, filled in by the answer key, or a small carry.
-GIVEN, ANSWER, CARRY = 0, 1, 2
+# Cells of a written exercise: on the sheet, the answer key, a small carry, or a place letter.
+GIVEN, ANSWER, CARRY, HEADER = 0, 1, 2, 3
 # With no more pairs of numbers than this, every pair is tried, so no exercise is missed.
 SMALL = 20_000
 # Knapp: how far apart the sides of a close comparison lie, in units or in tens.
@@ -52,8 +52,8 @@ class Settings(BaseModel):
     equal: Literal["none", "some"] = "some"
     count: Annotated[int, Field(ge=1, le=100)]
     seed: int
-    # Zahlen pro Aufgabe: two numbers, or three for the row and the gap format.
-    numbers: Literal[2, 3] = 2
+    # Zahlen pro Aufgabe: two, or three for a row or a gap, or up to four for a written plus.
+    numbers: Literal[2, 3, 4] = 2
     # Punkt vor Strich: a * or / task with a + or - task, the * or / worked out first.
     pvs: bool = False
     # Mit Klammern: about half of the tasks with brackets round the Strich part.
@@ -89,6 +89,16 @@ class Settings(BaseModel):
     # Kleines Einmaleins: both factors of a times task, and the divisor and the quotient of a divide
     # task, lie from 1 to 10.
     small: bool = False
+    # Written subtraction. "fill" is Ergänzungsverfahren: the small carry sits in the next
+    # column, between the numbers and the line. "unbundle" is Entbündelungsverfahren: the
+    # changed digits sit above the first number. "extend" is Abziehverfahren mit Erweitern:
+    # a small 1 above the first number's digit and a small 1 on the next digit below.
+    minus: Literal["fill", "unbundle", "extend"] = "fill"
+    # Stellenwerte over a written plus or minus. Default off, so a saved sheet stays as it was.
+    stellen: bool = False
+    # Signs of a written sum of more than two numbers: "all" on every number but the first,
+    # "last" only on the last. Two numbers look the same either way.
+    signs: Literal["all", "last"] = "all"
     # Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10.
     # Empty, the default, leaves the rows free. A times task takes one factor from the rows and
     # the other from 1 to 10. A divide task takes its divisor from the rows and its quotient
@@ -185,6 +195,11 @@ def fits(ranges: list[Range], n: int) -> bool:
 def three(s: Settings) -> bool:
     """Whether the exercises have three numbers. Only the row and the gap format take them."""
     return s.numbers == 3 and s.format in ("row", "gap")
+
+
+def stacked(s: Settings) -> bool:
+    """A written plus of 3 or 4 numbers: one column sum, not a chain of operations."""
+    return s.format == "written" and s.numbers in (3, 4) and s.ops == ["+"]
 
 
 def gaps_of(s: Settings) -> list[str]:

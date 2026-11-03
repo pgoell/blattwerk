@@ -62,7 +62,7 @@ export const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // The limits the server reads from a request, and nothing else.
-export const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, full, gaps, zero, one, distinct, small, reihen, avoid0, pa, pb, pr, nil }: Limits) => ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, full, gaps, zero, one, distinct, small, reihen, avoid0, pa: pa ?? "", pb: pb ?? "", pr: pr ?? "", nil: nil ?? {} });
+export const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, full, gaps, zero, one, distinct, small, minus, stellen, signs, reihen, avoid0, pa, pb, pr, nil }: Limits) => ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, full, gaps, zero, one, distinct, small, minus: minus ?? "fill", stellen: stellen ?? false, signs: signs ?? "all", reihen, avoid0, pa: pa ?? "", pb: pb ?? "", pr: pr ?? "", nil: nil ?? {} });
 // Asked with the session run out, it brings the login.
 export const generate = (l: Limits) => signed(post<Made>("/maths", ask(l)));
 // A smaller count and nothing else changed: the block keeps its own exercises, less the last ones, and the server's word on what is in the way.

@@ -6,20 +6,22 @@ export type Op = keyof typeof SIGNS;
 // The lowest and the highest digit a place may hold.
 export type Range = [number, number];
 // A written exercise on squared paper. A cell is [column, row, character, kind], a line [from column, to column,
-// above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
+// above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's, 2 a small carry of the answer key's
+// and 3 a place letter printed on the sheet.
 export type Grid = {
   /** Width of the squared grid, in squares. */
   cols: number;
   /** Height of the squared grid, in squares. */
   rows: number;
-  /** The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's and 2 a small carry of the answer key's. */
+  /** The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's, 2 a small carry of the answer key's and 3 a place letter that prints on the sheet. */
   cells: [number, number, string, number][];
   /** The lines of the grid, each as [from column, to column, row it lies above, kind], counted from 0; kind as for cells. */
   lines: [number, number, number, number][];
 };
-// `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A task of three
+// `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A chain of three
 // numbers has `op2` and `c`: it reads `a op b op2 c`, with `paren` as the brackets say, "left" for `(a op b) op2 c`
-// and "right" for `a op (b op2 c)`. A task of two has none of these. `family` numbers the family the task belongs to
+// and "right" for `a op (b op2 c)`. A written plus of three or four numbers has `c` and maybe `d`, and no `op2`:
+// the numbers stand in one column. A task of two has none of these. `family` numbers the family the task belongs to
 // (0 for the first), and a task with no family has none: its exercises stand on their own.
 export type Calc = {
   /** The operation between a and b: "+" plus, "-" minus, "*" times or "/" divided by. */
@@ -40,8 +42,10 @@ export type Calc = {
   grid?: Grid;
   /** The second operation of a task of three numbers, between b and c. Left out for a task of two numbers. */
   op2?: Op;
-  /** The third number of a task of three numbers. Left out for a task of two numbers. */
+  /** The third number of a task of three numbers, or of a written sum of three or four. Left out for a task of two numbers. */
   c?: number;
+  /** The fourth number of a written sum of four numbers. Left out for a task of fewer numbers. */
+  d?: number;
   /** The brackets of a task of three numbers: "left" for (a op b) op2 c, "right" for a op (b op2 c). */
   paren?: "left" | "right";
   /** Which family of tasks this task belongs to, counted from 0. Left out, the task stands on its own. */
@@ -70,7 +74,9 @@ export type Compare = {
 export type Exercise = Calc | Compare;
 // The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
 // `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none. `c` holds the
-// digits of the third number, and `numbers` is 2 or 3 numbers in a task (blocks saved before have 2). `pvs` is Punkt
+// digits of the third number, and `numbers` is 2, 3 or 4 (blocks saved before have 2). A written minus
+// uses `minus`, and a written plus or minus uses `stellen` and `signs` (blocks saved before draw
+// Ergänzen, without place letters, and with a sign on every added number). `pvs` is Punkt
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
@@ -118,8 +124,8 @@ export type Limits = {
   close?: boolean;
   /** Whether comparisons have equal sides: "none" never, "some" about one in five. Default "some". Only comparisons use it. */
   equal?: "none" | "some";
-  /** How many numbers a task has: 2 or 3. Default 2. */
-  numbers?: 2 | 3;
+  /** How many numbers a task has: 2 or 3 for a row or a gap, and 2, 3 or 4 for a written plus. Default 2. A written plus of 3 or 4 is one column sum. 4 applies to that plus only. */
+  numbers?: 2 | 3 | 4;
   /** Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false. */
   pvs?: boolean;
   /** Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false. */
@@ -150,13 +156,19 @@ export type Limits = {
   distinct?: boolean;
   /** Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. */
   small?: boolean;
+  /** How a written subtraction is drawn. "fill" is Ergänzungsverfahren: the small carry sits in the next column, between the numbers and the line. "unbundle" is Entbündelungsverfahren: the changed digits sit above the first number. "extend" is Abziehverfahren mit Erweitern: a small 1 above the first number's digit and a small 1 on the next digit of the second number. Default "fill". */
+  minus?: "fill" | "unbundle" | "extend";
+  /** Stellenwerte: true draws the place letters over a written plus or minus, E Z H T from the right, and ZT HT M where the number needs them. Default false. */
+  stellen?: boolean;
+  /** Where a written sum of more than two numbers puts its signs: "all" on every number but the first, "last" only on the last. Default "all". Two numbers look the same either way. */
+  signs?: "all" | "last";
   /** Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10. */
   reihen?: number[];
   /** Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true. */
   avoid0?: boolean;
   /** Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". */
   pa?: string;
-  /** Pattern of the second number, as for the first. Empty means no pattern. */
+  /** Pattern of the second number, as for the first. For a written plus of more than two numbers it is the pattern of each following number. Empty means no pattern. */
   pb?: string;
   /** Pattern of the result, as for the first number, as in "100". Empty means no pattern. A comparison has no result pattern. */
   pr?: string;

@@ -21,6 +21,8 @@ export default function Muster({
   // Bumped when a third fixed number is refused, so the field shows the pattern that is in use.
   const [rev, setRev] = useState(0);
   const patterns = { pa: p.pa ?? "", pb: p.pb ?? "", pr: p.pr ?? "" };
+  // A written plus of more than two numbers: the second pattern is each number after the first.
+  const following = p.format === "written" && (p.numbers ?? 2) > 2 && p.ops.length === 1 && p.ops[0] === "+";
 
   function setPattern(key: "pa" | "pb" | "pr", raw: string) {
     const text = textOf(raw);
@@ -70,7 +72,7 @@ export default function Muster({
     <>
       <h2>Muster</h2>
       {field("pa", "1. Zahl", "Muster der 1. Zahl", "z. B. X0")}
-      {field("pb", "2. Zahl", "Muster der 2. Zahl", "z. B. X")}
+      {field("pb", following ? "weitere Zahlen" : "2. Zahl", following ? "Muster der weiteren Zahlen" : "Muster der 2. Zahl", "z. B. X")}
       {p.format !== "compare" && field("pr", "Ergebnis", "Muster des Ergebnisses", "z. B. 100")}
       <p>
         Höchstens zwei der drei Zahlen können feststehen.
