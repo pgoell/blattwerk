@@ -4,6 +4,7 @@ import { GroundView } from "../ground";
 import { PT } from "../height";
 import { uploadAddress } from "../uploadAddress";
 import { Diagramm } from "./blocks/diagramm";
+import { Loesungsfeld } from "./blocks/loesungsfeld";
 import { Geobrett } from "./blocks/geobrett";
 import { Halbschriftlich } from "./blocks/halbschriftlich";
 import { Hunderterfeld } from "./blocks/hunderterfeld";
@@ -42,7 +43,7 @@ import { isLine, symbol, boxed } from "./text";
 import type { ReactNode, CSSProperties } from "react";
 
 // Maths blocks take the sheet's place colours. A text, a table or a line does not, so its digits stay black.
-const PLACED = new Set<Block["type"]>(["formula", "maths", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "textaufgabe", "zehnerfeld", "rechendreieck", "zahlenstrahl", "hunderterfeld", "karofeld", "uhr", "selbstkontrolle", "geobrett", "diagramm"]);
+const PLACED = new Set<Block["type"]>(["formula", "maths", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "textaufgabe", "zehnerfeld", "rechendreieck", "zahlenstrahl", "hunderterfeld", "karofeld", "uhr", "selbstkontrolle", "geobrett", "diagramm", "loesungsfeld"]);
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
@@ -76,6 +77,7 @@ function drawn({ block, k, solved = false, at, reach, onSquare, children }: { bl
   if (block.type === "selbstkontrolle") return <Selbstkontrolle block={block} k={k} solved={solved} />;
   if (block.type === "geobrett") return <Geobrett block={block} k={k} solved={solved} />;
   if (block.type === "diagramm") return <Diagramm block={block} k={k} solved={solved} />;
+  if (block.type === "loesungsfeld") return <Loesungsfeld block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

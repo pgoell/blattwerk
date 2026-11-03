@@ -170,7 +170,8 @@
             "geobrett",
             "formula",
             "karofeld",
-            "diagramm"
+            "diagramm",
+            "loesungsfeld"
           ]
         },
         "id": {
@@ -581,6 +582,18 @@
           },
           "then": {
             "$ref": "#/definitions/DiagrammBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "loesungsfeld"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/LoesungsfeldBlock"
           }
         }
       ]
@@ -7192,6 +7205,198 @@
         "keine",
         "haupt",
         "zwischen"
+      ]
+    },
+    "LoesungsfeldBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "loesungsfeld"
+        },
+        "props": {
+          "$ref": "#/definitions/LoesungsfeldProps",
+          "description": "A blank the pupil writes in. The Lösungen print its text or its picture, and nowhere else."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "LoesungsfeldProps": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/FieldKind",
+          "description": "What the Lösungen print: \"text\" a one-line Lösungstext, \"image\" a Lösungsbild. Default \"text\"."
+        },
+        "text": {
+          "type": "string",
+          "description": "The Lösungstext, one line. The pupil's sheet leaves it blank. Default \"\"."
+        },
+        "blank": {
+          "$ref": "#/definitions/Blank",
+          "description": "How the blank looks on the pupil's sheet: \"line\" an underline (Unterstrich), \"box\" a frame (Rahmen), \"none\" nothing. Default \"line\"."
+        },
+        "code": {
+          "type": "string",
+          "description": "The OpenMoji code of the Lösungsbild, from the symbol library. Absent for a Lösungstext, or when the picture is an upload."
+        },
+        "upload": {
+          "type": "number",
+          "description": "The id of an uploaded picture used as the Lösungsbild. Absent when the picture is a symbol."
+        },
+        "ratio": {
+          "type": "number",
+          "description": "The uploaded picture's width over its height. 1 for a square. Absent means 1."
+        },
+        "wrongs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Wrong"
+          },
+          "description": "Wrong answers (falsche Lösungen) for a Selbstkontrolle and later for digital sheets. Absent means none."
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of the Lösungstext in pt. Default 14.",
+          "minimum": 8,
+          "maximum": 48
+        },
+        "even": {
+          "type": "boolean",
+          "description": "True makes this field as wide as the widest even Lösungsfeld on the page, so the line length gives nothing away. Default false."
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "blank",
+        "size",
+        "even"
+      ]
+    },
+    "FieldKind": {
+      "type": "string",
+      "enum": [
+        "text",
+        "image"
+      ]
+    },
+    "Blank": {
+      "type": "string",
+      "enum": [
+        "line",
+        "box",
+        "none"
+      ]
+    },
+    "Wrong": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text",
+              "description": "A wrong Lösungstext."
+            },
+            "text": {
+              "type": "string",
+              "description": "The wrong text, one line."
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "image",
+              "description": "A wrong Lösungsbild."
+            },
+            "code": {
+              "type": "string",
+              "description": "The OpenMoji code of the wrong picture, from the symbol library. Absent when it is an upload."
+            },
+            "upload": {
+              "type": "number",
+              "description": "The id of an uploaded wrong picture. Absent when the picture is a symbol."
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
       ]
     },
     "Guides": {
