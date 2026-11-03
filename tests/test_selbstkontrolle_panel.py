@@ -89,7 +89,7 @@ def test_neu_mischen_stores_a_new_seed_and_shuffles_the_same_results_anew(editor
 
 
 DESCRIPTION = "Die Kinder prüfen ihre Ergebnisse selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst."
-EMPTY = "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr."
+EMPTY = "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst einen Aufgabenblock ein."
 ADD_FIRST = "Füge zuerst Aufgaben ein, dann wähle sie rechts unter „Blöcke“."
 CHOOSE = "Wähle rechts unter „Blöcke“ die Blöcke, die die Selbstkontrolle prüft."
 

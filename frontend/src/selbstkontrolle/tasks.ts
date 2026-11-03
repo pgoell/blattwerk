@@ -6,6 +6,7 @@ import { made as trianglesOf, sane as saneDreieck } from "../rechendreieck";
 import { made as strahlOf, sane as saneStrahl } from "../zahlenstrahl";
 import { made as feldOf, sane as saneFeld } from "../hunderterfeld";
 import { sane as saneUhr, timesOf, written } from "../uhr";
+import { kindTasks } from "./kinds";
 import type { Result } from "./props";
 
 export function tasksOf(b: Block): Result[][] | undefined {
@@ -75,7 +76,7 @@ export function tasksOf(b: Block): Result[][] | undefined {
       return timesOf(p).map((t) => [{ text: written(t, p) }]);
     }
     default:
-      return undefined;
+      return kindTasks(b);
   }
 }
 

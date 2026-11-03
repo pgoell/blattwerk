@@ -90,9 +90,14 @@ SLOW = {
     "test_full_run_fails_when_the_reloaded_editor_lacks_the_word",
     "test_a_block_on_its_way_finds_its_page_after_the_pages_change",
     "test_every_exercise_keeps_every_limit",
-    "test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right",
     # 22 s alone in WebKit, past 60 s at the end of a loaded shard (#608).
     "test_a_shrunk_table_agrees_on_screen_thumb_and_pdf",
+}
+# About 35 s with the CI profile alone. On shard 2 of run 41589745056 it was still inside
+# Hypothesis when the two minutes ran out, and the worker died with it. Stays under the 180 s
+# hang guard, which fires when nothing at all has finished.
+SLOWER = {
+    "test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right",
 }
 
 
@@ -105,7 +110,10 @@ def pytest_collection_modifyitems(config, items):
     """
 
     for test in items:
-        if getattr(test, "originalname", None) in SLOW:
+        name = getattr(test, "originalname", None)
+        if name in SLOWER:
+            test.add_marker(pytest.mark.timeout(150))
+        elif name in SLOW:
             test.add_marker(pytest.mark.timeout(120))
 
     # A test marked native runs in the headed lane, and that lane runs nothing else.

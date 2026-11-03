@@ -4,7 +4,7 @@ title: "Block: selbstkontrolle"
 description: "The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right."
 tags: [block, selbstkontrolle]
 covers: [selbstkontrolle]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T04:38:01Z }
 ---
 
 # selbstkontrolle
@@ -38,12 +38,14 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
 | form | string | `mixed`, `word`, `sum` | yes | How the child checks her results. "mixed": the results in a shuffled list, each with a box to tick. "word": a Lösungswort with a letter box under each task. "sum": one control sum per linked block. Default "mixed". |
-| links | list of string |  | yes | Ids of the linked maths blocks of the sheet, in the order the teacher ticked them. Default none. |
+| links | list of string |  | yes | Ids of the linked task blocks of the sheet, in the order the teacher ticked them. Default none. |
 | word | string |  | yes | The Lösungswort the child builds from the letters, as the teacher typed it. Used with form "word" only. Default "". |
 | title | string |  | yes | The heading of the block. An empty heading prints none. Default "Selbstkontrolle". |
 | size | number | 8 to 24 | yes | Font size of the text in pt, except the heading, which is 1.2 times it. Default 14. |
 | turn | string | `none`, `upside`, `fold` | yes | Turns the block for the child to read it later. "none": not turned. "upside": the whole content turned by 180 degrees. "fold": a dashed fold line along the top, with "Hier umknicken" over it, and the content turned by 180 degrees under it, so the child folds it back. Default "none". |
 | seed | number |  | yes | Seed for the shuffle of form "mixed" and of the table of form "word". The same seed always gives the same order. |
+| wrongs | number | 0 to 20 | no | How many wrong answers to mix into the shuffled list of form "mixed". They are numbers that are not among the results, written the same way (decimals, euro). Default 0. A sheet from before this field counts as 0. |
+| look | string | `ticks`, `snake`, `caterpillar`, `train`, `box` | no | How form "mixed" draws the shuffled answers. "ticks": a list, each result with a box to tick. "snake": a winding snake of circles. "caterpillar": a caterpillar of circles, the first one its head. "train": a train, the first wagon its engine. "box": the results in a plain box, no ticks. Default "ticks". A sheet from before this field counts as "ticks". |
 
 # Examples
 
