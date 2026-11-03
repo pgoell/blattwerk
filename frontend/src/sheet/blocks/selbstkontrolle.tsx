@@ -5,6 +5,7 @@ import { sane as saneSelbst, checked } from "../../selbstkontrolle";
 import { Whole } from "../context";
 import type { SelbstkontrolleBlock } from "../tasks";
 import { useContext, useRef, useLayoutEffect } from "react";
+import { Mixed } from "./selbstkontrolleShape";
 
 // A Selbstkontrolle, drawn as the contract at the top of selbstkontrolle.ts says. Its text is in Andika at its size,
 // and a content taller than the block shrinks it, as Maths does. Its hint shows in the editor only: Paper hides it.
@@ -47,7 +48,7 @@ export function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBl
       {whole && p.turn === "fold" && <div className="fold">Hier umknicken</div>}
       <div className="inner">
         {whole && p.title && <h3 className="title">{p.title}</h3>}
-        {whole && p.form === "mixed" && <ul className="mixed">{check.mixed.map((text, i) => <li key={i}><span className="tick" />{text}</li>)}</ul>}
+        {whole && p.form === "mixed" && <Mixed look={p.look} items={check.mixed} />}
         {whole && p.form === "sum" && <ul className="sums">{check.sums.map(([label, text], i) => <li key={i}>{`${label}: ${text}`}</li>)}</ul>}
         {whole && p.form === "word" && !check.fault && (
           <>

@@ -2,7 +2,8 @@
 import type { Block, Doc } from "../sheet";
 import { decimal } from "../decimal";
 import { rng } from "../zahlenmauer";
-import { sane, type Check, type SelbstkontrolleProps } from "./props";
+import { sane, type Check, type Result, type SelbstkontrolleProps } from "./props";
+import { shapeBox, type ShapeLook } from "./shape";
 import { moneyOf, tasksOf, worded } from "./tasks";
 
 const PT = 25.4 / 72; // mm per point
@@ -18,7 +19,27 @@ export function ordered(doc: Doc, ids: string[]): Block[] {
   return placed(doc).filter(({ b }) => want.has(b.id)).sort(inOrder).map(({ b }) => b);
 }
 
-const NAMES: Record<string, string> = { maths: "Rechnen", zahlenmauer: "Zahlenmauer", rechendreieck: "Rechendreieck", zahlenstrahl: "Zahlenstrahl", hunderterfeld: "Hunderterfeld", uhr: "Uhr" };
+const NAMES: Record<string, string> = {
+  maths: "Rechnen",
+  zahlenmauer: "Zahlenmauer",
+  zahlenhaus: "Zahlenhaus",
+  zahlenkette: "Zahlenkette",
+  rechendreieck: "Rechendreieck",
+  rechentabelle: "Rechentabelle",
+  pfeilbild: "Pfeilbild",
+  operatorfeld: "Operatorfeld",
+  rechenrad: "Rechenrad",
+  magischesquadrat: "Magisches Quadrat",
+  malquadrat: "Malquadrat",
+  zerlegungsfeld: "Zerlegungsfeld",
+  halbschriftlich: "Halbschriftlich rechnen",
+  zehnerfeld: "Zehnerfeld",
+  textaufgabe: "Textaufgabe",
+  diagramm: "Diagramm",
+  zahlenstrahl: "Zahlenstrahl",
+  hunderterfeld: "Hunderterfeld",
+  uhr: "Uhr",
+};
 
 export function labelOf(b: Block, doc: Doc): string {
   const name = NAMES[b.type] ?? b.type;
@@ -38,13 +59,39 @@ function shuffle<T>(xs: T[], seed: number): T[] {
   return out;
 }
 
+// `n` numbers that are not results, written as the linked blocks write theirs. The same seed gives the same ones.
+function decoys(results: Result[], n: number, seed: number, decimals: number, money: boolean): string[] {
+  if (n <= 0) return [];
+  const taken = new Set(results.map((r) => r.text));
+  const values = results.flatMap((r) => (r.value === undefined ? [] : [Math.abs(r.value)]));
+  const euro = money ? " €" : "";
+  const fmt = (v: number) => decimal(v, decimals, money) + euro;
+  const pool: string[] = [];
+  const cap = Math.max(40, ...(values.length ? values : [0])) + n + 30;
+  for (let v = 0; v <= cap && pool.length < n * 4; v++) {
+    const text = fmt(v);
+    if (!taken.has(text)) pool.push(text);
+  }
+  return shuffle(pool, seed).slice(0, n);
+}
+
 export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
   const q = sane(p);
   const all = new Set(doc.pages.flatMap((pg) => pg.blocks.map((b) => b.id)));
   const sources = ordered(doc, q.links);
   const tasks = sources.map((b) => tasksOf(b) ?? []);
 
-  const mixed = shuffle(tasks.flat().flat().map((r) => r.text), q.seed);
+  const real = tasks.flat().flat();
+  let decimals = 0;
+  let money = false;
+  sources.forEach((b, i) => {
+    if (!tasks[i].some((task) => task.some((r) => r.value !== undefined))) return;
+    const [d, euro] = moneyOf(b);
+    decimals = Math.max(decimals, d);
+    money = money || euro;
+  });
+  const extra = q.form === "mixed" ? decoys(real, q.wrongs, q.seed, decimals, money) : [];
+  const mixed = shuffle([...real.map((r) => r.text), ...extra], q.seed);
 
   const sums: [string, string][] = [];
   sources.forEach((b, i) => {
@@ -132,12 +179,18 @@ export function heightFor(p: SelbstkontrolleProps, doc: Doc, w: number): number 
   // Two table rows, and room for the key's word under them (1.4 em on a line of 1.3, .3 em above), so the key
   // keeps the sheet's type size.
   else if (q.form === "word") h += c.fault ? 0 : 2 * 1.6 + 1.4 * 1.3 + 0.3;
-  else {
+  else if (q.look === "snake" || q.look === "caterpillar" || q.look === "train") {
+    const box = shapeBox(q.look as ShapeLook, c.mixed.length);
+    const svg = c.mixed.length ? (w * box.h) / box.w : 0;
+    return h * em + svg + 2;
+  } else {
     // Items in rows: each as wide as its tick box, its text and the gap to the next, a row filled left to right.
+    // A plain box has no tick.
+    const tick = q.look === "box" ? 0 : 0.9 + 0.4;
     let rows = 0;
     let cur = 0;
     for (const t of c.mixed) {
-      const iw = (0.9 + 0.4 + 0.6 * t.length + 1.2) * em;
+      const iw = (tick + 0.6 * t.length + 1.2) * em;
       if (rows === 0 || cur + iw > w - 1.2 * em) {
         rows++;
         cur = 0;

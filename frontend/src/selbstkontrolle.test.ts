@@ -41,8 +41,8 @@ describe("sane", () => {
   });
 
   it("gives the defaults for wrong kinds and values out of range", () => {
-    const s = sane({ form: "nope", links: [1, "a"], word: 3, title: null, size: 99, turn: "side", seed: 1.5 } as unknown as SelbstkontrolleProps);
-    expect(s).toEqual({ form: "mixed", links: ["a"], word: "", title: "Selbstkontrolle", size: 14, turn: "none", seed: 0 });
+    const s = sane({ form: "nope", links: [1, "a"], word: 3, title: null, size: 99, turn: "side", seed: 1.5, look: "nope", wrongs: 99 } as unknown as SelbstkontrolleProps);
+    expect(s).toEqual({ form: "mixed", links: ["a"], word: "", title: "Selbstkontrolle", size: 14, turn: "none", seed: 0, look: "ticks", wrongs: 0 });
   });
 });
 

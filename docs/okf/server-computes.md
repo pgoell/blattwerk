@@ -4,7 +4,7 @@ title: What the server computes
 description: What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 tags: [maths, seed, exercises, server]
 covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-11-03T01:44:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T04:45:00Z }
 ---
 
 # What the server computes
@@ -28,4 +28,4 @@ These blocks draw their content in the browser from their seed: [suchsel](blocks
 
 ## Selbstkontrolle
 
-A [selbstkontrolle](blocks/selbstkontrolle.md) reads the results of the maths blocks in its `links`. `links` holds the ids of those maths blocks. Link it to maths blocks on the same sheet.
+A [selbstkontrolle](blocks/selbstkontrolle.md) reads the written answers of the task blocks named in `links`, on the same sheet. That is any block whose key writes a result, not only maths. With form `mixed` it shuffles those answers. `wrongs` mixes in that many numbers that are not answers. `look` draws the list as ticks, a snake, a caterpillar, a train or a plain box. `word` and `sum` ignore `wrongs` and `look`. A new `seed` shuffles again.
