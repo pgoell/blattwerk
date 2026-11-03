@@ -3,8 +3,10 @@
 import random
 from math import isqrt
 
+from blattwerk.maths.carry import NAMES
 from blattwerk.maths.model import CLOSE, Settings, fits, loosened, pick
 from blattwerk.maths.pairs import propose, result, valid
+from blattwerk.maths.pattern import cut, for_op, matches, plain_zero
 
 
 def term_side(op: str, a: int, b: int) -> dict:
@@ -14,6 +16,7 @@ def term_side(op: str, a: int, b: int) -> dict:
 
 def term(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """A term of this operation that keeps every limit, from up to 20 tries."""
+    s = for_op(s, op)
     for i in range(20):
         if i == 2 and op in "*/":
             # Where the digits leave no school task, the school way is given up: it costs two
@@ -29,6 +32,7 @@ def aimed(
     s: Settings, op: str, target: int, top: int, rng: random.Random
 ) -> tuple[int, int] | None:
     """A term of this operation whose result is `target`, or None."""
+    s = for_op(s, op)
     pair: tuple[int, int] | None = None
     if op == "+":
         a = pick(rng, s.a, 0, min(target, s.max))
@@ -73,11 +77,16 @@ def aimed_term(
 def free_side(s: Settings, ops: list[str], top: int, rng: random.Random) -> dict | None:
     """The right side when no result is aimed at: any number, or any term."""
     low = 0 if s.zero else 1
+    zero_ok = plain_zero(s, ops)
     if s.sides == "nn":
-        n = pick(rng, s.b, low, s.max)
-        return None if n is None else {"value": n}
+        ranges = cut(list(s.b), s.pb, zero_ok)
+        n = None if ranges is None else pick(rng, ranges, low, s.max)
+        if n is None or not matches(s.pb, n, zero_ok):
+            return None
+        return {"value": n}
     if s.sides == "tn":
-        return {"value": rng.randint(low, s.max)}
+        n = rng.randint(low, s.max)
+        return {"value": n} if matches(s.pb, n, zero_ok) else None
     return term_of(s, ops, top, rng)
 
 
@@ -85,10 +94,12 @@ def aimed_side(
     s: Settings, ops: list[str], target: int, top: int, rng: random.Random
 ) -> dict | None:
     """The right side when it must come to `target`: the number itself, or a term that does."""
+    zero_ok = plain_zero(s, ops)
     if s.sides == "nn":
-        return {"value": target} if fits(s.b, target) and target <= s.max else None
+        fits_pattern = matches(s.pb, target, zero_ok) and fits(s.b, target) and target <= s.max
+        return {"value": target} if fits_pattern else None
     if s.sides == "tn":
-        return {"value": target} if target <= s.max else None
+        return {"value": target} if matches(s.pb, target, zero_ok) and target <= s.max else None
     return aimed_term(s, ops, target, top, rng)
 
 
@@ -98,7 +109,11 @@ def comparison(
     """One comparison whose sides keep every limit, or None when this try fails."""
     low = 0 if s.zero else 1
     if s.sides == "nn":
-        n = pick(rng, s.a, low, s.max)
+        zero_ok = plain_zero(s, ops)
+        ranges = cut(list(s.a), s.pa, zero_ok)
+        n = None if ranges is None else pick(rng, ranges, low, s.max)
+        if n is not None and not matches(s.pa, n, zero_ok):
+            n = None
         left = None if n is None else {"value": n}
     else:
         left = term_of(s, ops, top, rng)
@@ -176,7 +191,21 @@ def compared(s: Settings) -> dict:
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
-    names = ("carry", "a", "b", "max", "close", "equal", "zero", "one", "distinct", "small")
+    names = (
+        *NAMES,
+        "a",
+        "b",
+        "pa",
+        "pb",
+        "nil",
+        "max",
+        "close",
+        "equal",
+        "zero",
+        "one",
+        "distinct",
+        "small",
+    )
     # A limit already at its loosest changes nothing, so it is not tried again.
     return {
         "exercises": found,

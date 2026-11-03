@@ -4,7 +4,7 @@ title: "Block: text"
 description: "The text box's words and look."
 tags: [block, text]
 covers: [text]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-01T15:41:30Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T00:41:12Z }
 ---
 
 # text
@@ -65,7 +65,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | spacing | number | 1 to 3 | no | Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3. |
 | tracking | number | 0 to 1 | no | Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. |
 | valign | string | `top`, `middle`, `bottom` | no | Vertical place of the text in its box: "top", "middle" or "bottom". Absent means top. |
-| kind | string | `rect`, `rounded`, `circle`, `triangle`, `star`, `bubble`, `line`, `arrow`, `double` | no | Outline of the box the text sits in: "rect", "rounded", "circle", "triangle", "star" or "bubble". Absent means rect. |
+| kind | string | `rect`, `rounded`, `circle`, `triangle`, `star`, `bubble`, `line`, `arrow`, `double`, `diamond`, `polygon`, `arc`, `bow`, `thought`, `pie`, `bars` | no | Outline of the box: "rect", "rounded", "circle", "triangle", "star", "bubble", "diamond" (Raute), "polygon" (Vieleck), "thought" (Gedankenwolke), "pie" (Bruchkreis), "bars" (Bruchrechteck), "arc" (Bogen), "bow" (a curved arrow), "line", "arrow" or "double". Absent means rect. |
 | fill | string |  | no | Colour inside the box as a hex colour. "none" or absent means no fill. |
 | opacity | number | 0 to 1 | no | How solid the fill is: 0 is invisible, 1 is solid. Absent means 1. |
 | stroke | string |  | no | Colour of the border as a hex colour. "none" or absent means no border. |
@@ -81,6 +81,13 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | dash | string | `dashed`, `dotted` | no | Style of the border: "dashed" for dashes, "dotted" for dots. Absent means a solid border. |
 | trace | boolean or string | `outline` or `dotted` | no | Nachspuren: the text prints in grey to write over. true is plain grey, "outline" a thin outline of the letters, "dotted" dotted letters (in fonts that have them, else grey). Absent means no trace text. |
 | fade | string | `row`, `rows` | no | How the grey of a trace text fades: "row" fades each row from left to right, "rows" fades the rows step by step down the block. Absent means no fade. Needs `trace`. |
+| corners | number | 5 to 15 | no | How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6. |
+| spikes | number | 3 to 35 | no | How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star. |
+| bulge | number | -1 to 1 | no | How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65. |
+| parts | number | 2 to 50 | no | How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4. |
+| filled | number | 0 to 50 | no | How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1. |
+| hub | boolean |  | no | True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark. |
+| form | string | `square`, `round` | no | "square" draws the shape in the centred square of its box (Quadratisch). "round" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box. |
 
 # Examples
 

@@ -53,7 +53,7 @@ LABELS = [
     "Schriftart",
     "Rechnen",
     "Zahlenraum",
-    "Übertrag",
+    "Zehnerübergang",
     "Eine Aufgabe mehr",
     "Eine Spalte mehr",
     "Lineatur",

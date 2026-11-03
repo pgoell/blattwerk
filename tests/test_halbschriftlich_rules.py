@@ -96,8 +96,7 @@ def test_uebergang_bei_den_zehnern_mit_and_ohne_hold_in_every_drawn_task(
 
 
 def test_the_zehner_select_shows_only_with_bis_1000(editor):
-    """Übergang bei den Zehnern (#828): the select shows with bis 1000, also with einstellig (395 + 7 crosses a
-    hundred), and not with bis 100."""
+    """Übergang bei den Zehnern (#828): the select shows with bis 1000, also with einstellig, and not with bis 100."""
     page = editor(hal())
     pick(page, "k")
     expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
@@ -128,13 +127,13 @@ def test_ohne_uebergang_bei_den_zehnern_never_crosses_a_hundred_also_with_einste
     browser,
     server,
 ):
-    """Übergang bei den Zehnern (#828): Plus, bis 1000, einstellig, Zehner "ohne Übergang", 12 tasks: in the key no
-    task crosses a hundred, so a // 100 equals r // 100 in every task."""
+    """Übergang bei den Zehnern (#838): Plus, bis 1000, einstellig, Zehner "ohne Übergang", 12 tasks: in the key no
+    task's Zehner digits cross. A one-digit second number has none, so 395 + 7 is allowed."""
     page = editor(hal(props={"count": 12, "digits": 1, "zehner": "no"}))
     pick(page, "k")
     paper = key_print(browser, server, sheet_id(page))
     loc = paper.locator(".halbschriftlich")
     for task in range(12):
         v = values(loc, task, 0)
-        assert v[0] // 100 == v[2] // 100, v
+        assert not crosses("+", v[0], v[1], 1), v
     paper.context.close()

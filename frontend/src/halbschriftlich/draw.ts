@@ -1,4 +1,5 @@
 // The steps of a half-written sum, which pairs fit the rules, and the tasks a block draws.
+import { crossesAt } from "../carry";
 import { rng } from "../zahlenmauer";
 import { acts, sane } from "./props";
 import type { HalbschriftlichProps, Made, Rule, Task } from "./props";
@@ -26,10 +27,7 @@ export function steps(op: "+" | "-", a: number, b: number): [number, number, num
 function fits(op: "+" | "-", max: number, einer: Rule, zehner: Rule, a: number, b: number): boolean {
   if (a < 1 || a > max) return false;
   if (op === "+" ? a + b > max : b > a) return false;
-  const cross = (p: number): boolean => {
-    const m = 10 ** (p + 1);
-    return op === "+" ? (a % m) + (b % m) >= m : a % m < b % m;
-  };
+  const cross = (p: number): boolean => crossesAt(op, a, b, p);
   if (einer !== "any" && cross(0) !== (einer === "yes")) return false;
   if (zehner !== "any" && cross(1) !== (zehner === "yes")) return false;
   return true;

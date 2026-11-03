@@ -20,6 +20,8 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const lens = session.lens;
   const mathBlocks = session.mathBlocks;
   const mathMenu = session.mathMenu;
+  const moreShapes = session.moreShapes;
+  const shapeMenu = session.shapeMenu;
   const menu = session.menu;
   const menuAt = session.menuAt;
   const mini = session.mini;
@@ -31,6 +33,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const sel = session.sel;
   const setLens = session.setLens;
   const setMathMenu = session.setMathMenu;
+  const setShapeMenu = session.setShapeMenu;
   const setMenu = session.setMenu;
   const setTab = session.setTab;
   const setTour = session.setTour;
@@ -78,6 +81,16 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
           items={mathBlocks}
           onClose={() => setMathMenu(undefined)}
           onElsewhere={() => setMathMenu(undefined)}
+        />
+      )}
+      {shapeMenu && (
+        <Menu
+          x={shapeMenu.x}
+          y={shapeMenu.y}
+          up
+          items={moreShapes}
+          onClose={() => setShapeMenu(undefined)}
+          onElsewhere={() => setShapeMenu(undefined)}
         />
       )}
       {menu && (

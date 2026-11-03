@@ -329,7 +329,7 @@ def test_i6_geteilt_in_a_family_leaves_no_rest_and_moves_the_quotient(editor):
 def test_i7_loosen_can_name_the_families_themselves(editor):
     """I7: when the families are the limit in the way, the hint names Aufgabenfamilien."""
     client = user()
-    props = maths(client, ops=["+"], max=10, carry="required", count=12, family="neighbour")
+    props = maths(client, ops=["+"], max=10, count=60, family="neighbour")
     page = editor(box("m", "maths", props, y=20, h=60), client=client)
     pick(page, "m")
     hint = page.locator(".panel .hint").filter(has_text="Aufgabenfamilien")

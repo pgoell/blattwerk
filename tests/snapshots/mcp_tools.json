@@ -1487,7 +1487,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -1530,7 +1530,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"
@@ -2031,7 +2031,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -2500,13 +2507,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -2609,7 +2637,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -2628,6 +2656,20 @@
                 "b"
               ],
               "type": "string"
+            },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
@@ -2651,6 +2693,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -3737,7 +3791,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -4267,6 +4321,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -4275,6 +4335,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -4293,6 +4359,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -4304,6 +4376,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -4327,6 +4407,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -4343,7 +4427,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -4397,10 +4481,40 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
+                },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
                   "type": "number"
                 },
                 "rich": {
@@ -4414,6 +4528,12 @@
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
                 },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "size": {
                   "description": "Font size of the text in pt (points).",
                   "type": "number"
@@ -4422,6 +4542,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -5175,6 +5301,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -5183,6 +5315,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -5201,6 +5339,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -5212,6 +5356,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -5231,6 +5383,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -5247,7 +5403,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -5295,6 +5451,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -5310,6 +5472,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -6604,7 +6772,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -6772,12 +6940,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
@@ -6854,6 +7034,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -6862,6 +7048,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -6880,6 +7072,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -6891,6 +7089,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -6914,6 +7120,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -6930,7 +7140,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -6984,10 +7194,40 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
+                },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
                   "type": "number"
                 },
                 "rich": {
@@ -7001,6 +7241,12 @@
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
                 },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "size": {
                   "description": "Font size of the text in pt (points).",
                   "type": "number"
@@ -7009,6 +7255,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -9235,7 +9487,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -9278,7 +9530,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "required": [
@@ -9814,7 +10066,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -10302,13 +10561,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -10411,7 +10691,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -10430,6 +10710,20 @@
                 "b"
               ],
               "type": "string"
+            },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
@@ -10453,6 +10747,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -11593,7 +11899,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -12148,6 +12454,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -12156,6 +12468,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -12174,6 +12492,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -12185,6 +12509,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -12208,6 +12540,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -12224,7 +12560,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -12278,10 +12614,40 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
+                },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
                   "type": "number"
                 },
                 "rich": {
@@ -12295,6 +12661,12 @@
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
                 },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "size": {
                   "description": "Font size of the text in pt (points).",
                   "type": "number"
@@ -12303,6 +12675,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -13066,6 +13444,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -13074,6 +13458,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -13092,6 +13482,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -13103,6 +13499,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -13122,6 +13526,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -13138,7 +13546,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -13186,6 +13594,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -13201,6 +13615,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -14573,7 +14993,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -14754,12 +15174,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
@@ -16424,7 +16856,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -16467,7 +16899,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"
@@ -16968,7 +17400,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -17437,13 +17876,34 @@
               "type": "array"
             },
             "carry": {
-              "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds.",
-              "enum": [
-                "none",
-                "required",
-                "either"
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "none",
+                      "required",
+                      "either"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "required",
+                  "type": "string"
+                },
+                {
+                  "const": "either",
+                  "type": "string"
+                }
               ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
             },
             "cf": {
               "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit.",
@@ -17546,7 +18006,7 @@
                   "type": "null"
                 }
               ],
-              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+              "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"zehner\". null when the count is met."
             },
             "max": {
               "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
@@ -17565,6 +18025,20 @@
                 "b"
               ],
               "type": "string"
+            },
+            "nil": {
+              "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts.",
+              "properties": {
+                "punkt": {
+                  "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may.",
+                  "type": "boolean"
+                },
+                "strich": {
+                  "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             },
             "numbering": {
               "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it.",
@@ -17588,6 +18062,18 @@
                 "$ref": "#/definitions/Op"
               },
               "type": "array"
+            },
+            "pa": {
+              "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\".",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as for the first. Empty means no pattern.",
+              "type": "string"
+            },
+            "pr": {
+              "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern.",
+              "type": "string"
             },
             "pvs": {
               "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false.",
@@ -18674,7 +19160,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -19204,6 +19690,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -19212,6 +19704,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -19230,6 +19728,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -19241,6 +19745,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -19264,6 +19776,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -19280,7 +19796,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -19334,10 +19850,40 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
+                },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
                   "type": "number"
                 },
                 "rich": {
@@ -19351,6 +19897,12 @@
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
                 },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "size": {
                   "description": "Font size of the text in pt (points).",
                   "type": "number"
@@ -19359,6 +19911,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -20112,6 +20670,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -20120,6 +20684,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -20138,6 +20708,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -20149,6 +20725,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -20168,6 +20752,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -20184,7 +20772,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -20232,6 +20820,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -20247,6 +20841,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -21541,7 +22141,7 @@
             },
             "cross": {
               "$ref": "#/definitions/Cross",
-              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
             },
             "field": {
               "$ref": "#/definitions/Field",
@@ -21709,12 +22309,24 @@
               "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
               "type": "number"
             },
+            "nil": {
+              "description": "Whether the digit 0 may occur in the numbers. Default true.",
+              "type": "boolean"
+            },
             "op": {
               "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
               "enum": [
                 "+",
                 "-"
               ],
+              "type": "string"
+            },
+            "pa": {
+              "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none.",
+              "type": "string"
+            },
+            "pb": {
+              "description": "Pattern of the second number, as `pa`. Empty means none.",
               "type": "string"
             },
             "seed": {
@@ -21786,6 +22398,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -21794,6 +22412,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -21812,6 +22436,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -21823,6 +22453,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -21846,6 +22484,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -21862,7 +22504,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -21916,10 +22558,40 @@
                   "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
                   "type": "boolean"
                 },
+                "mono": {
+                  "description": "True draws a Muster in black. Absent means the Muster takes the colour in `fill`.",
+                  "type": "boolean"
+                },
+                "motif": {
+                  "description": "Muster inside the shape: \"stripes\" bands, \"dots\" spots, \"checks\" a chequer, \"waves\" wavy lines. Absent means no Muster. A Lineatur in `paper` is drawn instead.",
+                  "enum": [
+                    "stripes",
+                    "dots",
+                    "checks",
+                    "waves"
+                  ],
+                  "type": "string"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "paper": {
+                  "description": "Lineatur that fills the shape: \"mm\" Millimeterpapier (1 mm, heavier at 5 mm and 10 mm), \"k5\" Karo 5 mm, \"k7\" Karo 7 mm, \"k10\" Karo 10 mm. Absent means none.",
+                  "enum": [
+                    "mm",
+                    "k5",
+                    "k7",
+                    "k10"
+                  ],
+                  "type": "string"
+                },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
                   "type": "number"
                 },
                 "rich": {
@@ -21933,6 +22605,12 @@
                   "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
                   "type": "boolean"
                 },
+                "scale": {
+                  "description": "Size of one repeat of a Muster, in mm. Absent means 5.",
+                  "maximum": 20,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "size": {
                   "description": "Font size of the text in pt (points).",
                   "type": "number"
@@ -21941,6 +22619,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {

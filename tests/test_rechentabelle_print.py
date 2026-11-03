@@ -10,7 +10,7 @@ from test_feed_print import printed, sheet_id
 from test_suchsel_print import key_print
 from ui import at, box, user
 
-from blattwerk.maths import carries
+from blattwerk.maths.carry import crosses_at
 
 RT = {
     "count": 2,
@@ -157,9 +157,9 @@ def test_on_the_key_every_cell_keeps_the_rule_per_place(editor, browser, server,
             assert row is not None and col is not None, (i, j)
             if cell["strike"]:
                 continue
-            carried = carries(op, row, col)
-            assert carried[0] == 1, (i, j, row, col, carried)
-            assert carried[1:2] in ([], [0]), (i, j, row, col, carried)
+            assert crosses_at(op, row, col, 0), (i, j, row, col)
+            width = max(len(str(row)), len(str(col)))
+            assert all(not crosses_at(op, row, col, k) for k in range(1, width)), (i, j, row, col)
 
 
 def test_the_print_has_the_editors_numbers(editor, browser, server):

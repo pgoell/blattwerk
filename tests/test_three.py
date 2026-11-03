@@ -17,6 +17,8 @@ from test_gaps import step
 from test_words import redo, undo
 from ui import at, box, maths, pick, saved, tool, user
 
+from blattwerk.maths.carry import keeps as place_keeps
+
 SIGNS = {"+": "+", "-": "\N{MINUS SIGN}", "*": "·", "/": ":"}
 PY = {"+": operator.add, "-": operator.sub, "*": operator.mul}
 
@@ -48,11 +50,6 @@ def written(e):
     if e.get("paren") == "right":
         return f"{a} {op} ({b} {op2} {c}) ="
     return f"{a} {op} {b} {op2} {c} ="
-
-
-def carries(x, y):
-    """Whether adding x and y carries in any place."""
-    return any((x // 10**k) % 10 + (y // 10**k) % 10 >= 10 for k in range(len(str(max(x, y)))))
 
 
 def worth(line):
@@ -176,8 +173,12 @@ def test_the_third_number_keeps_its_digits_and_the_carry_holds_in_each_step(edit
     props = changed(page, client, lambda: group.get_by_label("E bis").select_option("3"))
     assert all(e["c"] % 10 in (2, 3) for e in props["exercises"])
     props = changed(page, client, lambda: ctl(page, "Ohne").click())
+    assert props["carry"] == ["none", "either", "either"]
     for e in props["exercises"]:
-        assert not carries(e["a"], e["b"]) and not carries(calc(e["a"], e["op"], e["b"]), e["c"])
+        assert place_keeps(props["carry"], props["max"], e["op"], e["a"], e["b"])
+        assert place_keeps(
+            props["carry"], props["max"], e["op2"], calc(e["a"], e["op"], e["b"]), e["c"]
+        )
 
 
 def test_the_gap_stands_for_any_of_the_three_numbers(editor):

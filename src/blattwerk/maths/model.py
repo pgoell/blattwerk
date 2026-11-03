@@ -5,7 +5,9 @@ from functools import lru_cache
 from math import prod
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
+
+from blattwerk.maths.carry import NAMES, coerce_carry, variants
 
 Op = Literal["+", "-", "*", "/"]
 Digit = Annotated[int, Field(ge=0, le=9)]
@@ -30,7 +32,15 @@ class Settings(BaseModel):
     b: list[Range] = []
     # The digits of the third number, for the exercises of three numbers.
     c: list[Range] = []
-    carry: Literal["none", "required", "either"] = "either"
+    # Zehner, Hunderter, Tausender. An older "none", "required" or "either" is read too.
+    carry: Annotated[
+        tuple[
+            Literal["none", "required", "either"],
+            Literal["none", "required", "either"],
+            Literal["none", "required", "either"],
+        ],
+        BeforeValidator(coerce_carry),
+    ] = ("either", "either", "either")
     # Whether a division leaves a remainder. None takes both; only the generator asks for that.
     rest: bool | None = False
     format: Literal["row", "gap", "written", "compare"] = "row"
@@ -76,6 +86,24 @@ class Settings(BaseModel):
     # Kleines Einmaleins: both factors of a times task, and the divisor and the quotient of a divide
     # task, lie from 1 to 10.
     small: bool = False
+    # Patterns of the first number, the second and the result. "X" is any digit, a digit is fixed,
+    # and the length is the number of digits, as in "X0" or "100". Empty means no pattern.
+    pa: str = ""
+    pb: str = ""
+    pr: str = ""
+    # "Die Null darf vorkommen", per operation family. "strich" is plus and minus, "punkt" is times
+    # and divide. A family left out allows the digit 0.
+    nil: dict[Literal["strich", "punkt"], bool] = Field(default_factory=dict)
+
+    @field_validator("pa", "pb", "pr", mode="before")
+    @classmethod
+    def pattern(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise ValueError("a pattern is text")
+        text = value.strip().upper()
+        if len(text) > 7 or any(ch not in "0123456789X" for ch in text):
+            raise ValueError("a pattern is X or a digit, at most 7 of them")
+        return text
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
@@ -168,8 +196,7 @@ def scaled(s: Settings) -> Settings:
 def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
     """Each limit taken off in turn: the settings with it looser, and the highest result."""
     free = [(0, 9)] * len(s.a)
-    return {
-        "carry": (s.model_copy(update={"carry": "either"}), s.max),
+    out = {
         "rest": (s.model_copy(update={"rest": None}), s.max),
         "a": (s.model_copy(update={"a": free}), s.max),
         "b": (s.model_copy(update={"b": free}), s.max),
@@ -183,7 +210,16 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "one": (s.model_copy(update={"one": True}), s.max),
         "distinct": (s.model_copy(update={"distinct": False}), s.max),
         "small": (s.model_copy(update={"small": False}), s.max),
+        "pa": (s.model_copy(update={"pa": ""}), s.max),
+        "pb": (s.model_copy(update={"pb": ""}), s.max),
+        "pr": (s.model_copy(update={"pr": ""}), s.max),
+        "nil": (s.model_copy(update={"nil": {}}), s.max),
     }
+    loosened_carry = variants(s.carry, s.max, places(s))
+    for name in NAMES:
+        carry = loosened_carry.get(name)
+        out[name] = (s.model_copy(update={"carry": carry}), s.max) if carry else (s, s.max)
+    return out
 
 
 def plain(s: Settings, e: dict) -> bool:
