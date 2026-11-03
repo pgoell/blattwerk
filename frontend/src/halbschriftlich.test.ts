@@ -64,12 +64,12 @@ function oracleFits(op: Op, max: number, digits: number, einer: Rule, zehner: Ru
   const r = op === "+" ? a + b : a - b;
   if (op === "+" && r > max) return false;
   if (op === "-" && (b > a || r < 0)) return false;
-  // A crossing of a ten (p 0) or a hundred (p 1) anywhere on the way: walk the steps one by one and look whether a step
-  // smaller than m leaves the ten or hundred it starts in (a step of m or more moves whole tens or hundreds and comes
-  // first, so it crosses nothing in this sense). No formula of the model.
+  // One place, the digits only: Plus sums to more than 10, Minus the first digit is smaller. A sum of 10 does not
+  // cross, and a carry does not run on to the next place.
   const crosses = (p: number): boolean => {
-    const m = 10 ** (p + 1);
-    return oracleSteps(op, a, b, 4).some(([s, part, t]) => part < m && Math.floor(s / m) !== Math.floor(t / m));
+    const da = digitAt(a, p);
+    const db = digitAt(b, p);
+    return op === "+" ? da + db > 10 : da < db;
   };
   if (einer === "yes" && !crosses(0)) return false;
   if (einer === "no" && crosses(0)) return false;
@@ -178,28 +178,39 @@ describe("the drawn tasks", () => {
       }
     }
     expect(bad).toEqual([]);
-    // A one-digit second number crosses a hundred only through the Einer: "ohne" at the Einer and "mit" at the Zehner
-    // leave no task. The brute force finds exactly these settings empty, and `made` agrees (checked above).
-    expect(noneSettings).toEqual(["+ 1000 1 no yes", "- 1000 1 no yes"]);
+    // A one-digit second number has no Zehner digit, so "mit" at the Zehner leaves no task.
+    expect(noneSettings).toEqual([
+      "+ 1000 1 any yes",
+      "+ 1000 1 yes yes",
+      "+ 1000 1 no yes",
+      "- 1000 1 any yes",
+      "- 1000 1 yes yes",
+      "- 1000 1 no yes",
+    ]);
   });
 
-  it("counts a carry that runs on: 395 + 7 and 385 + 17 cross a hundred", () => {
+  it("counts the digits of one place, and a carry does not run on (#838)", () => {
     const plus = { ...DEFAULTS, op: "+" as Op, max: 1000, einer: "any" as Rule, seed: 0 };
-    // The oracle's walk agrees on the two examples.
-    expect(oracleFits("+", 1000, 1, "any", "no", 395, 7)).toBe(false);
-    expect(oracleFits("+", 1000, 1, "any", "yes", 395, 7)).toBe(true);
-    expect(oracleFits("+", 1000, 2, "any", "no", 385, 17)).toBe(false);
-    expect(oracleFits("-", 1000, 1, "any", "no", 402, 7)).toBe(false);
-    // "ohne" at the Zehner never draws a task that crosses a hundred, at any Stellen; "mit" always does.
+    // 395 + 7 sums the Zehner to 9, so it does not cross a hundred. 370 + 280 sums them to 15, so it does.
+    expect(oracleFits("+", 1000, 1, "any", "no", 395, 7)).toBe(true);
+    expect(oracleFits("+", 1000, 1, "any", "yes", 395, 7)).toBe(false);
+    expect(oracleFits("+", 1000, 3, "any", "yes", 370, 280)).toBe(true);
+    expect(oracleFits("+", 1000, 1, "no", "any", 7, 3)).toBe(true);
+    expect(oracleFits("+", 1000, 1, "no", "any", 8, 5)).toBe(false);
+    expect(oracleFits("-", 1000, 1, "yes", "any", 10, 4)).toBe(true);
+    // "ohne" at the Zehner never draws a task whose Zehner digits cross; "mit" always does.
     const bad: string[] = [];
     for (const digits of [1, 2, 3])
       for (const op of ["+", "-"] as Op[])
         for (const zehner of ["no", "yes"] as Rule[])
           for (const seed of SEEDS)
             for (const t of made({ ...plus, op, digits, zehner, seed, count: 12 }).tasks) {
+              if (t.none) continue;
               const [a, b] = t.values;
-              const walk = t.steps.some(([s, part, e]) => part < 100 && Math.floor(s / 100) !== Math.floor(e / 100));
-              if (walk !== (zehner === "yes")) bad.push(`${a} ${op} ${b} with zehner ${zehner}`);
+              const da = Math.floor(a / 10) % 10;
+              const db = Math.floor(b / 10) % 10;
+              const cross = op === "+" ? da + db > 10 : da < db;
+              if (cross !== (zehner === "yes")) bad.push(`${a} ${op} ${b} with zehner ${zehner}`);
             }
     expect(bad).toEqual([]);
   });

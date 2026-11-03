@@ -4,7 +4,7 @@ title: "Block: maths"
 description: "The maths block's limits, layout and exercises."
 tags: [block, maths]
 covers: [maths]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T00:51:35Z }
 ---
 
 # maths
@@ -41,13 +41,13 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | size | number | at least 8 | yes | Font size of a row or a gap, in pt. The editor steps it by 2 pt and never goes below 8. |
 | numbering | string |  | no | How the exercises are numbered on the sheet, as the editor's numbering control sets it. |
 | exercises | list of object |  | yes | The exercises the server made for the limits, in the order they stand on the sheet. |
-| loosen | list of string or null |  | yes | The limits in the way when fewer exercises came than asked for, by name, such as "max" or "carry". null when the count is met. |
+| loosen | list of string or null |  | yes | The limits in the way when fewer exercises came than asked for, by name, such as "max" or "zehner". null when the count is met. |
 | ops | list of string | `+`, `-`, `*`, `/` | yes | The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. |
 | max | number | 1 to 1000000 | yes | The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000. |
 | a | list of list of number |  | no | The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. |
 | b | list of list of number |  | no | The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. |
 | c | list of list of number |  | no | The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. |
-| carry | string | `none`, `required`, `either` | yes | Whether a plus or minus task must carry (Übertrag): "none" never, "required" always, "either" both kinds. |
+| carry | list of string or string | `none`, `required`, `either` or `none` or `required` or `either` | yes | Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is "none" (that place does not cross), "required" (it does) or "either" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). Minus crosses when that digit of the first number is smaller than the second's. "none" at the top place that counts also rules out every place above it. An older single "none", "required" or "either" is read as every place, only the smallest place, or no rule. Default ["either", "either", "either"]. |
 | rest | boolean |  | yes | Whether a division leaves a remainder. false, the default, gives even divisions only. |
 | format | string | `row`, `gap`, `written`, `compare` | yes | How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. |
 | count | number | 1 to 100 | yes | How many tasks the block makes. |

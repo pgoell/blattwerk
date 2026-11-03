@@ -3,6 +3,7 @@
 import random
 from math import isqrt
 
+from blattwerk.maths.carry import NAMES
 from blattwerk.maths.model import CLOSE, Settings, fits, loosened, pick
 from blattwerk.maths.pairs import propose, result, valid
 
@@ -176,7 +177,7 @@ def compared(s: Settings) -> dict:
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
-    names = ("carry", "a", "b", "max", "close", "equal", "zero", "one", "distinct", "small")
+    names = (*NAMES, "a", "b", "max", "close", "equal", "zero", "one", "distinct", "small")
     # A limit already at its loosest changes nothing, so it is not tried again.
     return {
         "exercises": found,

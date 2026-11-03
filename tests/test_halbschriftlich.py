@@ -106,12 +106,12 @@ def digit(n, place):
 
 
 def crosses(op, a, b, place):
-    """Whether the task crosses a ten (place 0) or a hundred (place 1) on its way: the result leaves the ten or
-    hundred of the first number (contract: the Übertrag of written arithmetic, 395 + 7 crosses a hundred)."""
-    m = 10 ** (place + 1)
+    """Whether place 0 (a ten) or place 1 (a hundred) crosses: Plus the digits sum to more than 10, Minus the
+    first number's digit is smaller. 395 + 7 does not cross a hundred."""
+    da, db = (a // 10**place) % 10, (b // 10**place) % 10
     if op == "+":
-        return a % m + b % m >= m
-    return a % m < b % m
+        return da + db > 10
+    return da < db
 
 
 def test_a_halbschriftlich_is_inserted_from_the_maths_menu_with_the_defaults(editor):

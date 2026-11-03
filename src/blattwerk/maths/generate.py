@@ -5,6 +5,7 @@ import random
 from fastapi import APIRouter
 
 from blattwerk.auth import Teacher
+from blattwerk.maths.carry import NAMES
 from blattwerk.maths.chains import chained
 from blattwerk.maths.compare import compared
 from blattwerk.maths.model import Settings, gaps_of, loosened, places, scaled, three
@@ -55,7 +56,7 @@ def generate(s: Settings) -> dict:
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = ("carry", "rest", "a", "b", "max", "family", "zero", "one", "distinct", "small")
+    names = (*NAMES, "rest", "a", "b", "max", "family", "zero", "one", "distinct", "small")
     loosen = [name for name in names if len(groups(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}
 

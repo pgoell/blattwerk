@@ -15,7 +15,7 @@ from test_compare import changed, ctl, shown
 from test_feed_print import pdf_text, printed, sheet_id
 from test_fix_mix import key
 from test_gaps import step
-from test_three import SIGNS, carries
+from test_three import SIGNS
 from test_words import redo, undo
 from ui import at, box, maths, pick, saved, tool, user
 
@@ -152,10 +152,11 @@ def test_uebertrag_counts_across_the_comma(editor):
     )
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Mit").click())
-    assert props["carry"] == "required"
-    assert all(carries(e["a"], e["b"]) for e in props["exercises"])
+    assert props["carry"] == ["required", "either", "either"]
+    # One decimal: the smallest place is the Zehntel, so Mit means those digits sum past 10.
+    assert all((e["a"] % 10) + (e["b"] % 10) > 10 for e in props["exercises"])
     props = changed(page, client, lambda: ctl(page, "Ohne").click())
-    assert all(not carries(e["a"], e["b"]) for e in props["exercises"])
+    assert all((e["a"] % 10) + (e["b"] % 10) <= 10 for e in props["exercises"])
 
 
 def test_times_or_divide_grey_the_setting_and_it_counts_for_nothing(editor):

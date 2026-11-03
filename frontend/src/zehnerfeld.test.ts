@@ -40,16 +40,11 @@ function oraclePairs(op: Op, C: number, max: number, cross: Cross): [number, num
   const out: [number, number][] = [];
   for (let a = 1; a <= M; a++) {
     for (let b = 1; b <= M; b++) {
-      let r: number;
       if (op === "+") {
         if (a + b > M) continue;
-        r = a + b;
-      } else {
-        if (b > a) continue;
-        r = a - b;
-      }
+      } else if (b > a) continue;
       if (useCross !== "any") {
-        const crossing = op === "+" ? (a % 10) + (b % 10) > 10 : (r % 10) + (b % 10) > 10;
+        const crossing = op === "+" ? (a % 10) + (b % 10) > 10 : (a % 10) < (b % 10);
         if (useCross === "yes" && !crossing) continue;
         if (useCross === "no" && crossing) continue;
       }
@@ -228,8 +223,9 @@ describe("small contract checks", () => {
     expect(crosses("+", 6, 4)).toBe(false);
     expect(crosses("+", 16, 4)).toBe(false);
     expect(crosses("-", 13, 5)).toBe(true);
-    expect(crosses("-", 10, 4)).toBe(false);
-    expect(crosses("-", 20, 4)).toBe(false);
+    expect(crosses("-", 10, 4)).toBe(true);
+    expect(crosses("-", 20, 4)).toBe(true);
+    expect(crosses("-", 16, 4)).toBe(false);
     expect(crosses("+", 45, 30)).toBe(false);
   });
 

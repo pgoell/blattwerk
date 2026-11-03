@@ -5,7 +5,9 @@ from functools import lru_cache
 from math import prod
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
+
+from blattwerk.maths.carry import NAMES, coerce_carry, variants
 
 Op = Literal["+", "-", "*", "/"]
 Digit = Annotated[int, Field(ge=0, le=9)]
@@ -30,7 +32,15 @@ class Settings(BaseModel):
     b: list[Range] = []
     # The digits of the third number, for the exercises of three numbers.
     c: list[Range] = []
-    carry: Literal["none", "required", "either"] = "either"
+    # Zehner, Hunderter, Tausender. An older "none", "required" or "either" is read too.
+    carry: Annotated[
+        tuple[
+            Literal["none", "required", "either"],
+            Literal["none", "required", "either"],
+            Literal["none", "required", "either"],
+        ],
+        BeforeValidator(coerce_carry),
+    ] = ("either", "either", "either")
     # Whether a division leaves a remainder. None takes both; only the generator asks for that.
     rest: bool | None = False
     format: Literal["row", "gap", "written", "compare"] = "row"
@@ -165,8 +175,7 @@ def scaled(s: Settings) -> Settings:
 def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
     """Each limit taken off in turn: the settings with it looser, and the highest result."""
     free = [(0, 9)] * len(s.a)
-    return {
-        "carry": (s.model_copy(update={"carry": "either"}), s.max),
+    out = {
         "rest": (s.model_copy(update={"rest": None}), s.max),
         "a": (s.model_copy(update={"a": free}), s.max),
         "b": (s.model_copy(update={"b": free}), s.max),
@@ -181,6 +190,11 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "distinct": (s.model_copy(update={"distinct": False}), s.max),
         "small": (s.model_copy(update={"small": False}), s.max),
     }
+    loosened_carry = variants(s.carry, s.max, places(s))
+    for name in NAMES:
+        carry = loosened_carry.get(name)
+        out[name] = (s.model_copy(update={"carry": carry}), s.max) if carry else (s, s.max)
+    return out
 
 
 def plain(s: Settings, e: dict) -> bool:

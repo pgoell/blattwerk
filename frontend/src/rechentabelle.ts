@@ -9,13 +9,11 @@
 // - `rows` row values and `cols` column values per table, each 2 to 10 (default 4).
 // - `op`, the Rechenart: "+" (default), "-", "*" (Mal) or ":" (Geteilt). Cell (i, j) is row i op column j.
 // - Plus and Minus: `max`, the Zahlenraum, one of 10, 20, 100, 1000 (default 20; any other value gives 20), and
-//   `carry`, the Übertrag per place, [Zehnerübergang, Hunderterübergang] (each a `CarryRule`): "none" no cell carries
-//   into that place, "required" every cell does, "either" (default) no rule. The Hunderterübergang counts from max
-//   1000 and is "either" below (a cell of 100 at most carries into the Hunderter only as 100 itself). "none" at the
-//   top place that counts holds for every place above it too: bis 100 "Ohne Zehnerübergang" has no 20 + 80 = 100,
-//   bis 1000 "Ohne Hunderterübergang" no 100 + 900 = 1000. What a cell carries is `carryList`,
-//   as maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row value below the column value's digit
-//   (with the borrow); a place the numbers do not reach carries 0. Plus: every value and every cell from 1 to max.
+//   `carry`, the Übertrag per place, [Zehnerübergang, Hunderterübergang] (each a `CarryRule`): "none" no cell crosses
+//   that place, "required" every cell does, "either" (default) no rule. The Hunderterübergang counts from max
+//   1000 and is "either" below. "none" at the top place that counts holds for every place above it too.
+//   What a cell crosses is `carryList` (#838): Plus the digits of that place sum to more than 10 (7 + 3 and 20 + 80
+//   do not), Minus the row's digit is smaller than the column's. Nothing runs on. Plus: every value and every cell from 1 to max.
 //   Minus: every value from 1 to max, every cell 0 or more.
 // - Mal and Geteilt: `reihen`, the Einmaleins-Reihen, a list of distinct numbers 1 to 10 (default [2, 4, 5, 10]; an
 //   empty or wrong list gives the default). The column values are the Reihen: with `order` "related" (default) in the
@@ -115,7 +113,7 @@ export type RechentabelleProps = {
   op: "+" | "-" | "*" | ":";
   /** Plus and Minus: the Zahlenraum, the largest number in the table, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. */
   max: number;
-  /** Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell carries into that place, "required" every cell does, "either" no rule. The Hunderterübergang counts only with max 1000, else it is "either". "none" at the top place that counts also rules out every place above it. Default ["either", "either"]. */
+  /** Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell crosses that place, "required" every cell does, "either" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is "either". "none" at the top place that counts also rules out every place above it. Default ["either", "either"]. */
   carry: [CarryRule, CarryRule];
   /** Mal and Geteilt: the Einmaleins-Reihen, distinct numbers 1 to 10, as the column values. Default [2, 4, 5, 10]. */
   reihen: number[];

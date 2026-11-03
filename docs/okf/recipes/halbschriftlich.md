@@ -4,7 +4,7 @@ title: "Halbschriftlich rechnen"
 description: A heading, a name line, and six Plusaufgaben bis 1000 for the halbschriftliche Rechnen with the Zehnerübergang in the Einer step, the second number split place by place, with the first and the second number given and the steps and the result to fill in.
 tags: [halbschriftlich, zehnerübergang, klasse-2]
 covers: [text, name, halbschriftlich]
-generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T00:52:00Z }
 ---
 
 # Halbschriftlich rechnen
@@ -17,7 +17,7 @@ When a teacher asks for: "Ein Arbeitsblatt mit sechs Plusaufgaben bis 1000 zum h
 * `op` is "+" (Plus, the default) or "-" (Minus).
 * `max` is the Zahlenraum, 100 or 1000 (default 1000).
 * `digits` is the places of the second number, 1, 2 or 3 (default 3). 3 counts only with max 1000.
-* `einer` is the Zehnerübergang: "yes" (every task crosses a ten, as in 348 + 5), "no" (none does) or "any" (default). `zehner` is the same for crossing a hundred, as the Übertrag of written arithmetic (395 + 7 and 385 + 17 cross a hundred); it counts only with max 1000. With one place, "no" at the Einer and "yes" at the Zehner leave no task.
+* `einer` is the Zehnerübergang: "yes" (every task crosses a ten, as in 348 + 5; 7 + 3 does not), "no" (none does) or "any" (default). `zehner` is the Zehner digits crossing a hundred (370 + 280 does; 395 + 7 does not, a carry does not run on); it counts only with max 1000. Minus crosses a place when that digit of the first number is smaller than the second's. With one place, "yes" at the Zehner leaves no task: a one-digit second number has no Zehner digit.
 * `head` set to true draws the place letters T H Z E above the numbers. `grid` set to false draws plain boxes instead of Karo. `ops` set to false leaves the signs of the steps out for the pupils to write.
 * The block's height follows its tasks. Six tasks in two columns are 146 mm wide and 86 mm tall, the size the insert gives.
 * See [halbschriftlich](../blocks/halbschriftlich.md) for the other props.
