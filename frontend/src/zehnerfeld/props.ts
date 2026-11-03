@@ -24,7 +24,7 @@ export type ZehnerfeldProps = {
   task: "dots" | "write" | "mixed";
   /** The Zahlenraum: 5, 10, 20, 50 or 100, at most the field's size (10, 20 or 100). Plus results and Minus first numbers stay within it. Default 20. */
   max: number;
-  /** The Zehnerübergang: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), "no" none does, "any" either. Counts only with the Zwanziger- and Hunderterfeld. Default "any". */
+  /** The Zehnerübergang: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, as 8 + 5 and 6 + 4, and 6 + 3 does not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), "no" none does, "any" either. Counts only with the Zwanziger- and Hunderterfeld. Default "any". */
   cross: Cross;
   /** Trennlinien: true draws a strong line after each five dots, across and down. Default true. */
   lines: boolean;
