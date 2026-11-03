@@ -4,7 +4,7 @@ title: "Block: ruling"
 description: "The Lineatur's kind and colour, and the words it may show on its rows."
 tags: [block, ruling]
 covers: [ruling]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-01T15:41:30Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T05:37:31Z }
 ---
 
 # ruling
@@ -55,6 +55,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | breaks | object |  | no | The word breaks set by hand for the text on the lines or in the squares. They win over the sheet's breaks. Left out, the sheet's apply. |
 | tints | list of string |  | no | Two colours, such as #1a56db and #e02424, that colour the syllables in turn, on the lines or in the squares. Left out, no colour. |
 | tintsAcross | boolean |  | no | Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again. |
+| marks | object |  | no | Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. |
 
 # Examples
 

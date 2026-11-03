@@ -4,7 +4,7 @@ title: "Zahlenmauern"
 description: A heading, a name line, and four Zahlenmauern with the sums above the given foot stones to fill in.
 tags: [zahlenmauer, zahlen, klasse-1]
 covers: [text, name, zahlenmauer]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Zahlenmauern

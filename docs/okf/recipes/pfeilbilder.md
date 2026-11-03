@@ -4,7 +4,7 @@ title: "Pfeilbilder"
 description: A heading, a name line, and four Pfeilbilder of four boxes with the start number and the operators given and the other boxes to fill in.
 tags: [pfeilbild, zahlenraum-20, klasse-1]
 covers: [text, name, pfeilbild]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Pfeilbilder
