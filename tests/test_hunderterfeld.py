@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, pick, user
+from ui import at, box, doc, pick, user
 
 TAFEL = {
     "look": "tafel",
@@ -200,6 +200,55 @@ def test_zahlen_free_to_all_and_back_keeps_hidden(editor):
     assert props_of(doc(page, client))["hidden"] == [34, 50]
     step(page, lambda: field(page, "Zahlen").select_option("free"))
     assert props_of(doc(page, client))["hidden"] == [34, 50]
+
+
+def test_erste_zahl_301_stores_the_page_and_draws_301_to_400(editor):
+    """#844: Erste Zahl "301 bis 400" stores from 301, and the field shows 301 and 400."""
+    client = user()
+    page = editor(feld("h", TAFEL), client=client)
+    pick(page, "h")
+    step(page, lambda: field(page, "Erste Zahl").select_option("301"))
+    assert props_of(doc(page, client))["from"] == 301
+    expect(at(page, "h").locator("g.cell[data-i='0'] text")).to_have_text("301")
+    expect(at(page, "h").locator("g.cell[data-i='99'] text")).to_have_text("400")
+
+
+def test_a_rectangle_ausschnitt_draws_five_by_five(editor):
+    """#844: Zuschnitt Rechteck draws the default 5 by 5 at the top left, 25 cells."""
+    client = user()
+    page = editor(feld("h", {**TAFEL, "cut": True}), client=client)
+    pick(page, "h")
+    step(page, lambda: field(page, "Zuschnitt").select_option("rect"))
+    assert props_of(doc(page, client))["form"] == "rect"
+    expect(at(page, "h").locator("g.cell")).to_have_count(25)
+
+
+def test_weg_drops_the_hidden_row(editor):
+    """#844: Eine Zeile with Kästchen Weg leaves that row out, so 90 cells remain and the top row is gone."""
+    client = user()
+    page = editor(feld("h", TAFEL), client=client)
+    pick(page, "h")
+    step(page, lambda: field(page, "Zahlen").select_option("row"))
+    step(page, lambda: field(page, "Kästchen").select_option("gone"))
+    expect(at(page, "h").locator("g.cell")).to_have_count(90)
+    expect(at(page, "h").locator("g.cell[data-i='0']")).to_have_count(0)
+
+
+def test_muster_herz_hides_the_heart_in_grey(editor):
+    """#844: Ein Muster Herz with Kästchen Grau hides the heart's 40 cells and fills them grey."""
+    client = user()
+    page = editor(feld("h", TAFEL), client=client)
+    pick(page, "h")
+    step(page, lambda: field(page, "Zahlen").select_option("muster"))
+    step(page, lambda: field(page, "Kästchen").select_option("grey"))
+    stored = props_of(doc(page, client))
+    assert (stored["show"], stored["muster"], stored["blank"]) == ("muster", "herz", "grey")
+    fills = (
+        at(page, "h")
+        .locator("g.cell rect")
+        .evaluate_all("els => els.map(e => e.getAttribute('fill'))")
+    )
+    assert fills.count("#d0d0d0") == 40
 
 
 def test_the_last_cell_out_of_the_ausschnitt_shows_a_hint(editor):
