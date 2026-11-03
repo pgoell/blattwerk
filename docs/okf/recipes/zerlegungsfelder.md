@@ -4,7 +4,7 @@ title: "Zerlegungsfelder"
 description: A heading, a name line, and six Zerlegungsfelder bis 20 for the Zehnerübergang in two steps, with the first and the second number given and the split and the result to fill in.
 tags: [zerlegungsfeld, zehnerübergang, klasse-1]
 covers: [text, name, zerlegungsfeld]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T01:41:00Z }
 ---
 
 # Zerlegungsfelder
@@ -19,6 +19,7 @@ When a teacher asks for: "Ein Arbeitsblatt mit sechs Aufgaben zum Zehnerübergan
 * `step` is "zehner" (default) or "hunderter" (only with max 1000).
 * `big` set to false (default) draws the second number below ten, as in 8 + 5. `true` draws one of at least ten, as in 3 + 34.
 * `task` says which boxes the pupil sees: "task" (default) gives the first and the second number; "split" also gives the two parts of the split; "result" gives the first number and the result.
+* `pa` and `pb` are patterns for the first and the second number: `X` is any digit, a digit is fixed, and the length is the number of digits, as in `X3`. `nil` set to false keeps the digit 0 out.
 * The block's height follows its tasks. Six tasks in three columns at 180 mm wide are 128.9 mm tall.
 * See [zerlegungsfeld](../blocks/zerlegungsfeld.md) for the other props.
 

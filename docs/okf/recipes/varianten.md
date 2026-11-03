@@ -4,7 +4,7 @@ title: "Varianten zum Drucken"
 description: A maths block and a suchsel with seeds, so each printed variant gets its own tasks and grid.
 tags: [varianten, maths, suchsel, abschreiben, klasse-2]
 covers: [text, name, maths, suchsel]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T01:44:00Z }
 ---
 
 # Varianten zum Drucken

@@ -2369,6 +2369,32 @@
         "small": {
           "type": "boolean",
           "description": "Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false."
+        },
+        "pa": {
+          "type": "string",
+          "description": "Pattern of the first number: \"X\" is any digit, a digit is fixed, and the length is the number of digits, as in \"X0\" or \"20\". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no \"X\"."
+        },
+        "pb": {
+          "type": "string",
+          "description": "Pattern of the second number, as for the first. Empty means no pattern."
+        },
+        "pr": {
+          "type": "string",
+          "description": "Pattern of the result, as for the first number, as in \"100\". Empty means no pattern. A comparison has no result pattern."
+        },
+        "nil": {
+          "type": "object",
+          "properties": {
+            "strich": {
+              "type": "boolean",
+              "description": "Whether the digit 0 may occur in plus and minus tasks. Left out, it may."
+            },
+            "punkt": {
+              "type": "boolean",
+              "description": "Whether the digit 0 may occur in times and divide tasks. Left out, it may."
+            }
+          },
+          "description": "Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts."
         }
       },
       "required": [
@@ -4923,6 +4949,18 @@
             "$ref": "#/definitions/ZerlegungsfeldTyped"
           },
           "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with \"hunderter\" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers."
+        },
+        "pa": {
+          "type": "string",
+          "description": "Pattern of the first number. \"X\" is any digit, a digit is fixed, the length is the number of digits (\"X3\"). Empty means none."
+        },
+        "pb": {
+          "type": "string",
+          "description": "Pattern of the second number, as `pa`. Empty means none."
+        },
+        "nil": {
+          "type": "boolean",
+          "description": "Whether the digit 0 may occur in the numbers. Default true."
         }
       },
       "required": [
