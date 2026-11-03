@@ -101,6 +101,15 @@
 .zahlenstrahl svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }
 .block .hunderterfeld { height: 100%; font-family: Andika; }
 .block .geobrett { height: 100%; font-family: Andika; }
+.block .karofeld { height: 100%; font-family: Andika; }
+.karofeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.karofeld .mesh { fill: none; stroke: #9db4c8; stroke-width: 0.25; }
+.karofeld .ring { fill: none; stroke: #9db4c8; stroke-width: 0.35; }
+.karofeld .dot { fill: #222; }
+.karofeld .thick { stroke: #222; stroke-width: 0.8; }
+.karofeld .loesung { stroke: #222; stroke-width: 0.35; }
+.karofeld .caret { fill: none; stroke: #1a56db; stroke-width: 0.4; }
+.karofeld .mesh, .karofeld .ring, .karofeld .dot, .karofeld .thick, .karofeld .loesung, .karofeld text, .karofeld .caret { pointer-events: none; }
 .block .diagramm { height: 100%; font-family: Andika; }
 .block .uhr { height: 100%; font-family: Andika; }
 .uhr svg { display: block; width: 100%; height: 100%; font-family: Andika; }

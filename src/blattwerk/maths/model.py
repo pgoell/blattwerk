@@ -5,7 +5,7 @@ from functools import lru_cache
 from math import prod
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, BeforeValidator, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
 from blattwerk.maths.carry import NAMES, coerce_carry, variants
 
@@ -83,6 +83,24 @@ class Settings(BaseModel):
     # Kleines Einmaleins: both factors of a times task, and the divisor and the quotient of a divide
     # task, lie from 1 to 10.
     small: bool = False
+    # Patterns of the first number, the second and the result. "X" is any digit, a digit is fixed,
+    # and the length is the number of digits, as in "X0" or "100". Empty means no pattern.
+    pa: str = ""
+    pb: str = ""
+    pr: str = ""
+    # "Die Null darf vorkommen", per operation family. "strich" is plus and minus, "punkt" is times
+    # and divide. A family left out allows the digit 0.
+    nil: dict[Literal["strich", "punkt"], bool] = Field(default_factory=dict)
+
+    @field_validator("pa", "pb", "pr", mode="before")
+    @classmethod
+    def pattern(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise ValueError("a pattern is text")
+        text = value.strip().upper()
+        if len(text) > 7 or any(ch not in "0123456789X" for ch in text):
+            raise ValueError("a pattern is X or a digit, at most 7 of them")
+        return text
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
@@ -189,6 +207,10 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "one": (s.model_copy(update={"one": True}), s.max),
         "distinct": (s.model_copy(update={"distinct": False}), s.max),
         "small": (s.model_copy(update={"small": False}), s.max),
+        "pa": (s.model_copy(update={"pa": ""}), s.max),
+        "pb": (s.model_copy(update={"pb": ""}), s.max),
+        "pr": (s.model_copy(update={"pr": ""}), s.max),
+        "nil": (s.model_copy(update={"nil": {}}), s.max),
     }
     loosened_carry = variants(s.carry, s.max, places(s))
     for name in NAMES:

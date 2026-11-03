@@ -31,6 +31,7 @@ LABEL = {
     "uhr": "Uhr",
     "selbstkontrolle": "Selbstkontrolle",
     "geobrett": "Geobrett",
+    "karofeld": "Karofeld",
     "diagramm": "Diagramm",
 }
 DOCK = ("maths", "suchsel")
@@ -58,6 +59,7 @@ CHANGES = {
     "uhr": ({"count": 8}, True),
     "selbstkontrolle": ({"form": "word", "word": "HUND"}, False),
     "geobrett": ({"cols": 6}, False),
+    "karofeld": ({"look": "kreise"}, False),
     "diagramm": ({"kind": "kreis"}, False),
 }
 

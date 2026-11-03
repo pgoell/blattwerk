@@ -4,6 +4,7 @@ import type { Owed } from "../saves";
 import { SIGNS, type Limits, type MathsBlock, type MathsProps, type Op } from "../sheet";
 import { AFTER, anyDigits, asCarry, CARRIES, carryCount, carryLabel, DIGITS, FAMILIES, FORMATS, FRACTIONS, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
 import { useFlight } from "./maths/flight";
+import Muster from "./maths/muster";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
@@ -103,6 +104,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           </div>
         );
       })}
+      <Muster p={p} limit={limit} plus={plus} times={times} decimals={open && (money || dec > 0)} />
       {plus &&
         Array.from({ length: carryCount(p.max, dec) }, (_, i) => {
           const label = carryLabel(i, dec);

@@ -7,6 +7,7 @@ from blattwerk.maths.carry import NAMES, all_none, keeps
 from blattwerk.maths.compare import aimed
 from blattwerk.maths.model import Range, Settings, fits, gaps_of, loosened, pick, plain
 from blattwerk.maths.pairs import bound, propose, result, valid
+from blattwerk.maths.pattern import allow, matches
 
 
 def step(s: Settings, op: str, x: int, y: int, top: int) -> int | None:
@@ -35,7 +36,16 @@ def sound(s: Settings, e: dict, top: int) -> bool:
     """Whether a three-number exercise keeps every limit, and its result is right."""
     fit = all(fits(ranges, n) for ranges, n in ((s.a, e["a"]), (s.b, e["b"]), (s.c, e["c"])))
     inside = max(e["a"], e["b"], e["c"]) <= s.max and e["op"] in s.ops and e["op2"] in s.ops
-    return fit and inside and plain(s, e) and worked(s, e, top) == e["result"]
+    right = e["paren"] == "right" if "paren" in e else e["op2"] in "*/" and e["op"] in "+-"
+    b_op = e["op2"] if right else e["op"]
+    zero_ok = allow(s, e["op"]) and allow(s, e["op2"])
+    patterned = (
+        matches(s.pa, e["a"], allow(s, e["op"]))
+        and matches(s.pb, e["b"], allow(s, b_op))
+        and matches("", e["c"], allow(s, e["op2"]))
+        and matches(s.pr, e["result"], zero_ok)
+    )
+    return fit and inside and plain(s, e) and patterned and worked(s, e, top) == e["result"]
 
 
 def calm(ranges: list[Range], other: int, op: str, first: bool = False) -> list[Range] | None:
@@ -133,7 +143,8 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
     small = None
     if op == "*" and rng.random() < s.lean:
         small = pick(rng, s.a, 2, min(s.max, max(2, isqrt(top))))
-    inner = s.model_copy(update={"a": s.b, "b": s.c})
+    # The inner pair is b and c, so the second number's pattern moves to the first place.
+    inner = s.model_copy(update={"a": s.b, "b": s.c, "pa": s.pb, "pb": ""})
     pair = once(inner, op2, top if small is None else top // small, rng)
     if pair is None:
         return None
@@ -329,6 +340,20 @@ def chained(s: Settings) -> dict:
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
-    names = (*NAMES, "a", "b", "c", "max", "brackets", "zero", "one", "distinct")
+    names = (
+        *NAMES,
+        "a",
+        "b",
+        "c",
+        "pa",
+        "pb",
+        "pr",
+        "nil",
+        "max",
+        "brackets",
+        "zero",
+        "one",
+        "distinct",
+    )
     loosen = [name for name in names if len(chains(*table[name])) > len(found)]
     return {"exercises": found, "loosen": loosen}

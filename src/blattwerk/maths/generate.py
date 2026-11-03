@@ -38,6 +38,9 @@ def generate(s: Settings) -> dict:
     # With three numbers the switch counts for nothing: they are drawn the same either way.
     if three(s):
         s = s.model_copy(update={"small": False})
+    # A pattern counts the digits the pupil sees. Places after the comma are not part of it.
+    if places(s):
+        s = s.model_copy(update={"pa": "", "pb": "", "pr": "", "nil": {}})
     d = places(s)
     s = scaled(s)
     if s.format == "compare":
@@ -56,7 +59,22 @@ def generate(s: Settings) -> dict:
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = (*NAMES, "rest", "a", "b", "max", "family", "zero", "one", "distinct", "small")
+    names = (
+        *NAMES,
+        "rest",
+        "a",
+        "b",
+        "pa",
+        "pb",
+        "pr",
+        "nil",
+        "max",
+        "family",
+        "zero",
+        "one",
+        "distinct",
+        "small",
+    )
     loosen = [name for name in names if len(groups(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}
 

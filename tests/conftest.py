@@ -20,6 +20,7 @@ from fixtures.hang import pytest_exception_interact as pytest_exception_interact
 from fixtures.hang import pytest_runtest_logfinish as pytest_runtest_logfinish
 from fixtures.hang import pytest_runtest_logreport as pytest_runtest_logreport
 from fixtures.hang import pytest_runtest_logstart as pytest_runtest_logstart
+from fixtures.hang import pytest_sessionfinish as pytest_sessionfinish
 from fixtures.hang import pytest_testnodeready as pytest_testnodeready
 from fixtures.hang import pytest_unconfigure as pytest_unconfigure
 from fixtures.hang import (

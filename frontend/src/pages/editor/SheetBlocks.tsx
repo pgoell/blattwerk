@@ -81,7 +81,14 @@ export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof
                     className={ids.includes(b.id) ? "block sel" : "block"}
                     style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}
                   >
-                    <Draw block={b} k={K} solved={solved} at={editing === b.id ? slot : undefined} reach={editing === b.id ? reach : undefined}>
+                    <Draw
+                      block={b}
+                      k={K}
+                      solved={solved}
+                      at={editing === b.id ? slot : undefined}
+                      reach={editing === b.id ? reach : undefined}
+                      onSquare={b.type === "karofeld" ? (col, row) => style("karofeld", { caret: [col, row] }, "caret") : undefined}
+                    >
                       {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
                       {boxed(b) && editing === b.id ? (
                         <Field
