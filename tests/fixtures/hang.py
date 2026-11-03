@@ -135,6 +135,18 @@ def pytest_xdist_node_collection_finished(node, ids):
     _restart()
 
 
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """The fixtures are down. A slow summary is not a hang.
+
+    The clock restarts at the last report, before the session fixtures end, so a fixture that
+    never returns is still cut off. The summary runs after that, and importing it on a loaded
+    runner has taken longer than the short limit.
+    """
+    if GUARD:
+        GUARD.cancel()
+
+
 def pytest_runtest_logreport(report):
     if GUARD:
         GUARD.restart()

@@ -135,6 +135,32 @@ def test_a_finished_run_is_not_ended_by_the_guard(tmp_path):
     assert "the run hangs" not in res.stderr
 
 
+# The summary comes after the fixtures. Four seconds is past the guard's three.
+# Only the controller: a worker's summary keeps the controller waiting, which is the fixture hang.
+SLOW_SUMMARY = """
+import time
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if not hasattr(config, "workerinput"):
+        time.sleep(4)
+"""
+
+
+def test_a_slow_summary_is_not_a_hang(tmp_path):
+    """A finished run stays finished while the summary takes longer than the short limit."""
+    (tmp_path / "slow_summary.py").write_text(SLOW_SUMMARY)
+    res = run(
+        tmp_path,
+        "-n",
+        "2",
+        probe="def test_one():\n    pass\n",
+        plugins=("slow_summary",),
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "the run hangs" not in res.stderr
+
+
 def test_a_hang_in_collection_ends_the_run(tmp_path):
     """Workers collect. A sleep there used to wait out the job limit: no test report ever came (#554)."""
     (tmp_path / "stall_collection.py").write_text(STALLS_COLLECTION)
