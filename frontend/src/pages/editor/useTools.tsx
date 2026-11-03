@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState } from "react";
-import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -100,6 +100,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Uhr", icon: Clock3, run: () => addInsert(INSERTS.uhr(newSeed())) },
     { label: "Selbstkontrolle", icon: ListChecks, run: () => addInsert(INSERTS.selbstkontrolle(newSeed())) },
     { label: "Diagramm", icon: ChartColumn, run: () => addInsert(INSERTS.diagramm(newSeed())) },
+    { label: "Lösungsfeld", icon: PenLine, run: () => addInsert(INSERTS.loesungsfeld()) },
   ];
   const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.

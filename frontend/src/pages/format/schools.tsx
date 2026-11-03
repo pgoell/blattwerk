@@ -25,6 +25,7 @@ import Hunderterfeld from "../Hunderterfeld";
 import Geobrett from "../Geobrett";
 import Karofeld from "../Karofeld";
 import Diagramm from "../Diagramm";
+import Loesungsfeld from "../Loesungsfeld";
 import Uhr from "../Uhr";
 import Selbstkontrolle from "../Selbstkontrolle";
 import { FormulaPanel } from "./formula";
@@ -91,6 +92,7 @@ export function useSchools({
   const diagramm = sel.length === 1 && sel[0].type === "diagramm" ? sel[0] : undefined;
   const uhr = sel.length === 1 && sel[0].type === "uhr" ? sel[0] : undefined;
   const skb = sel.length === 1 && sel[0].type === "selbstkontrolle" ? sel[0] : undefined;
+  const loesung = sel.length === 1 && sel[0].type === "loesungsfeld" ? sel[0] : undefined;
   // A maths block's height follows its exercises when they need more or less room than before. A change that would
   // push it past the page's foot is refused: the PDF would cut what hangs below.
   // `key` makes the style and the height one undo step.
@@ -100,17 +102,18 @@ export function useSchools({
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], key);
     return true;
   };
-  return { paperHint, refusedType: refusedBlock?.type, maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows };
+  return { paperHint, refusedType: refusedBlock?.type, maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, loesung, calc, grows };
 }
 
 export function SchoolPanels({
-  maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows, style, doc, words, owe, H,
+  maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, loesung, calc, grows, style, doc, words, owe, H, markEven,
 }: ReturnType<typeof useSchools> & {
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   doc: Doc;
   words: string[];
   owe: (entry: Owed) => void;
   H: number;
+  markEven: (on: boolean) => void;
 }) {
   return (
     <>
@@ -138,6 +141,7 @@ export function SchoolPanels({
       {diagramm && <Diagramm key={diagramm.id} block={diagramm} apply={(props, key) => style("diagramm", props, key)} />}
       {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key, back) => grows("uhr", props, key, back)} />}
       {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
+      {loesung && <Loesungsfeld key={loesung.id} block={loesung} doc={doc} apply={(props, key) => style("loesungsfeld", props, key)} markEven={markEven} />}
     </>
   );
 }
