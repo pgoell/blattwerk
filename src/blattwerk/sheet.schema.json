@@ -2143,7 +2143,7 @@
               "const": "either"
             }
           ],
-          "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
+          "description": "Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is \"none\" (that place does not cross), \"required\" (it does) or \"either\" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to 10 or more, so a sum of 10 carries 1 (7 + 3 and 17 + 23 do). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. \"none\" at the top place that counts also rules out every place above it. An older single \"none\", \"required\" or \"either\" is read as every place, only the smallest place, or no rule. Default [\"either\", \"either\", \"either\"]."
         },
         "rest": {
           "type": "boolean",
@@ -4292,7 +4292,7 @@
           },
           "minItems": 2,
           "maxItems": 2,
-          "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to more than 10 (7 + 3 and 20 + 80 do not). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"]."
+          "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell crosses that place, \"required\" every cell does, \"either\" no rule. Plus crosses when the digits of that place sum to 10 or more, so a sum of 10 carries 1 (7 + 3 and 20 + 80 do). Minus crosses when the row's digit is smaller than the column's. Nothing runs on to the next place. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"]."
         },
         "reihen": {
           "type": "array",
@@ -4976,11 +4976,11 @@
         },
         "einer": {
           "$ref": "#/definitions/Rule",
-          "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
+          "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, so 7 + 3 does; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), \"no\" none does, \"any\" either. Default \"any\"."
         },
         "zehner": {
           "$ref": "#/definitions/Rule",
-          "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
+          "description": "The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to 10 or more, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
         },
         "grid": {
           "type": "boolean",
@@ -5165,7 +5165,7 @@
         },
         "cross": {
           "$ref": "#/definitions/Cross",
-          "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+          "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, as 8 + 5 and 6 + 4, and 6 + 3 does not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), \"no\" none does, \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
         },
         "lines": {
           "type": "boolean",
