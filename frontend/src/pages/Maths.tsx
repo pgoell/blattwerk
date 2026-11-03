@@ -126,18 +126,13 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
                     key={rule}
                     className={now === rule ? "on" : ""}
                     onClick={() => {
-                      // The button that is already on asks again and changes nothing, so there is no undo step.
+                      // The button that is already on asks again and changes nothing, also when an older sheet
+                      // still stores one word for every place.
                       if (now === rule) {
                         limit({ carry: p.carry });
                         return;
                       }
                       const next = asCarry(p.carry);
-                      // The button that is already on asks again and changes nothing, also when an older sheet
-                      // still stores one word for every place.
-                      if (next[i] === rule) {
-                        limit({ carry: p.carry });
-                        return;
-                      }
                       next[i] = rule;
                       limit({ carry: [...next] });
                     }}
