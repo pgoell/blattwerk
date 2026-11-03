@@ -13,6 +13,7 @@ When a teacher asks for: "Ein Blatt mit einem Hunderterfeld, einige Zahlen fehle
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * In the editor the field is the button "Hunderterfeld" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `look` "tafel" draws the numbers, "punkte" draws dots. `show` "random" hides `hide` numbers, picked from `seed`.
+* `from` is the page: 0 is 0 to 99, and 1, 101, 201, … 901 are the ten pages of a Tausenderbuch (301 draws 301 to 400). `form` "rect" with `wide` and `tall` is a rectangle, so 5 and 5 is a 5 by 5; "row" and "column" are one line; "cells" is the clicked `shape`, and the default shape is a cross. `show` "row", "column", "diagonal" or "muster" hides that line or a picture (`muster` is "herz", "pfeil" or a letter "a" to "z"). `blank` "grey" fills a hidden cell grey and "gone" leaves the square out; "empty" keeps it.
 * See [hunderterfeld](../blocks/hunderterfeld.md) for the other props.
 
 # Doc

@@ -1,6 +1,7 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
 import type { DiagrammProps } from "../diagramm";
+import type { LoesungsfeldProps } from "../loesungsfeld";
 import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { HunderterfeldProps } from "../hunderterfeld";
@@ -218,4 +219,9 @@ export type DiagrammBlock = Box & {
   type: "diagramm";
   /** A chart (Diagramm) of bars, columns or a pie, drawn from a few values. */
   props: DiagrammProps;
+};
+export type LoesungsfeldBlock = Box & {
+  type: "loesungsfeld";
+  /** A blank the pupil writes in. The Lösungen print its text or its picture, and nowhere else. */
+  props: LoesungsfeldProps;
 };

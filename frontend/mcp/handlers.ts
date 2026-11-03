@@ -199,6 +199,7 @@ export function sheetHandlers(api: Api) {
       : type === "symbol" ? INSERTS.symbol()
       : type === "table" ? INSERTS.table()
       : type === "formula" ? INSERTS.formula()
+      : type === "loesungsfeld" ? INSERTS.loesungsfeld()
       : type === "maths" ? { w: MATHS.w, h: 10, type: "maths", props: { ...MATHS.limits(seed), ...MATHS.look } }
       : (SEEDED as readonly string[]).includes(type) ? (INSERTS as any)[type](seed)
       : undefined;

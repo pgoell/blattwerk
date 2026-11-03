@@ -4,7 +4,7 @@ title: "Block: hunderterfeld"
 description: "The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in."
 tags: [block, hunderterfeld]
 covers: [hunderterfeld]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T04:36:06Z }
 ---
 
 # hunderterfeld
@@ -38,17 +38,25 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
 | look | string | `tafel`, `punkte` | yes | What is drawn: "tafel" the Hundertertafel with its numbers in a 10 by 10 grid, "punkte" a field of 10 by 10 dots. Default "tafel". |
-| from | number | `0`, `1` | yes | The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1. |
-| show | string | `all`, `none`, `random`, `free` | yes | Which numbers of the Tafel show. "all": every number. "none": no number. "random": all but `hide` cells, picked from the seed, are hidden. "free": all but the cells in `hidden` show. Default "all". |
+| from | number | `0`, `1`, `101`, `201`, `301`, `401`, `501`, `601`, `701`, `801`, `901` | yes | The first number of the Tafel. 0 gives 0 to 99. 1, 101, 201, … 901 give that page of a hundred (301 gives 301 to 400). Anything else is read as 1. Default 1. |
+| show | string | `all`, `none`, `random`, `free`, `row`, `column`, `diagonal`, `muster` | yes | Which numbers of the Tafel show. "all": every number. "none": no number. "random": all but `hide` cells, picked from the seed, are hidden. "free": all but the cells in `hidden` show. "row" and "column": the row or column `cover`. "diagonal": one diagonal, `cover` 1 from the top left or 2 from the top right. "muster": the picture `muster`. Default "all". |
 | hide | number | 0 to 100 | yes | Number of cells hidden with `show` "random". Default 20. |
 | hidden | list of number |  | no | Cell indices (0 to 99, row by row from the top left) whose number is hidden with `show` "free". |
+| cover | number | 1 to 10 | no | The row or column hidden with `show` "row" or "column", 1 to 10 from the top or the left. For "diagonal", 1 is top left to bottom right and 2 is the other; any other value is read as 1. Default 1. |
+| muster | string | `herz`, `pfeil`, `a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`, `i`, `j`, `k`, `l`, `m`, `n`, `o`, `p`, `q`, `r`, `s`, `t`, `u`, `v`, `w`, `x`, `y`, `z` | no | The picture hidden with `show` "muster": "herz", "pfeil", or a letter "a" to "z". An unknown name is read as "herz". Default "herz". |
+| blank | string | `empty`, `grey`, `gone` | no | How a hidden cell of the Tafel is drawn. "empty": the square stays and the number is gone. "grey": the square is grey. "gone": the square is not drawn. The answer key still prints the number. Ignored while `cut` is on. Default "empty". |
 | tint | string | `none`, `even`, `times`, `row`, `column`, `free` | yes | Which cells of the Tafel are tinted. "none": no cell. "even": the even numbers. "times": the multiples of `times` up to 10 times `times`. "row": the row `line`. "column": the column `line`. "free": the cells in `tints`. Default "none". |
 | times | number | 1 to 10 | yes | The row of the Einmaleins that "times" tints, 1 to 10. Default 2. |
 | line | number | 1 to 10 | yes | The row or column tinted with "row" or "column", counted from the top or the left, 1 to 10. Default 1. |
 | color | number | `1`, `2` | yes | The colour of a tint from "even", "times", "row" or "column": 1 yellow, 2 blue. Default 1. |
 | tints | list of list of number and number |  | no | Each tinted cell with its colour, for tint "free": [cell index 0 to 99, colour 1 yellow or 2 blue]. |
-| cut | boolean |  | yes | Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false. |
-| shape | list of number |  | no | Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing. |
+| cut | boolean |  | yes | Cut-out (Ausschnitt): when true, only the cut's cells are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false. |
+| form | string | `cells`, `rect`, `row`, `column` | no | Which cells a cut draws. "cells": the cells in `shape`. "rect": the rectangle `wide` by `tall` from `anchor`. "row": the row `place`. "column": the column `place`. Default "cells". |
+| wide | number | 1 to 10 | no | Width of a "rect" cut, in cells, 1 to 10. Default 5. |
+| tall | number | 1 to 10 | no | Height of a "rect" cut, in cells, 1 to 10. Default 5. |
+| anchor | number | 0 to 99 | no | Top-left cell of a "rect" cut, 0 to 99, row by row. A rectangle past the right or bottom edge is clipped. Default 0. |
+| place | number | 1 to 10 | no | The row or column of a "row" or "column" cut, 1 to 10 from the top or the left. Default 1. |
+| shape | list of number |  | no | Cell indices (0 to 99) drawn when `cut` is on and `form` is "cells". Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing. |
 | given | number | 0 to 99 | no | The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44. |
 | fill | string | `count`, `free` | yes | With "count", the first `dots` dots are filled, row by row. With "free", the dots in `filled` are. Default "count". |
 | dots | number | 0 to 100 | yes | Number of filled dots with `fill` "count", counted row by row from the top left. Default 0. |
