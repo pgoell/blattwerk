@@ -4,7 +4,7 @@ title: What the server computes
 description: What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 tags: [maths, seed, exercises, server]
 covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-11-03T01:44:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T04:40:00Z }
 ---
 
 # What the server computes
@@ -24,7 +24,7 @@ A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest
 
 ## Other seeded blocks
 
-These blocks draw their content in the browser from their seed: [suchsel](blocks/suchsel.md), [zahlenmauer](blocks/zahlenmauer.md), [zahlenhaus](blocks/zahlenhaus.md), [zahlenkette](blocks/zahlenkette.md), [pfeilbild](blocks/pfeilbild.md), [operatorfeld](blocks/operatorfeld.md), [rechenrad](blocks/rechenrad.md), [rechentabelle](blocks/rechentabelle.md), [magischesquadrat](blocks/magischesquadrat.md), [malquadrat](blocks/malquadrat.md), [zerlegungsfeld](blocks/zerlegungsfeld.md), [halbschriftlich](blocks/halbschriftlich.md), [zehnerfeld](blocks/zehnerfeld.md), [textaufgabe](blocks/textaufgabe.md), [rechendreieck](blocks/rechendreieck.md), [zahlenstrahl](blocks/zahlenstrahl.md), [hunderterfeld](blocks/hunderterfeld.md) and [uhr](blocks/uhr.md). The same seed gives the same content. Change the seed to change the content.
+These blocks draw their content in the browser from their seed. On a Hundertertafel the seed picks the hidden cells only when `show` is `random`; a row, a diagonal or a Muster does not use it. The blocks are: [suchsel](blocks/suchsel.md), [zahlenmauer](blocks/zahlenmauer.md), [zahlenhaus](blocks/zahlenhaus.md), [zahlenkette](blocks/zahlenkette.md), [pfeilbild](blocks/pfeilbild.md), [operatorfeld](blocks/operatorfeld.md), [rechenrad](blocks/rechenrad.md), [rechentabelle](blocks/rechentabelle.md), [magischesquadrat](blocks/magischesquadrat.md), [malquadrat](blocks/malquadrat.md), [zerlegungsfeld](blocks/zerlegungsfeld.md), [halbschriftlich](blocks/halbschriftlich.md), [zehnerfeld](blocks/zehnerfeld.md), [textaufgabe](blocks/textaufgabe.md), [rechendreieck](blocks/rechendreieck.md), [zahlenstrahl](blocks/zahlenstrahl.md), [hunderterfeld](blocks/hunderterfeld.md) and [uhr](blocks/uhr.md). The same seed gives the same content. Change the seed to change the content.
 
 ## Selbstkontrolle
 

@@ -1,7 +1,8 @@
 // The format panel's settings for a Hunderterfeld block: its look, its numbers, its tints and its cut-out.
 import { useEffect, useState } from "react";
 import type { HunderterfeldBlock } from "../sheet";
-import { sane, type HunderterfeldProps } from "../hunderterfeld";
+import { sane, STARTS, MUSTER_NAMES, type HunderterfeldProps, type MusterName } from "../hunderterfeld";
+import { cutOf } from "../hunderterfeld-shape";
 import { newSeed } from "./Maths";
 
 type Apply = (props: Partial<HunderterfeldProps>, key?: string) => void;
@@ -16,12 +17,14 @@ function Whole({
   value,
   ok,
   apply,
+  set,
 }: {
   label: string;
   name: keyof HunderterfeldProps;
   value: number;
   ok: (v: number) => boolean;
   apply: Apply;
+  set?: (v: number) => Partial<HunderterfeldProps>;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   // An undo or a redo changes the number under the field: the field shows that number, not the draft.
@@ -37,7 +40,7 @@ function Whole({
         onChange={(e) => {
           const text = e.target.value;
           setDraft(text);
-          if (/^\d+$/.test(text) && ok(Number(text))) apply({ [name]: Number(text) }, name);
+          if (/^\d+$/.test(text) && ok(Number(text))) apply(set ? set(Number(text)) : { [name]: Number(text) }, name);
         }}
         onBlur={() => setDraft(null)}
       />
@@ -51,8 +54,10 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
   const p = sane(block.props);
   const hidden = p.hidden ?? [];
   const tints = p.tints ?? [];
-  const shape = p.shape ?? [];
+  const storedShape = p.shape ?? [];
+  const shape = p.cut ? cutOf(p.form ?? "cells", storedShape, p.anchor ?? 0, p.wide ?? 5, p.tall ?? 5, p.place ?? 1) : storedShape;
   const filled = p.filled ?? [];
+  const anchor = p.anchor ?? 0;
   const tafel = p.look === "tafel";
 
   // The modes that take a click: the grid shows while one is on, and a select says which a click sets.
@@ -76,11 +81,14 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
       const rest = tints.filter(([c]) => c !== i);
       apply({ tints: next ? [...rest, [i, next]] : rest });
     } else if (mode === "cut") {
-      if (!shape.includes(i)) apply({ shape: [...shape, i].sort((a, b) => a - b), ...(shape.length === 0 && { given: i }) });
+      if (p.form === "rect") apply({ anchor: i });
+      else if (p.form === "row") apply({ place: Math.floor(i / 10) + 1 });
+      else if (p.form === "column") apply({ place: (i % 10) + 1 });
+      else if (!storedShape.includes(i)) apply({ shape: [...storedShape, i].sort((a, b) => a - b), ...(storedShape.length === 0 && { given: i }) });
       else if (given !== i) apply({ given: i });
       else {
         // The given cell leaves the shape and hands its part to the lowest cell left, as `made` would.
-        const rest = shape.filter((c) => c !== i);
+        const rest = storedShape.filter((c) => c !== i);
         apply({ shape: rest, ...(rest.length > 0 && { given: Math.min(...rest) }) });
       }
     } else if (mode === "fill") {
@@ -95,17 +103,31 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
         <option value="tafel">Hundertertafel</option>
         <option value="punkte">Punktefeld</option>
       </select>
-      <select aria-label="Erste Zahl" value={p.from} onChange={(e) => apply({ from: Number(e.target.value) as 0 | 1 })}>
-        <option value="1">1 bis 100</option>
-        <option value="0">0 bis 99</option>
+      <select aria-label="Erste Zahl" value={p.from} onChange={(e) => apply({ from: Number(e.target.value) as HunderterfeldProps["from"] })}>
+        {STARTS.map((n) => (
+          <option key={n} value={n}>
+            {n === 0 ? "0 bis 99" : `${n} bis ${n + 99}`}
+          </option>
+        ))}
       </select>
       {tafel ? (
         <>
-          <select aria-label="Zahlen" value={p.show} onChange={(e) => apply({ show: e.target.value as HunderterfeldProps["show"] })}>
+          <select
+            aria-label="Zahlen"
+            value={p.show}
+            onChange={(e) => {
+              const show = e.target.value as HunderterfeldProps["show"];
+              apply(show === "muster" ? { show, muster: p.muster ?? "herz" } : { show });
+            }}
+          >
             <option value="all">Alle</option>
             <option value="none">Keine</option>
             <option value="random">Zufällig verdeckt</option>
             <option value="free">Selbst verdecken</option>
+            <option value="row">Eine Zeile</option>
+            <option value="column">Eine Spalte</option>
+            <option value="diagonal">Eine Diagonale</option>
+            <option value="muster">Ein Muster</option>
           </select>
           {p.show === "random" && (
             <>
@@ -114,6 +136,30 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
                 Neu würfeln
               </button>
             </>
+          )}
+          {p.show === "row" && <Whole label="Verdeckte Zeile" name="cover" value={p.cover ?? 1} ok={inRange(1, 10)} apply={apply} />}
+          {p.show === "column" && <Whole label="Verdeckte Spalte" name="cover" value={p.cover ?? 1} ok={inRange(1, 10)} apply={apply} />}
+          {p.show === "diagonal" && (
+            <select aria-label="Diagonale" value={p.cover === 2 ? 2 : 1} onChange={(e) => apply({ cover: Number(e.target.value) })}>
+              <option value="1">Links oben</option>
+              <option value="2">Rechts oben</option>
+            </select>
+          )}
+          {p.show === "muster" && (
+            <select aria-label="Muster" value={p.muster ?? "herz"} onChange={(e) => apply({ muster: e.target.value as MusterName })}>
+              {MUSTER_NAMES.map((name) => (
+                <option key={name} value={name}>
+                  {name === "herz" ? "Herz" : name === "pfeil" ? "Pfeil" : name.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          )}
+          {p.show !== "all" && (
+            <select aria-label="Kästchen" value={p.blank ?? "empty"} onChange={(e) => apply({ blank: e.target.value as HunderterfeldProps["blank"] })}>
+              <option value="empty">Leer</option>
+              <option value="grey">Grau</option>
+              <option value="gone">Weg</option>
+            </select>
           )}
           <select aria-label="Färben" value={p.tint} onChange={(e) => apply({ tint: e.target.value as HunderterfeldProps["tint"] })}>
             <option value="none">Nicht</option>
@@ -135,6 +181,24 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
             <input type="checkbox" aria-label="Ausschnitt" checked={p.cut} onChange={() => apply({ cut: !p.cut })} />
             Ausschnitt
           </label>
+          {p.cut && (
+            <select aria-label="Zuschnitt" value={p.form ?? "cells"} onChange={(e) => apply({ form: e.target.value as HunderterfeldProps["form"] })}>
+              <option value="cells">Selbst</option>
+              <option value="rect">Rechteck</option>
+              <option value="row">Zeile</option>
+              <option value="column">Spalte</option>
+            </select>
+          )}
+          {p.cut && p.form === "rect" && (
+            <>
+              <Whole label="Breite" name="wide" value={p.wide ?? 5} ok={inRange(1, 10)} apply={apply} />
+              <Whole label="Höhe" name="tall" value={p.tall ?? 5} ok={inRange(1, 10)} apply={apply} />
+              <Whole label="Ecke Zeile" name="anchor" value={Math.floor(anchor / 10) + 1} ok={inRange(1, 10)} apply={apply} set={(row) => ({ anchor: (row - 1) * 10 + (anchor % 10) })} />
+              <Whole label="Ecke Spalte" name="anchor" value={(anchor % 10) + 1} ok={inRange(1, 10)} apply={apply} set={(col) => ({ anchor: Math.floor(anchor / 10) * 10 + (col - 1) })} />
+            </>
+          )}
+          {p.cut && p.form === "row" && <Whole label="Zeile im Ausschnitt" name="place" value={p.place ?? 1} ok={inRange(1, 10)} apply={apply} />}
+          {p.cut && p.form === "column" && <Whole label="Spalte im Ausschnitt" name="place" value={p.place ?? 1} ok={inRange(1, 10)} apply={apply} />}
         </>
       ) : (
         <>
@@ -156,7 +220,7 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
               ))}
             </select>
           )}
-          <div className="hundert">
+          <div className={`hundert${p.from >= 100 ? " tausend" : ""}`}>
             {Array.from({ length: 100 }, (_, i) => {
               const v = p.from + i;
               const tint = tints.find(([c]) => c === i)?.[1];
@@ -177,7 +241,7 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
           </div>
         </>
       )}
-      {p.cut && shape.length === 0 && <p className="hint">Keine Felder im Ausschnitt: auf die Felder klicken.</p>}
+      {p.cut && (p.form ?? "cells") === "cells" && storedShape.length === 0 && <p className="hint">Keine Felder im Ausschnitt: auf die Felder klicken.</p>}
     </>
   );
 }

@@ -223,6 +223,17 @@ def test_a_rectangle_ausschnitt_draws_five_by_five(editor):
     expect(at(page, "h").locator("g.cell")).to_have_count(25)
 
 
+def test_weg_drops_the_hidden_row(editor):
+    """#844: Eine Zeile with Kästchen Weg leaves that row out, so 90 cells remain and the top row is gone."""
+    client = user()
+    page = editor(feld("h", TAFEL), client=client)
+    pick(page, "h")
+    step(page, lambda: field(page, "Zahlen").select_option("row"))
+    step(page, lambda: field(page, "Kästchen").select_option("gone"))
+    expect(at(page, "h").locator("g.cell")).to_have_count(90)
+    expect(at(page, "h").locator("g.cell[data-i='0']")).to_have_count(0)
+
+
 def test_muster_herz_hides_the_heart_in_grey(editor):
     """#844: Ein Muster Herz with Kästchen Grau hides the heart's 40 cells and fills them grey."""
     client = user()

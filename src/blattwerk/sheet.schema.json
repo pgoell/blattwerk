@@ -5746,12 +5746,8 @@
           "description": "What is drawn: \"tafel\" the Hundertertafel with its numbers in a 10 by 10 grid, \"punkte\" a field of 10 by 10 dots. Default \"tafel\"."
         },
         "from": {
-          "type": "number",
-          "enum": [
-            0,
-            1
-          ],
-          "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1."
+          "$ref": "#/definitions/Start",
+          "description": "The first number of the Tafel. 0 gives 0 to 99. 1, 101, 201, … 901 give that page of a hundred (301 gives 301 to 400). Anything else is read as 1. Default 1."
         },
         "show": {
           "type": "string",
@@ -5759,9 +5755,13 @@
             "all",
             "none",
             "random",
-            "free"
+            "free",
+            "row",
+            "column",
+            "diagonal",
+            "muster"
           ],
-          "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\"."
+          "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. \"row\" and \"column\": the row or column `cover`. \"diagonal\": one diagonal, `cover` 1 from the top left or 2 from the top right. \"muster\": the picture `muster`. Default \"all\"."
         },
         "hide": {
           "type": "number",
@@ -5775,6 +5775,25 @@
             "type": "number"
           },
           "description": "Cell indices (0 to 99, row by row from the top left) whose number is hidden with `show` \"free\"."
+        },
+        "cover": {
+          "type": "number",
+          "description": "The row or column hidden with `show` \"row\" or \"column\", 1 to 10 from the top or the left. For \"diagonal\", 1 is top left to bottom right and 2 is the other; any other value is read as 1. Default 1.",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "muster": {
+          "$ref": "#/definitions/MusterName",
+          "description": "The picture hidden with `show` \"muster\": \"herz\", \"pfeil\", or a letter \"a\" to \"z\". An unknown name is read as \"herz\". Default \"herz\"."
+        },
+        "blank": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "grey",
+            "gone"
+          ],
+          "description": "How a hidden cell of the Tafel is drawn. \"empty\": the square stays and the number is gone. \"grey\": the square is grey. \"gone\": the square is not drawn. The answer key still prints the number. Ignored while `cut` is on. Default \"empty\"."
         },
         "tint": {
           "type": "string",
@@ -5823,14 +5842,48 @@
         },
         "cut": {
           "type": "boolean",
-          "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false."
+          "description": "Cut-out (Ausschnitt): when true, only the cut's cells are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false."
+        },
+        "form": {
+          "type": "string",
+          "enum": [
+            "cells",
+            "rect",
+            "row",
+            "column"
+          ],
+          "description": "Which cells a cut draws. \"cells\": the cells in `shape`. \"rect\": the rectangle `wide` by `tall` from `anchor`. \"row\": the row `place`. \"column\": the column `place`. Default \"cells\"."
+        },
+        "wide": {
+          "type": "number",
+          "description": "Width of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "tall": {
+          "type": "number",
+          "description": "Height of a \"rect\" cut, in cells, 1 to 10. Default 5.",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "anchor": {
+          "type": "number",
+          "description": "Top-left cell of a \"rect\" cut, 0 to 99, row by row. A rectangle past the right or bottom edge is clipped. Default 0.",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "place": {
+          "type": "number",
+          "description": "The row or column of a \"row\" or \"column\" cut, 1 to 10 from the top or the left. Default 1.",
+          "minimum": 1,
+          "maximum": 10
         },
         "shape": {
           "type": "array",
           "items": {
             "type": "number"
           },
-          "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing."
+          "description": "Cell indices (0 to 99) drawn when `cut` is on and `form` is \"cells\". Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing."
         },
         "given": {
           "type": "number",
@@ -5877,6 +5930,55 @@
         "fill",
         "dots",
         "seed"
+      ]
+    },
+    "Start": {
+      "type": "number",
+      "enum": [
+        0,
+        1,
+        101,
+        201,
+        301,
+        401,
+        501,
+        601,
+        701,
+        801,
+        901
+      ]
+    },
+    "MusterName": {
+      "type": "string",
+      "enum": [
+        "herz",
+        "pfeil",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z"
       ]
     },
     "Tint": {
