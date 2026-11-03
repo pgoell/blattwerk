@@ -4,7 +4,7 @@ title: "Block: maths"
 description: "The maths block's limits, layout and exercises."
 tags: [block, maths]
 covers: [maths]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:37:58Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:26:52Z }
 ---
 
 # maths
@@ -47,7 +47,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | a | list of list of number |  | no | The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. |
 | b | list of list of number |  | no | The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. |
 | c | list of list of number |  | no | The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. |
-| carry | list of string or string | `none`, `required`, `either` or `none` or `required` or `either` | yes | Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is "none" (that place does not cross), "required" (it does) or "either" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. "none" at the top place that counts also rules out every place above it. An older single "none", "required" or "either" is read as every place, only the smallest place, or no rule. Default ["either", "either", "either"]. |
+| carry | list of string or string | `none`, `required`, `either` or `none` or `required` or `either` | yes | Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is "none" (that place does not cross), "required" (it does) or "either" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to 10 or more, so a sum of 10 carries 1 (7 + 3 and 17 + 23 do). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. "none" at the top place that counts also rules out every place above it. An older single "none", "required" or "either" is read as every place, only the smallest place, or no rule. Default ["either", "either", "either"]. |
 | rest | boolean |  | yes | Whether a division leaves a remainder. false, the default, gives even divisions only. |
 | format | string | `row`, `gap`, `written`, `compare` | yes | How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. |
 | count | number | 1 to 100 | yes | How many tasks the block makes. |
