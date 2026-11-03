@@ -233,6 +233,8 @@ ZAHLENSTRAHL = {
                 "title": "Selbstkontrolle",
                 "size": 14,
                 "turn": "none",
+                "wrongs": 0,
+                "look": "ticks",
             },
         ),
         (
