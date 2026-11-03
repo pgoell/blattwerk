@@ -126,6 +126,11 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
                     key={rule}
                     className={now === rule ? "on" : ""}
                     onClick={() => {
+                      // The button that is already on asks again and changes nothing, so there is no undo step.
+                      if (now === rule) {
+                        limit({ carry: p.carry });
+                        return;
+                      }
                       const next = asCarry(p.carry);
                       next[i] = rule;
                       limit({ carry: [...next] });

@@ -206,10 +206,22 @@ def test_the_zehnerubergang_select_is_absent_for_zehnerfeld_1_x_10(editor):
     expect(field(page, "Zehnerübergang")).to_have_count(0)
 
 
-def test_zwanzigerfeld_bis_10_mit_zehnerubergang_gives_the_hint_and_no_dots(editor):
-    """Zahlenraum (#829): "bis 10" with "mit Zehnerübergang" on the Zwanzigerfeld has no task: the hint says so and no
-    field draws a dot: every field stays empty, with no number and no sign."""
+def test_zwanzigerfeld_bis_10_mit_zehnerubergang_lands_on_ten(editor, browser, server):
+    """Zahlenraum (#838): "bis 10" with "mit Zehnerübergang" draws sums that land on 10. A sum of 10 carries 1, and the result stays within 10."""
     page = editor(zeh({"max": 10, "cross": "yes"}))
+    pick(page, "k")
+    expect(hint(page)).to_have_count(0)
+    expect(drawn(page).locator("circle.dot:not([data-mark='0'])").first).to_be_visible()
+    paper = key_print(browser, server, sheet_id(page))
+    for task in range(4):
+        got = numbers(paper.locator(".zehnerfeld"), task)
+        assert got[0] + got[1] == 10, got
+    paper.context.close()
+
+
+def test_zwanzigerfeld_bis_5_mit_zehnerubergang_gives_the_hint_and_no_dots(editor):
+    """Zahlenraum (#838): a Plus "mit Zehnerübergang" inside 5 has no sum of 10, so the hint says so and no field draws a dot."""
+    page = editor(zeh({"max": 5, "cross": "yes"}))
     pick(page, "k")
     expect(hint(page)).to_have_text(NOTE_NONE)
     expect(drawn(page).locator("circle.dot")).to_have_count(80)
