@@ -426,6 +426,18 @@
               "then": {
                 "$ref": "#/definitions/KarofeldBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "diagramm"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/DiagrammBlock"
+              }
             }
           ],
           "properties": {
@@ -472,7 +484,8 @@
                 "uhr",
                 "selbstkontrolle",
                 "geobrett",
-                "karofeld"
+                "karofeld",
+                "diagramm"
               ],
               "type": "string"
             },
@@ -582,6 +595,31 @@
           ],
           "type": "string"
         },
+        "ChartAxes": {
+          "enum": [
+            "keine",
+            "x",
+            "y",
+            "beide"
+          ],
+          "type": "string"
+        },
+        "ChartGrid": {
+          "enum": [
+            "keine",
+            "haupt",
+            "zwischen"
+          ],
+          "type": "string"
+        },
+        "ChartKind": {
+          "enum": [
+            "balken",
+            "saeulen",
+            "kreis"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -625,6 +663,131 @@
             "no"
           ],
           "type": "string"
+        },
+        "DiagrammBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/DiagrammProps",
+              "description": "A chart (Diagramm) of bars, columns or a pie, drawn from a few values."
+            },
+            "type": {
+              "const": "diagramm",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "DiagrammProps": {
+          "properties": {
+            "axes": {
+              "$ref": "#/definitions/ChartAxes",
+              "description": "Which axes are drawn. A pie draws none."
+            },
+            "grid": {
+              "$ref": "#/definitions/ChartGrid",
+              "description": "Gridlines: none, the main steps, or the main steps and the steps between them. A pie draws none."
+            },
+            "kind": {
+              "$ref": "#/definitions/ChartKind",
+              "description": "Balken are horizontal bars, Säulen are vertical columns, Kreis is a pie."
+            },
+            "legend": {
+              "description": "Whether a legend is drawn.",
+              "type": "boolean"
+            },
+            "points": {
+              "description": "The data points, in order, at most 8.",
+              "items": {
+                "$ref": "#/definitions/Point"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The chart does not roll from it.",
+              "type": "number"
+            },
+            "values": {
+              "$ref": "#/definitions/ValuePlace",
+              "description": "Where a value is written: nowhere, inside the bar or slice, or outside it."
+            },
+            "xTitle": {
+              "description": "Title of the horizontal axis. Empty draws none.",
+              "type": "string"
+            },
+            "yTitle": {
+              "description": "Title of the vertical axis. Empty draws none.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Doc": {
           "properties": {
@@ -2910,6 +3073,32 @@
             }
           ],
           "type": "array"
+        },
+        "Point": {
+          "properties": {
+            "answer": {
+              "description": "The value the Lösungen draw when `value` is empty, in the same shape. Absent when the pupil's sheet already shows the bar.",
+              "type": "string"
+            },
+            "color": {
+              "description": "Colour of the bar or slice, `#` and six hex digits.",
+              "type": "string"
+            },
+            "label": {
+              "description": "The label of the point, on the category axis and in the legend.",
+              "type": "string"
+            },
+            "value": {
+              "description": "The value the pupil sees: a number and an optional unit, such as \"3,5 kg\". Empty when the pupil draws the bar.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "label",
+            "color"
+          ],
+          "type": "object"
         },
         "PointsBlock": {
           "properties": {
@@ -5260,6 +5449,14 @@
           ],
           "type": "string"
         },
+        "ValuePlace": {
+          "enum": [
+            "keine",
+            "innen",
+            "aussen"
+          ],
+          "type": "string"
+        },
         "Ways": {
           "enum": [
             "across",
@@ -6878,6 +7075,9 @@
             },
             {
               "$ref": "#/definitions/KarofeldProps"
+            },
+            {
+              "$ref": "#/definitions/DiagrammProps"
             }
           ],
           "description": "the block's settings; partial is fine"
@@ -6915,7 +7115,8 @@
             "uhr",
             "selbstkontrolle",
             "geobrett",
-            "karofeld"
+            "karofeld",
+            "diagramm"
           ]
         },
         "version": {
@@ -7558,6 +7759,18 @@
               "then": {
                 "$ref": "#/definitions/KarofeldBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "diagramm"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/DiagrammBlock"
+              }
             }
           ],
           "properties": {
@@ -7604,7 +7817,8 @@
                 "uhr",
                 "selbstkontrolle",
                 "geobrett",
-                "karofeld"
+                "karofeld",
+                "diagramm"
               ],
               "type": "string"
             },
@@ -7714,6 +7928,31 @@
           ],
           "type": "string"
         },
+        "ChartAxes": {
+          "enum": [
+            "keine",
+            "x",
+            "y",
+            "beide"
+          ],
+          "type": "string"
+        },
+        "ChartGrid": {
+          "enum": [
+            "keine",
+            "haupt",
+            "zwischen"
+          ],
+          "type": "string"
+        },
+        "ChartKind": {
+          "enum": [
+            "balken",
+            "saeulen",
+            "kreis"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -7757,6 +7996,142 @@
             "no"
           ],
           "type": "string"
+        },
+        "DiagrammBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/DiagrammProps",
+              "description": "A chart (Diagramm) of bars, columns or a pie, drawn from a few values."
+            },
+            "type": {
+              "const": "diagramm",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "DiagrammProps": {
+          "properties": {
+            "axes": {
+              "$ref": "#/definitions/ChartAxes",
+              "description": "Which axes are drawn. A pie draws none."
+            },
+            "grid": {
+              "$ref": "#/definitions/ChartGrid",
+              "description": "Gridlines: none, the main steps, or the main steps and the steps between them. A pie draws none."
+            },
+            "kind": {
+              "$ref": "#/definitions/ChartKind",
+              "description": "Balken are horizontal bars, Säulen are vertical columns, Kreis is a pie."
+            },
+            "legend": {
+              "description": "Whether a legend is drawn.",
+              "type": "boolean"
+            },
+            "points": {
+              "description": "The data points, in order, at most 8.",
+              "items": {
+                "$ref": "#/definitions/Point"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The chart does not roll from it.",
+              "type": "number"
+            },
+            "values": {
+              "$ref": "#/definitions/ValuePlace",
+              "description": "Where a value is written: nowhere, inside the bar or slice, or outside it."
+            },
+            "xTitle": {
+              "description": "Title of the horizontal axis. Empty draws none.",
+              "type": "string"
+            },
+            "yTitle": {
+              "description": "Title of the vertical axis. Empty draws none.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "points",
+            "legend",
+            "values",
+            "axes",
+            "xTitle",
+            "yTitle",
+            "grid",
+            "seed"
+          ],
+          "type": "object"
         },
         "Doc": {
           "properties": {
@@ -10139,6 +10514,32 @@
             }
           ],
           "type": "array"
+        },
+        "Point": {
+          "properties": {
+            "answer": {
+              "description": "The value the Lösungen draw when `value` is empty, in the same shape. Absent when the pupil's sheet already shows the bar.",
+              "type": "string"
+            },
+            "color": {
+              "description": "Colour of the bar or slice, `#` and six hex digits.",
+              "type": "string"
+            },
+            "label": {
+              "description": "The label of the point, on the category axis and in the legend.",
+              "type": "string"
+            },
+            "value": {
+              "description": "The value the pupil sees: a number and an optional unit, such as \"3,5 kg\". Empty when the pupil draws the bar.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "label",
+            "color"
+          ],
+          "type": "object"
         },
         "PointsBlock": {
           "properties": {
@@ -12561,6 +12962,14 @@
           ],
           "type": "string"
         },
+        "ValuePlace": {
+          "enum": [
+            "keine",
+            "innen",
+            "aussen"
+          ],
+          "type": "string"
+        },
         "Ways": {
           "enum": [
             "across",
@@ -14155,6 +14564,18 @@
               "then": {
                 "$ref": "#/definitions/KarofeldBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "diagramm"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/DiagrammBlock"
+              }
             }
           ],
           "properties": {
@@ -14201,7 +14622,8 @@
                 "uhr",
                 "selbstkontrolle",
                 "geobrett",
-                "karofeld"
+                "karofeld",
+                "diagramm"
               ],
               "type": "string"
             },
@@ -14311,6 +14733,31 @@
           ],
           "type": "string"
         },
+        "ChartAxes": {
+          "enum": [
+            "keine",
+            "x",
+            "y",
+            "beide"
+          ],
+          "type": "string"
+        },
+        "ChartGrid": {
+          "enum": [
+            "keine",
+            "haupt",
+            "zwischen"
+          ],
+          "type": "string"
+        },
+        "ChartKind": {
+          "enum": [
+            "balken",
+            "saeulen",
+            "kreis"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -14354,6 +14801,131 @@
             "no"
           ],
           "type": "string"
+        },
+        "DiagrammBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/DiagrammProps",
+              "description": "A chart (Diagramm) of bars, columns or a pie, drawn from a few values."
+            },
+            "type": {
+              "const": "diagramm",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "DiagrammProps": {
+          "properties": {
+            "axes": {
+              "$ref": "#/definitions/ChartAxes",
+              "description": "Which axes are drawn. A pie draws none."
+            },
+            "grid": {
+              "$ref": "#/definitions/ChartGrid",
+              "description": "Gridlines: none, the main steps, or the main steps and the steps between them. A pie draws none."
+            },
+            "kind": {
+              "$ref": "#/definitions/ChartKind",
+              "description": "Balken are horizontal bars, Säulen are vertical columns, Kreis is a pie."
+            },
+            "legend": {
+              "description": "Whether a legend is drawn.",
+              "type": "boolean"
+            },
+            "points": {
+              "description": "The data points, in order, at most 8.",
+              "items": {
+                "$ref": "#/definitions/Point"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The chart does not roll from it.",
+              "type": "number"
+            },
+            "values": {
+              "$ref": "#/definitions/ValuePlace",
+              "description": "Where a value is written: nowhere, inside the bar or slice, or outside it."
+            },
+            "xTitle": {
+              "description": "Title of the horizontal axis. Empty draws none.",
+              "type": "string"
+            },
+            "yTitle": {
+              "description": "Title of the vertical axis. Empty draws none.",
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "Doc": {
           "properties": {
@@ -16639,6 +17211,32 @@
             }
           ],
           "type": "array"
+        },
+        "Point": {
+          "properties": {
+            "answer": {
+              "description": "The value the Lösungen draw when `value` is empty, in the same shape. Absent when the pupil's sheet already shows the bar.",
+              "type": "string"
+            },
+            "color": {
+              "description": "Colour of the bar or slice, `#` and six hex digits.",
+              "type": "string"
+            },
+            "label": {
+              "description": "The label of the point, on the category axis and in the legend.",
+              "type": "string"
+            },
+            "value": {
+              "description": "The value the pupil sees: a number and an optional unit, such as \"3,5 kg\". Empty when the pupil draws the bar.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "label",
+            "color"
+          ],
+          "type": "object"
         },
         "PointsBlock": {
           "properties": {
@@ -18989,6 +19587,14 @@
           ],
           "type": "string"
         },
+        "ValuePlace": {
+          "enum": [
+            "keine",
+            "innen",
+            "aussen"
+          ],
+          "type": "string"
+        },
         "Ways": {
           "enum": [
             "across",
@@ -20602,6 +21208,9 @@
             },
             {
               "$ref": "#/definitions/KarofeldProps"
+            },
+            {
+              "$ref": "#/definitions/DiagrammProps"
             }
           ],
           "description": "the props to change"

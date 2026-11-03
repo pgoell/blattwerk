@@ -3,6 +3,7 @@
 import { GroundView } from "../ground";
 import { PT } from "../height";
 import { uploadAddress } from "../uploadAddress";
+import { Diagramm } from "./blocks/diagramm";
 import { Geobrett } from "./blocks/geobrett";
 import { Halbschriftlich } from "./blocks/halbschriftlich";
 import { Karofeld } from "./blocks/karofeld";
@@ -61,6 +62,7 @@ export function Draw({ block, k, solved = false, at, reach, onSquare, children }
   if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
   if (block.type === "selbstkontrolle") return <Selbstkontrolle block={block} k={k} solved={solved} />;
   if (block.type === "geobrett") return <Geobrett block={block} k={k} solved={solved} />;
+  if (block.type === "diagramm") return <Diagramm block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

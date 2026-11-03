@@ -1,5 +1,6 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
+import type { DiagrammProps } from "../diagramm";
 import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { KarofeldProps } from "../karofeld";
@@ -204,4 +205,10 @@ export type KarofeldBlock = Box & {
   type: "karofeld";
   /** A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry. */
   props: KarofeldProps;
+};
+// A Diagramm: its stored shape is the contract at the top of diagramm.ts.
+export type DiagrammBlock = Box & {
+  type: "diagramm";
+  /** A chart (Diagramm) of bars, columns or a pie, drawn from a few values. */
+  props: DiagrammProps;
 };

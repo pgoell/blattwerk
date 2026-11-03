@@ -104,6 +104,7 @@
 .karofeld .loesung { stroke: #222; stroke-width: 0.35; }
 .karofeld .caret { fill: none; stroke: #1a56db; stroke-width: 0.4; }
 .karofeld .mesh, .karofeld .ring, .karofeld .dot, .karofeld .thick, .karofeld .loesung, .karofeld text, .karofeld .caret { pointer-events: none; }
+.block .diagramm { height: 100%; font-family: Andika; }
 .block .uhr { height: 100%; font-family: Andika; }
 .uhr svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .maths .letter { display: inline-block; flex: none; box-sizing: border-box; width: 1.4em; height: 1.4em; margin-left: .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); vertical-align: middle; text-align: center; line-height: 1.4em; font-style: normal; color: var(--key, #c0392b); }
@@ -123,3 +124,4 @@
 .selbstkontrolle > .fold { border-bottom: 1px dashed #222; text-align: center; font-size: .8em; color: #666; }
 .hunderterfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .geobrett svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.diagramm svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }
