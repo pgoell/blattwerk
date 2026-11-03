@@ -64,12 +64,12 @@ function oracleFits(op: Op, max: number, digits: number, einer: Rule, zehner: Ru
   const r = op === "+" ? a + b : a - b;
   if (op === "+" && r > max) return false;
   if (op === "-" && (b > a || r < 0)) return false;
-  // One place, the digits only: Plus sums to more than 10, Minus the first digit is smaller. A sum of 10 does not
-  // cross, and a carry does not run on to the next place.
+  // One place, the digits only: Plus sums to 10 or more, Minus the first digit is smaller. A sum of 10 carries 1,
+  // and a carry does not run on to the next place.
   const crosses = (p: number): boolean => {
     const da = digitAt(a, p);
     const db = digitAt(b, p);
-    return op === "+" ? da + db > 10 : da < db;
+    return op === "+" ? da + db >= 10 : da < db;
   };
   if (einer === "yes" && !crosses(0)) return false;
   if (einer === "no" && crosses(0)) return false;
@@ -195,7 +195,8 @@ describe("the drawn tasks", () => {
     expect(oracleFits("+", 1000, 1, "any", "no", 395, 7)).toBe(true);
     expect(oracleFits("+", 1000, 1, "any", "yes", 395, 7)).toBe(false);
     expect(oracleFits("+", 1000, 3, "any", "yes", 370, 280)).toBe(true);
-    expect(oracleFits("+", 1000, 1, "no", "any", 7, 3)).toBe(true);
+    expect(oracleFits("+", 1000, 1, "no", "any", 7, 3)).toBe(false);
+    expect(oracleFits("+", 1000, 1, "yes", "any", 7, 3)).toBe(true);
     expect(oracleFits("+", 1000, 1, "no", "any", 8, 5)).toBe(false);
     expect(oracleFits("-", 1000, 1, "yes", "any", 10, 4)).toBe(true);
     // "ohne" at the Zehner never draws a task whose Zehner digits cross; "mit" always does.
@@ -209,7 +210,7 @@ describe("the drawn tasks", () => {
               const [a, b] = t.values;
               const da = Math.floor(a / 10) % 10;
               const db = Math.floor(b / 10) % 10;
-              const cross = op === "+" ? da + db > 10 : da < db;
+              const cross = op === "+" ? da + db >= 10 : da < db;
               if (cross !== (zehner === "yes")) bad.push(`${a} ${op} ${b} with zehner ${zehner}`);
             }
     expect(bad).toEqual([]);

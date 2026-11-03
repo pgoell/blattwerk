@@ -19,9 +19,9 @@ export type HalbschriftlichProps = {
   max: number;
   /** The places of the second number: 1, 2 or 3 digits (3 only with max 1000, else it acts as 2). One step per digit that is not 0. Default 3. */
   digits: number;
-  /** The Übergang at the Einer, crossing a ten: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, so 7 + 3 does not; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), "no" none does, "any" either. Default "any". */
+  /** The Übergang at the Einer, crossing a ten: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, so 7 + 3 does; Minus: the first number's Einer is smaller than the second's, so 10 - 4 does), "no" none does, "any" either. Default "any". */
   einer: Rule;
-  /** The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to more than 10, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): "yes", "no" or "any". Counts only with max 1000. Default "any". */
+  /** The Übergang at the Zehner, crossing a hundred: the Zehner digits alone, not a carry that runs on (Plus: they sum to 10 or more, so 395 + 7 does not and 370 + 280 does; Minus: the first number's Zehner is smaller than the second's): "yes", "no" or "any". Counts only with max 1000. Default "any". */
   zehner: Rule;
   /** Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true. */
   grid: boolean;

@@ -186,7 +186,7 @@ def test_zehnerubergang_mit_and_ohne_hold_in_every_drawn_task(
     editor, browser, server, cross, crossing
 ):
     """Zehnerübergang (#829): "mit" every drawn Plus task crosses a ten, "ohne" none does: (a mod 10) + (b mod 10)
-    is above 10 or at most 10, as read from the key."""
+    reaches 10 or stays under it, as read from the key."""
     page = editor(zeh({"cross": cross, "count": 6}))
     pick(page, "k")
     paper = key_print(browser, server, sheet_id(page))
@@ -195,7 +195,7 @@ def test_zehnerubergang_mit_and_ohne_hold_in_every_drawn_task(
             numbers(paper.locator(".zehnerfeld"), task)[0],
             numbers(paper.locator(".zehnerfeld"), task)[1],
         )
-        assert ((a % 10) + (b % 10) > 10) is crossing, (a, b)
+        assert ((a % 10) + (b % 10) >= 10) is crossing, (a, b)
     paper.context.close()
 
 
