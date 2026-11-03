@@ -74,8 +74,9 @@ export type Exercise = Calc | Compare;
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
 // (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default. `gaps` says what a
 // gap may hide: the numbers "a", "b" and "c", or the "result". `zero` lets 0 in as a number and as a result, `one`
-// lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. Blocks saved before have none of
-// these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
+// lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. `pa`, `pb` and `pr` are patterns
+// for the first number, the second and the result. `nil` says whether the digit 0 may occur, per operation family.
+// Blocks saved before have none of these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
   /** The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. */
   ops: Op[];
@@ -139,6 +140,19 @@ export type Limits = {
   distinct?: boolean;
   /** Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. */
   small?: boolean;
+  /** Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". */
+  pa?: string;
+  /** Pattern of the second number, as for the first. Empty means no pattern. */
+  pb?: string;
+  /** Pattern of the result, as for the first number, as in "100". Empty means no pattern. A comparison has no result pattern. */
+  pr?: string;
+  /** Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts. */
+  nil?: {
+    /** Whether the digit 0 may occur in plus and minus tasks. Left out, it may. */
+    strich?: boolean;
+    /** Whether the digit 0 may occur in times and divide tasks. Left out, it may. */
+    punkt?: boolean;
+  };
 };
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
 export type Made = {

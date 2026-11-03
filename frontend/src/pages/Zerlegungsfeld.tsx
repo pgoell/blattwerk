@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { ZerlegungsfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { NAMES, made, sane, type ZerlegungsfeldProps, type ZerlegungsfeldTyped } from "../zerlegungsfeld";
+import { clean } from "../zerlegungsfeld/pattern";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -152,6 +153,22 @@ export default function Zerlegungsfeld({ block, apply }: { block: Zerlegungsfeld
         <input type="checkbox" aria-label="Zweite Zahl mehrstellig" checked={p.big} onChange={(e) => apply({ big: e.target.checked }, "big")} />
         Zweite Zahl mehrstellig
       </label>
+      <label>
+        Muster der 1. Zahl
+        <input aria-label="Muster der 1. Zahl" type="text" spellCheck={false} placeholder="z. B. X3" value={p.pa ?? ""} onChange={(e) => apply({ pa: clean(e.target.value) || undefined }, "pa")} />
+      </label>
+      <label>
+        Muster der 2. Zahl
+        <input aria-label="Muster der 2. Zahl" type="text" spellCheck={false} placeholder="z. B. X" value={p.pb ?? ""} onChange={(e) => apply({ pb: clean(e.target.value) || undefined }, "pb")} />
+      </label>
+      <div className="seg switch">
+        <button className={p.nil === false ? "" : "on"} aria-pressed={p.nil !== false} onClick={() => apply({ nil: p.nil === false ? undefined : false }, "nil")}>
+          Die Null darf vorkommen
+        </button>
+      </div>
+      {(p.pa || p.pb || p.nil === false) && !p.typed && m.tasks.every((t) => t.wrong) && (
+        <p className="hint" role="status">Mit diesem Muster gibt es keine Aufgabe.</p>
+      )}
       <label>
         Aufgabentyp
         <select aria-label="Aufgabentyp" value={p.task} onChange={(e) => apply({ task: e.target.value as ZerlegungsfeldProps["task"] }, "task")}>
