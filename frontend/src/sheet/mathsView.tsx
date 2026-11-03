@@ -14,7 +14,7 @@ import { useRef, useLayoutEffect, type CSSProperties } from "react";
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
 // With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
 export function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean }) {
-  const gap = part === "rest" || part === (e.hide ?? "result");
+  const gap = part === "rest" || part === (e.hide ?? "result") || part === e.also;
   const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
   const euro = money && part !== "rest" ? " €" : "";
   const shown = <FormulaText text={text} />;

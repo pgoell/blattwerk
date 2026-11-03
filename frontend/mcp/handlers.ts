@@ -16,7 +16,7 @@ type Base = { version: number; doc: any };
 // The settings the server's /api/maths takes, read from a block's props.
 const MATHS_KEYS = [
   "ops", "max", "count", "seed", "a", "b", "c", "carry", "rest", "format", "sides", "close", "equal",
-  "numbers", "pvs", "brackets", "decimals", "money", "af", "bf", "cf", "family", "moves", "gaps", "zero",
+  "numbers", "pvs", "brackets", "decimals", "money", "af", "bf", "cf", "family", "moves", "full", "gaps", "zero",
   "one", "distinct", "small",
 ];
 // The types a Block's `props` may take, each with the seed it is drawn with when added.

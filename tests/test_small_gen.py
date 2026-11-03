@@ -29,7 +29,7 @@ def factors_and_quotient_ok(e):
     one=st.booleans(),
     zero=st.booleans(),
     rest=st.sampled_from([False, True]),
-    family=st.sampled_from(["none", "swap", "reverse", "neighbour"]),
+    family=st.sampled_from(["none", "swap", "reverse", "neighbour", "analogy"]),
     count=st.integers(1, 10),
     seed=st.integers(0, 99),
 )

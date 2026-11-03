@@ -149,7 +149,7 @@ def maths(client, **more):
             for key in more
             if key in limits
             or key in ("sides", "close", "equal", "c", "numbers", "pvs", "brackets")
-            or key in ("decimals", "money", "af", "bf", "cf", "family", "moves")
+            or key in ("decimals", "money", "af", "bf", "cf", "family", "moves", "full")
             or key in ("gaps", "zero", "one", "distinct", "small")
             or key in ("minus", "stellen", "signs", "pa", "pb", "pr", "nil")
         },
