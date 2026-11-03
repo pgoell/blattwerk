@@ -34,6 +34,8 @@ export type Calc = {
   rest: number;
   /** The number a gap stands for: "a", "b" or "c". Left out, the gap hides the result. */
   hide?: "a" | "b" | "c";
+  /** A second gap, besides hide: "a" or "b". Set on the last task of a family that is not shown complete. Left out, the task has one gap. */
+  also?: "a" | "b";
   /** The working on squared paper for this task. Left out, the task has none. */
   grid?: Grid;
   /** The second operation of a task of three numbers, between b and c. Left out for a task of two numbers. */
@@ -72,7 +74,8 @@ export type Exercise = Calc | Compare;
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
-// (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default. `gaps` says what a
+// (none by default). `moves` says which number of a Nachbaraufgabe moves, or an Analogieaufgabe grows, "a" by default.
+// `full` is Vollständig anzeigen, on by default. `gaps` says what a
 // gap may hide: the numbers "a", "b" and "c", or the "result". `zero` lets 0 in as a number and as a result, `one`
 // lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. Blocks saved before have none of
 // these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
@@ -125,10 +128,12 @@ export type Limits = {
   bf?: Range[];
   /** The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   cf?: Range[];
-  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks. A family has two or three tasks. Default "none". */
-  family?: "none" | "swap" | "reverse" | "neighbour";
-  /** Which number a neighbouring task moves: "a" the first, the default, or "b" the second. */
+  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks, "analogy" a package whose first or second number grows by ten. A family has two or three tasks. Default "none". */
+  family?: "none" | "swap" | "reverse" | "neighbour" | "analogy";
+  /** Which number a neighbouring task moves, or an Analogieaufgabe grows: "a" the first, the default, or "b" the second. */
   moves?: "a" | "b";
+  /** Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. */
+  full?: boolean;
   /** What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. */
   gaps?: ("a" | "b" | "c" | "result")[];
   /** Whether 0 may be a number and a result. Default true. */

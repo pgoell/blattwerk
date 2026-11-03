@@ -58,10 +58,13 @@ class Settings(BaseModel):
     cf: list[Range] = []
     # How often a times or divide task is drawn the school way; the generator alone sets it.
     lean: float = 0.9
-    # Aufgabenfamilien: each drawn task comes with its swap, its reverse or its two neighbours.
-    family: Literal["none", "swap", "reverse", "neighbour"] = "none"
-    # Which number moves in a Nachbaraufgabe.
+    # Aufgabenfamilien: each drawn task comes with its swap, its reverse, its two neighbours
+    # or two further tasks whose number has grown by ten.
+    family: Literal["none", "swap", "reverse", "neighbour", "analogy"] = "none"
+    # Which number moves in a Nachbaraufgabe, or grows in an Analogieaufgabe.
     moves: Literal["a", "b"] = "a"
+    # Vollständig anzeigen. Off, the last task of a family hides one more number.
+    full: bool = True
     # Lücke: what a gap may hide. None is every number of the task and never the result.
     gaps: Annotated[list[Literal["a", "b", "c", "result"]], Field(min_length=1)] | None = None
     # Aufgaben mit 0: off keeps 0 out as a number and as a result.

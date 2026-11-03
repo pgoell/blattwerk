@@ -2238,9 +2238,10 @@
             "none",
             "swap",
             "reverse",
-            "neighbour"
+            "neighbour",
+            "analogy"
           ],
-          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\"."
+          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks, \"analogy\" a package whose first or second number grows by ten. A family has two or three tasks. Default \"none\"."
         },
         "moves": {
           "type": "string",
@@ -2248,7 +2249,11 @@
             "a",
             "b"
           ],
-          "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second."
+          "description": "Which number a neighbouring task moves, or an Analogieaufgabe grows: \"a\" the first, the default, or \"b\" the second."
+        },
+        "full": {
+          "type": "boolean",
+          "description": "Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true."
         },
         "gaps": {
           "type": "array",
@@ -2335,6 +2340,14 @@
             "c"
           ],
           "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result."
+        },
+        "also": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ],
+          "description": "A second gap, besides hide: \"a\" or \"b\". Set on the last task of a family that is not shown complete. Left out, the task has one gap."
         },
         "grid": {
           "$ref": "#/definitions/Grid",
