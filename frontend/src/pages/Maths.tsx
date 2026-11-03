@@ -127,6 +127,12 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
                     className={now === rule ? "on" : ""}
                     onClick={() => {
                       const next = asCarry(p.carry);
+                      // The button that is already on asks again and changes nothing, also when an older sheet
+                      // still stores one word for every place.
+                      if (next[i] === rule) {
+                        limit({ carry: p.carry });
+                        return;
+                      }
                       next[i] = rule;
                       limit({ carry: [...next] });
                     }}
