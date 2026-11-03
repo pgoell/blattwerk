@@ -17,6 +17,11 @@
 //   top with "Hier umknicken" over it and the content under it turned by 180 degrees, so the child folds it back
 //   and reads it only when she turns the sheet (default "none").
 // - `seed`: with the results alone it gives the shuffle of "mixed" and of the table of "word".
+// - `wrongs`: 0 to 20 (default 0, and when the field is absent). With "mixed", that many numbers that are not results,
+//   written as the linked blocks write theirs, shuffled in with the results. "word" and "sum" ignore it.
+// - `look`: with "mixed", "ticks" the tick list (default, and when the field is absent), "snake" a winding snake of
+//   circles, "caterpillar" a caterpillar whose first circle is the head, "train" a train whose first wagon is the
+//   engine, "box" the results in a plain box with no ticks. "word" and "sum" ignore it.
 // Wrong kinds and values out of range give their default in `sane`, which never throws on any stored value.
 //
 // Results (`tasksOf`): a linked block's tasks in its own reading order, each task the list of what the child writes
@@ -40,7 +45,13 @@
 // - "hunderterfeld": one task per cell the child fills (Tafel: hidden cells; Ausschnitt: the cells of the shape but
 //   the given one), in index order, the cell's number. Punkte: no task.
 // - "uhr" with task "read": one task per clock, the time as `written` gives it, no value. With "draw": no task.
-// - Any other block, or a missing one: undefined.
+// - Zahlenhaus, Zahlenkette, Rechentabelle, Pfeilbild, Operatorfeld, Rechenrad, Magisches Quadrat, Malquadrat,
+//   Zerlegungsfeld, Halbschriftlich, Zehnerfeld, Textaufgabe and Diagramm: the texts their own key writes in red,
+//   one task per house, chain, table, picture, wheel, square or story. A wrong, empty or undrawn task gives none.
+//   A Diagramm gives the values the key draws and the pupil's sheet leaves out. These blocks are not worded: the
+//   Lösungswort leaves them out, and the panel says so beside them.
+// - Any other block, or a missing one: undefined. Lösungsfeld is not a block yet. A Suchsel and a Geobrett draw
+//   their key rather than write a result, so they give none.
 // `worded(b)` says whether a block's tasks take a letter box (form "word"): maths, zahlenmauer, rechendreieck and uhr.
 // A Zahlenstrahl's boxes and a Hunderterfeld's cells sit in one drawing with no room beside each task, so the
 // Lösungswort leaves them out (the panel says so beside them); "mixed" and "sum" take them.
@@ -70,7 +81,8 @@
 // answer key, `.upside` or `.fold` as `turn` says) holds `div.fold` (the dashed line and its words) with "fold",
 // then `div.inner` (turned by 180 degrees with "upside" and "fold"), which holds `h3.title` when the title is not
 // empty, then:
-// - "mixed": `ul.mixed` with one `li` per result: `span.tick` (an empty square to tick) and the text.
+// - "mixed" with look "ticks": `ul.mixed` with one `li` per result, real and wrong: `span.tick` (an empty square to tick) and the text.
+//   "box": `ul.box`, the same texts and no tick. "snake", "caterpillar" and "train": `svg.shape` of that class, one circle or wagon per text.
 // - "word": `table.word` of two rows, `tr.results` with one `td` per entry of `table` and `tr.letters` with its
 //   letter; in the answer key a `p.answer` with the word in #c0392b under it.
 // - "sum": `ul.sums` with one `li` per line, "<label>: <text>".
@@ -109,11 +121,12 @@
 // it, then a checkbox per maths block of the sheet, in sheet order, labelled by `labelOf` (and " (Seite <n>)" when the
 // sheet has more than one page): ticked when linked; a block not `worded` shows "(nicht im Lösungswort)" beside it with
 // "word". With no maths block and no lost link, the line "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst
-// Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr." (`p.hint`). Then, by
+// einen Aufgabenblock ein." (`p.hint`). Then, by
 // aria-label: "Überschrift" (text input), "Form" (select: "mixed"
 // Lösungen durcheinander, "word" Lösungswort, "sum" Kontrollsumme), for "word" "Lösungswort" (text input),
 // "Schriftgröße" (number input), "Drucken" (select: "none" Normal, "upside" Auf dem Kopf, "fold" Mit Knicklinie),
-// "Neu mischen" (button, a new seed; for "mixed" and "word"). `p.hint.warn[role=status]` shows the fault. Each change is one undo step;
+// "Neu mischen" (button, a new seed; for "mixed" and "word"), and for "mixed" "Darstellung" (select) and "Falsche Lösungen"
+// (number, 0 to 20). `p.hint.warn[role=status]` shows the fault. Each change is one undo step;
 // typing into one field is one step.
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
@@ -126,6 +139,6 @@ import { made as strahlOf, sane as saneStrahl } from "./zahlenstrahl";
 import { made as feldOf, sane as saneFeld } from "./hunderterfeld";
 import { sane as saneUhr, timesOf, written } from "./uhr";
 
-export { DEFAULTS, sane, type Check, type Form, type Result, type SelbstkontrolleProps, type Turn } from "./selbstkontrolle/props";
+export { DEFAULTS, sane, type Check, type Form, type MixLook, type Result, type SelbstkontrolleProps, type Turn } from "./selbstkontrolle/props";
 export { tasksOf, worded } from "./selbstkontrolle/tasks";
 export { checked, heightFor, labelOf, lettersOf, ordered } from "./selbstkontrolle/check";
