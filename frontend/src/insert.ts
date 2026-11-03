@@ -4,6 +4,7 @@
 import { DEFAULTS as DREIECK, heightFor as heightForDreieck, sane as saneDreieck } from "./rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "./zahlenstrahl";
 import { DEFAULTS as BRETT } from "./geobrett";
+import { DEFAULTS as DIAGRAMM } from "./diagramm";
 import { DEFAULTS as FELD } from "./hunderterfeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
@@ -88,6 +89,7 @@ export const INSERTS = {
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
   geobrett: (seed: number): Fresh => ({ w: 100, h: 100, type: "geobrett", props: { ...BRETT, seed } }),
+  diagramm: (seed: number): Fresh => ({ w: 150, h: 90, type: "diagramm", props: { ...DIAGRAMM, points: DIAGRAMM.points.map((p) => ({ ...p })), seed } }),
   uhr: (seed: number): Fresh => ({ w: 180, h: 58.5, type: "uhr", props: { ...UHR, seed } }),
   selbstkontrolle: (seed: number): Fresh => ({ w: 180, h: 30, type: "selbstkontrolle", props: { ...SELBST, seed } }),
   // "Strecke": a line with ticks.
