@@ -51,8 +51,8 @@
 // The drawn tasks (`made`, memo of 50, `rng` from zahlenmauer.ts). A drawn task keeps, besides the rule, the Zahlenraum
 // (Plus r ≤ M, Minus a ≤ M) and the Zehnerübergang as it acts. P is the list of every pair (a, b) that keeps them,
 // built by a plain walk of a from 1 to M and b from 1 to M, a first, then b, rising; never by trying random tasks, so
-// a drawn task never breaks a rule. If P is empty (Zehnerfeld bis 5 with Minus never is; a Plus "mit" inside 5 has
-// no sum of 10, while bis 10 "mit" draws the sums that land on 10), `none` is true, no draws are made, and every
+// a drawn task never breaks a rule. If P is empty (Zehnerfeld bis 5 with Minus never is; a Plus "mit" inside 5 or
+// bis 10 has no task, a sum past 10 cannot fit), `none` is true, no draws are made, and every
 // task not the teacher's own is empty (no dots, no number, no signs,
 // also in the key). Per task i, whatever is typed, so that the tasks after a typed one stay as they were: up to 20
 // tries, each one draw (a, b) = P[floor(next() · |P|)]; a try equal to an earlier task's drawn pair is dropped, and
