@@ -60,6 +60,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [geobrett](geobrett.md): The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves.
 
+* [formula](formula.md): A formula of fractions, mixed numbers, powers and roots, set in the sheet's font.
+
 * [karofeld](karofeld.md): A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry.
 
 * [diagramm](diagramm.md): A chart (Diagramm) of bars, columns or a pie, drawn from a few values.

@@ -6,6 +6,7 @@ import type { Border } from "../../borders";
 import type { LineStyle, Pen } from "../../edges";
 import { boxed, fontOf, sum, type Align, type Block, type TableBlock } from "../../sheet";
 import type { Picked } from "../Field";
+import { FormulaInsert } from "./formula";
 import { FontSelect, unknownFont } from "./font";
 import { Gaps } from "./gaps";
 import { Num } from "./num";
@@ -97,9 +98,21 @@ export function TablePanel({
   const single = !!first && first[0] === r0 && first[1] === c0 && first[2] === r1 - r0 + 1 && first[3] === c1 - c0 + 1;
   const off = (which: Border) => (which === "across" ? single || r0 === r1 : which === "down" ? single || c0 === c1 : which === "inner" && (single || r0 === r1 || c0 === c1));
   if (!tables.length) return null;
+  const putFormula = (text: string) => {
+    const t = tables[0];
+    if (tables.length !== 1 || cell === undefined) return;
+    const cols = t.props.cols.length;
+    const cells = t.props.cells.map((row) => [...row]);
+    const r = Math.floor(cell / cols);
+    const c = cell % cols;
+    if (!cells[r]) return;
+    cells[r][c] = `${cells[r][c] ?? ""}${text}`;
+    style("table", { cells }, "text");
+  };
   return (
     <>
           <h2>Tabelle</h2>
+          {tables.length === 1 && cell !== undefined && <FormulaInsert onInsert={putFormula} />}
           {/* More or fewer rows and columns, for one table: each has cells of its own. They come and go at the end,
               or beside the cell being edited, as in PowerPoint. */}
           {tables.length === 1 &&

@@ -13,7 +13,7 @@ export type { List, Run, Para, TextProps, TextBlock, ShapeBlock } from "./sheet/
 export { startOf, listOf, tied, foldsOf, squares, rowsNeeded, lengthened } from "./sheet/ruling";
 export type { ListMode, RulingBlock } from "./sheet/ruling";
 export { FIELDS, sizeOf, EMPTY, read, wordsIn } from "./sheet/doc";
-export type { NameBlock, PointsBlock, SymbolBlock, ImageBlock, Block, Axis, Guides, Page, Ground, Doc, PageNumbers, Sheet } from "./sheet/doc";
+export type { NameBlock, PointsBlock, SymbolBlock, ImageBlock, FormulaBlock, Block, Axis, Guides, Page, Ground, Doc, PageNumbers, Sheet } from "./sheet/doc";
 export { SIGNS } from "./sheet/maths";
 export type { Op, Range, Grid, Calc, Side, Compare, Exercise, Limits, Made, MathsProps, MathsBlock } from "./sheet/maths";
 export { sum, spliced } from "./sheet/table";
