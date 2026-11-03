@@ -18,7 +18,7 @@ export function FormulaFields({ source, onChange }: { source: string; onChange: 
           </button>
         ))}
       </div>
-      <div className="formula-preview" aria-label="Vorschau">
+      <div className="formula-preview" aria-label="Formelvorschau">
         <Formula source={source} />
       </div>
     </>

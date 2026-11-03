@@ -71,7 +71,7 @@ export function TextPanel({
             ))}
           </div>
           <Chars family={FONTS[fontOf(text.font)][1]} onInsert={onInsert} />
-          <FormulaInsert onInsert={onInsert} />
+          {texts.length > 0 && <FormulaInsert onInsert={onInsert} />}
           <div className="seg">
             {LISTS.map(([value, label, Icon]) => (
               <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>
