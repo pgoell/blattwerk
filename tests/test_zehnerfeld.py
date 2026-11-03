@@ -207,9 +207,18 @@ def test_the_zehnerubergang_select_is_absent_for_zehnerfeld_1_x_10(editor):
 
 
 def test_zwanzigerfeld_bis_10_mit_zehnerubergang_gives_the_hint_and_no_dots(editor):
-    """Zahlenraum (#829): "bis 10" with "mit Zehnerübergang" on the Zwanzigerfeld has no task: the hint says so and no
-    field draws a dot: every field stays empty, with no number and no sign."""
+    """Zahlenraum (#838): "bis 10" with "mit Zehnerübergang" has no task. A sum past 10 cannot fit, and landing on 10 is no crossing."""
     page = editor(zeh({"max": 10, "cross": "yes"}))
+    pick(page, "k")
+    expect(hint(page)).to_have_text(NOTE_NONE)
+    expect(drawn(page).locator("circle.dot")).to_have_count(80)
+    expect(drawn(page).locator("circle.dot:not([data-mark='0'])")).to_have_count(0)
+    expect(drawn(page).locator("g.task text")).to_have_count(0)
+
+
+def test_zwanzigerfeld_bis_5_mit_zehnerubergang_gives_the_hint_and_no_dots(editor):
+    """Zahlenraum (#838): a Plus "mit Zehnerübergang" inside 5 has no task, so the hint says so and no field draws a dot."""
+    page = editor(zeh({"max": 5, "cross": "yes"}))
     pick(page, "k")
     expect(hint(page)).to_have_text(NOTE_NONE)
     expect(drawn(page).locator("circle.dot")).to_have_count(80)

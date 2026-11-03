@@ -27,7 +27,7 @@ def test_635_sheet_1_sets_zahlenraum_with_keys_and_reads_uebertrag():
     assert "`bis 100`" in step
     assert '`click "bis 100"` finds nothing' in step
     assert '`click "Mit"`' in step
-    assert '`value "Übertrag"` prints `Mit`' in step
+    assert '`value "Zehnerübergang"` prints `Mit`' in step
     how = section("## How the editor works")
     option = next(line for line in how.splitlines() if "an option of an open list" in line)
     assert '`click "bis 100"` finds nothing' in option

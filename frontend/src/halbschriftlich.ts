@@ -12,8 +12,8 @@
 //   number has exactly that many digits (2: 10 to 99). 3 counts only with max 1000; with max 100 it acts as 2 (and
 //   stays stored).
 // - `einer`, the Übergang (Übertrag) at the Einer, crossing a ten: "any" (default), "yes" or "no". `zehner`, the
-//   Übergang at the Zehner, crossing a hundred: the same values. `zehner` counts only with max 1000 (any digits: 395 + 7
-//   crosses a hundred too); with max 100 it acts as "any" (and stays stored). Any other value gives "any".
+//   Übergang at the Zehner, crossing a hundred, the Zehner digits alone: the same values. `zehner` counts only with
+//   max 1000; with max 100 it acts as "any" (and stays stored). Any other value gives "any".
 // - `grid`, Karo: true (default) draws the 5 mm squares behind the tasks; false draws plain white with a box per number.
 // - `head`, Stellenwerte: false (default); true draws a row of place letters (T H Z E) above each task's numbers.
 // - `tint`: false (default); true tints the second number and its parts in the steps.
@@ -30,11 +30,10 @@
 // s(j + 1) = s(j) + part j for Plus and s(j) − part j for Minus; the last s is r. So 345 + 103 has two steps.
 //
 // The rule every task keeps, drawn or typed: a ≥ 1, b ≥ 1; Plus r = a + b ≤ 9999; Minus r = a − b ≥ 0.
-// The Übergang at place p (p = 0 the Einer, 1 the Zehner) is the Übertrag of written arithmetic out of place p: the task
-// crosses a multiple of 10^(p+1) in some step. With m = 10^(p+1): Plus crosses exactly when (a mod m) + (b mod m) ≥ m;
-// Minus exactly when (a mod m) < (b mod m). So a carry that runs on counts at every place it reaches: 385 + 17
-// (385 + 10 = 395, 395 + 7 = 402) and 395 + 7 cross a hundred, and "Übergang bei den Zehnern: ohne" never gives them.
-// "yes" needs the crossing, "no" forbids it.
+// The Übergang at place p (p = 0 the Einer, 1 the Zehner) is that place's digits alone (#838). Plus crosses when they
+// sum to more than 10 (7 + 3 and 395 + 7 at the Zehner do not; 8 + 5 and 370 + 280 do). Minus crosses when the first
+// number's digit is smaller than the second's (10 - 4 does). A carry does not run on. "yes" needs the crossing, "no"
+// forbids it.
 //
 // The drawn tasks (`made`, memo of 50, `rng` from zahlenmauer.ts). The drawn task keeps, besides the rule: a ≤ max,
 // b has exactly k digits (k = `digits` as it acts), Plus r ≤ max, and the `einer` and `zehner` rules as they act.

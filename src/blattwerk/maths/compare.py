@@ -3,6 +3,7 @@
 import random
 from math import isqrt
 
+from blattwerk.maths.carry import NAMES
 from blattwerk.maths.model import CLOSE, Settings, fits, loosened, pick
 from blattwerk.maths.pairs import propose, result, valid
 from blattwerk.maths.pattern import cut, for_op, matches, plain_zero
@@ -191,7 +192,7 @@ def compared(s: Settings) -> dict:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
     names = (
-        "carry",
+        *NAMES,
         "a",
         "b",
         "pa",

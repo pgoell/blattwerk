@@ -1,4 +1,5 @@
 // Which numbers a Rechentabelle draws: the rows and columns that keep the carry rule, then the cells.
+import { crossesAt } from "../carry";
 import type { Made, Op, RechentabelleProps, Table } from "../rechentabelle";
 
 export const FAMILY = [1, 2, 4, 8, 3, 6, 9, 5, 10, 7];
@@ -8,21 +9,11 @@ export const FIRST: Record<RechentabelleProps["first"], number[]> = {
   near: [3, 4, 6, 9],
 };
 
-// What each place of a + b (op "+") or a − b (op "-") carries to the next, units first, as maths.py `carries`. A place
-// beyond the list carries 0.
+// What each place of a + b (op "+") or a − b (op "-") crosses, units first (#838). A place beyond the list crosses not.
+// Plus: the digits sum to more than 10. A sum of 10 (7 + 3) does not. Minus: the row's digit is smaller than the column's. Nothing runs on.
 export function carryList(op: "+" | "-", a: number, b: number): number[] {
-  const out: number[] = [];
-  let carry = 0;
-  while (a > 0 || b > 0) {
-    carry =
-      op === "+"
-        ? Number((a % 10) + (b % 10) + carry > 9)
-        : Number((a % 10) - carry < b % 10);
-    out.push(carry);
-    a = Math.floor(a / 10);
-    b = Math.floor(b / 10);
-  }
-  return out;
+  const width = Math.max(String(a).length, String(b).length);
+  return Array.from({ length: width }, (_, i) => (crossesAt(op, a, b, i) ? 1 : 0));
 }
 
 
@@ -62,7 +53,7 @@ function fits(
   if (op === "+" ? r + c > p.max : r < c) return false;
   const list = carryList(op, r, c);
   // The places the panel shows: the Zehnerübergang, and from max 1000 the Hunderterübergang. "none" at the top one
-  // holds for every place above it too (so that 20 + 80 = 100 is no cell of a table without Übertrag).
+  // holds for every place above it too. A sum of exactly 10 is no crossing, so 20 + 80 = 100 is allowed.
   const top = p.max >= 1000 ? 2 : 1;
   const above = p.carry[top - 1] === "none" ? "none" : "either";
   // Every place the numbers reach, and the places the list does not reach carry 0 (#962).
