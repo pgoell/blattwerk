@@ -91,7 +91,7 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
     # Only Blattform has the shapes in a panel, at the window's left.
     shapes = page.locator(".insert .shapes .ib")
     assert (shapes.count() > 1) == (theme is None)
-    # The names in ENDS have no room centred in the panel; the others have.
+    # The shapes at the first row's ends have no room in the panel; the others have.
     roomy = [button for button in shapes.all() if button.get_attribute("aria-label") not in ENDS]
     assert len(roomy) == max(shapes.count() - len(ENDS), 0)
     for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *roomy):
@@ -104,9 +104,8 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
         assert button.evaluate("(el) => getComputedStyle(el, '::after').marginLeft") == "0px"
 
 
-# Names too wide to sit centred under the button and still inside the panel: the ends of the
-# first row, and Gebogener Pfeil, which is long and sits at the edge of a later row.
-ENDS = ["Rechteck", "Sprechblase", "Gebogener Pfeil"]
+# The shapes of Blattform's left panel whose names have no room centred: the first row's ends.
+ENDS = ["Rechteck", "Sprechblase"]
 # The room the left panel shows: its box without its border and its scrollbars, and whether it
 # or the window scrolls sideways.
 PANEL = """() => {

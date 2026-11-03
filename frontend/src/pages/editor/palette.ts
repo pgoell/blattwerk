@@ -43,7 +43,7 @@ export const takes = (b: Block): readonly (keyof Coat)[] => {
 // `valign` stands at the top, where a shape's would stand in the middle.
 export const BARE: Record<string, string | number> = { fill: "none", stroke: "none", strokeWidth: 0.5, valign: "top" };
 // The frames a text or a shape can have: the kinds from insert.ts, with their labels.
-export const FRAME_LABELS: Record<string, string> = { rect: "Eckig", rounded: "Abgerundet", circle: "Rund", triangle: "Dreieck", star: "Stern", bubble: "Sprechblase", diamond: "Raute", polygon: "Vieleck", thought: "Gedankenwolke", pie: "Bruchkreis", bars: "Bruchrechteck" };
+export const FRAME_LABELS: Record<string, string> = { rect: "Eckig", rounded: "Abgerundet", circle: "Rund", triangle: "Dreieck", star: "Stern", bubble: "Sprechblase" };
 export const FRAMES: [Kind, string][] = FRAME_KINDS.map((kind) => [kind, FRAME_LABELS[kind]]);
 export const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
 export const LABELS = [[undefined, "Keine"], ["show", "Blatt"], ["key", "Lösungen"]] as const;
@@ -57,6 +57,9 @@ export const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
   ["double", "Doppelpfeil", MoveHorizontal],
+];
+// The Formen from #835. They open from "Weitere Formen", so the dock stays one row.
+export const MORE_SHAPES: [Kind, string, LucideIcon][] = [
   ["diamond", "Raute", Diamond],
   ["polygon", "Vieleck", Hexagon],
   ["arc", "Bogen", Spline],

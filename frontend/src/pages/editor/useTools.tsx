@@ -1,11 +1,12 @@
 // What can be inserted, and the commands the bar folds under Mehr.
-import { ArrowRightLeft, BrickWall, Calculator, ChartColumn, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { useState } from "react";
+import { ArrowRightLeft, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
 import type { Command } from "./useMenus";
 import { Tool } from "./Tool";
-import { SHAPES, TYPES, span } from "./palette";
+import { MORE_SHAPES, SHAPES, TYPES, span } from "./palette";
 import { useMenus } from "./useMenus";
 
 export function useTools(session: ReturnType<typeof useMenus>) {
@@ -16,6 +17,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const setMulti = session.setMulti;
   const mathMenu = session.mathMenu;
   const setMathMenu = session.setMathMenu;
+  const [shapeMenu, setShapeMenu] = useState<{ x: number; y: number }>();
   const setLens = session.setLens;
   const leaf = session.leaf;
   const bar = session.bar;
@@ -96,6 +98,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Selbstkontrolle", icon: ListChecks, run: () => addInsert(INSERTS.selbstkontrolle(newSeed())) },
     { label: "Diagramm", icon: ChartColumn, run: () => addInsert(INSERTS.diagramm(newSeed())) },
   ];
+  const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
     <>
@@ -154,7 +157,17 @@ export function useTools(session: ReturnType<typeof useMenus>) {
           />
         ))}
       </span>
+      <Tool
+        icon={Shapes}
+        label="Weitere Formen"
+        aria-haspopup="menu"
+        aria-expanded={!!shapeMenu}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          setShapeMenu(shapeMenu ? undefined : { x: box.left, y: box.top - 4 });
+        }}
+      />
     </>
   );
-    return Object.assign(session, { folding, more, inBar, mathBlocks, tools });
+    return Object.assign(session, { folding, more, inBar, mathBlocks, moreShapes, shapeMenu, setShapeMenu, tools });
 }
