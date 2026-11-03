@@ -111,6 +111,11 @@ def pytest_runtest_logstart(nodeid, location):
 def pytest_runtest_logfinish(nodeid, location):
     if GUARD:
         GUARD.running.discard(nodeid)
+        # Nothing is in progress. The workers still have to leave, and on a loaded runner that
+        # has taken longer than the short limit after the last report. That is not a hang. A
+        # session fixture that never returns is still cut off, at the import allowance.
+        if not GUARD.running:
+            GUARD.arm(max(HANG_AFTER, UNTIL_READY))
     # Here and not in the fixture's own end: only now has pytest let go of the test's fixture
     # values, which may hold the routes of a gate.
     if SWEEP:

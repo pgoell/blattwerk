@@ -174,9 +174,11 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
   const fam = numbered && !three && !!p.family && p.family !== "none" && !(p.family === "swap" && !swap);
   const families = new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size;
   const whole = fam && p.family === "reverse";
-  // The Lücke boxes: the block's gaps, a block saved before has none, which is every number. A hidden c keeps its tick.
-  const all = p.gaps ?? ["a", "b", "c"];
-  const shown = GAPS.filter((k) => k !== "c" || three);
+  // The Lücke boxes: the block's gaps, a block saved before has none, which is every number and, for a
+  // division with a remainder, the remainder. A hidden c keeps its tick.
+  const mitRest = p.ops.includes("/") && !!p.rest && !whole && p.format === "gap";
+  const all = p.gaps ?? (mitRest ? ["a", "b", "c", "rest"] : ["a", "b", "c"]);
+  const shown = GAPS.filter((k) => (k !== "c" || three) && (k !== "rest" || mitRest));
   const ticked = shown.filter((k) => all.includes(k));
   const lit = ticked.length ? ticked : shown.filter((k) => k !== "result");
   // The last ticked box stays ticked, as the last sign of Rechenart does.

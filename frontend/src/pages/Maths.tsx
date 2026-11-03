@@ -2,7 +2,8 @@
 import Numbering from "../components/Numbering";
 import type { Owed } from "../saves";
 import { SIGNS, type Limits, type MathsBlock, type MathsProps, type Op } from "../sheet";
-import { AFTER, anyDigits, asCarry, CARRIES, carryCount, carryLabel, DIGITS, FAMILIES, FORMATS, FRACTIONS, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
+import { AFTER, anyDigits, asCarry, CARRIES, carryCount, carryLabel, DIGITS, FAMILIES, FORMATS, FRACTIONS, GAP_LABEL, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
+import { Reihen } from "./Reihen";
 import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
 import Schriftlich from "./maths/schriftlich";
@@ -42,6 +43,15 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           keine gleichen Zahlen
         </button>
       </div>
+      {times && !three && (
+        <>
+          <h2>Einmaleins-Reihen</h2>
+          <Reihen
+            reihen={p.reihen?.length ? p.reihen : p.small ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : []}
+            onChange={(next) => (next.length === 10 ? limit({ small: true, reihen: [] }) : limit({ small: false, reihen: next }))}
+          />
+        </>
+      )}
       <h2>Zahlenraum</h2>
       <select
         aria-label="Zahlenraum"
@@ -156,6 +166,13 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
             <button className={p.rest && !whole ? "" : "on"} disabled={whole} onClick={() => limit({ rest: false })}>Ohne Rest</button>
             <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
           </div>
+          {p.rest && !whole && (
+            <div className="seg switch">
+              <button className={p.avoid0 !== false ? "on" : ""} aria-pressed={p.avoid0 !== false} onClick={() => limit({ avoid0: p.avoid0 === false })}>
+                Rest 0 vermeiden
+              </button>
+            </div>
+          )}
         </>
       )}
       <h2>Format</h2>
@@ -172,8 +189,8 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           <h2>Lücke</h2>
           <div className="seg">
             {shown.map((k) => (
-              <button key={k} aria-label={`Lücke: ${k === "result" ? "Ergebnis" : NTH[k]}`} className={lit.includes(k) ? "on" : ""} aria-pressed={lit.includes(k)} onClick={() => gap(k)}>
-                {k === "result" ? "Ergebnis" : NTH[k]}
+              <button key={k} aria-label={`Lücke: ${GAP_LABEL[k]}`} className={lit.includes(k) ? "on" : ""} aria-pressed={lit.includes(k)} onClick={() => gap(k)}>
+                {GAP_LABEL[k]}
               </button>
             ))}
           </div>

@@ -76,7 +76,10 @@ class Settings(BaseModel):
     # Vollständig anzeigen. Off, the last task of a family hides one more number.
     full: bool = True
     # Lücke: what a gap may hide. None is every number of the task and never the result.
-    gaps: Annotated[list[Literal["a", "b", "c", "result"]], Field(min_length=1)] | None = None
+    # "rest" is the remainder of a division, and hides no number of the task.
+    gaps: Annotated[list[Literal["a", "b", "c", "result", "rest"]], Field(min_length=1)] | None = (
+        None
+    )
     # Aufgaben mit 0: off keeps 0 out as a number and as a result.
     zero: bool = True
     # Aufgaben mit 1 beim Malnehmen und Teilen: off keeps 1 out as a factor and as a divisor.
@@ -96,6 +99,13 @@ class Settings(BaseModel):
     # Signs of a written sum of more than two numbers: "all" on every number but the first,
     # "last" only on the last. Two numbers look the same either way.
     signs: Literal["all", "last"] = "all"
+    # Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10.
+    # Empty, the default, leaves the rows free. A times task takes one factor from the rows and
+    # the other from 1 to 10. A divide task takes its divisor from the rows and its quotient
+    # from 1 to 10.
+    reihen: list[int] = []
+    # Geteilt mit Rest: on, the default, a division that may leave a remainder leaves none of 0.
+    avoid0: bool = True
     # Patterns of the first number, the second and the result. "X" is any digit, a digit is fixed,
     # and the length is the number of digits, as in "X0" or "100". Empty means no pattern.
     pa: str = ""
@@ -104,6 +114,19 @@ class Settings(BaseModel):
     # "Die Null darf vorkommen", per operation family. "strich" is plus and minus, "punkt" is times
     # and divide. A family left out allows the digit 0.
     nil: dict[Literal["strich", "punkt"], bool] = Field(default_factory=dict)
+
+    @field_validator("reihen", mode="before")
+    @classmethod
+    def rows(cls, value: object) -> list[int]:
+        """Distinct rows from 1 to 10. Anything else is dropped."""
+        if not isinstance(value, list):
+            return []
+        seen: list[int] = []
+        for n in value:
+            if isinstance(n, bool) or not isinstance(n, int) or n in seen or not 1 <= n <= 10:
+                continue
+            seen.append(n)
+        return seen
 
     @field_validator("pa", "pb", "pr", mode="before")
     @classmethod
@@ -180,10 +203,16 @@ def stacked(s: Settings) -> bool:
 
 
 def gaps_of(s: Settings) -> list[str]:
-    """What a gap may hide, in the fixed order a, b, c, result."""
+    """What a gap may hide, in the fixed order a, b, c, result. The remainder is not one of them."""
     shown = ("a", "b", "c", "result") if three(s) else ("a", "b", "result")
     ticked = s.gaps or ["a", "b", "c"]
-    return [k for k in shown if k in ticked] or [k for k in shown if k != "result"]
+    picked = [k for k in shown if k in ticked]
+    if picked:
+        return picked
+    # A gap on the remainder alone hides no number. Any other empty choice hides a number.
+    if s.gaps is not None and "rest" in s.gaps:
+        return []
+    return [k for k in shown if k != "result"]
 
 
 def places(s: Settings) -> int:
@@ -225,6 +254,8 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "one": (s.model_copy(update={"one": True}), s.max),
         "distinct": (s.model_copy(update={"distinct": False}), s.max),
         "small": (s.model_copy(update={"small": False}), s.max),
+        "reihen": (s.model_copy(update={"reihen": []}), s.max),
+        "avoid0": (s.model_copy(update={"avoid0": False}), s.max),
         "pa": (s.model_copy(update={"pa": ""}), s.max),
         "pb": (s.model_copy(update={"pb": ""}), s.max),
         "pr": (s.model_copy(update={"pr": ""}), s.max),

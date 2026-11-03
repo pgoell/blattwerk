@@ -66,7 +66,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | family | string | `none`, `swap`, `reverse`, `neighbour`, `analogy` | no | Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks, "analogy" a package whose first or second number grows by ten. A family has two or three tasks. Default "none". |
 | moves | string | `a`, `b` | no | Which number a neighbouring task moves, or an Analogieaufgabe grows: "a" the first, the default, or "b" the second. |
 | full | boolean |  | no | Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. |
-| gaps | list of string | `a`, `b`, `c`, `result` | no | What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. |
+| gaps | list of string | `a`, `b`, `c`, `result`, `rest` | no | What a gap may hide: any of the numbers "a", "b" and "c", the "result", or the "rest" of a division. "rest" hides no number. Left out, a gap hides any number and never the result. |
 | zero | boolean |  | no | Whether 0 may be a number and a result. Default true. |
 | one | boolean |  | no | Whether 1 may be a factor or a divisor in times and divide tasks. Default true. |
 | distinct | boolean |  | no | Whether tasks with equal numbers are left out. Default false. |
@@ -74,6 +74,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | minus | string | `fill`, `unbundle`, `extend` | no | How a written subtraction is drawn. "fill" is Ergänzungsverfahren: the small carry sits in the next column, between the numbers and the line. "unbundle" is Entbündelungsverfahren: the changed digits sit above the first number. "extend" is Abziehverfahren mit Erweitern: a small 1 above the first number's digit and a small 1 on the next digit of the second number. Default "fill". |
 | stellen | boolean |  | no | Stellenwerte: true draws the place letters over a written plus or minus, E Z H T from the right, and ZT HT M where the number needs them. Default false. |
 | signs | string | `all`, `last` | no | Where a written sum of more than two numbers puts its signs: "all" on every number but the first, "last" only on the last. Default "all". Two numbers look the same either way. |
+| reihen | list of number |  | no | Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10. |
+| avoid0 | boolean |  | no | Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true. |
 | pa | string |  | no | Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". |
 | pb | string |  | no | Pattern of the second number, as for the first. For a written plus of more than two numbers it is the pattern of each following number. Empty means no pattern. |
 | pr | string |  | no | Pattern of the result, as for the first number, as in "100". Empty means no pattern. A comparison has no result pattern. |

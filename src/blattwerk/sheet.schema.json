@@ -2410,10 +2410,11 @@
               "a",
               "b",
               "c",
-              "result"
+              "result",
+              "rest"
             ]
           },
-          "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result."
+          "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", the \"result\", or the \"rest\" of a division. \"rest\" hides no number. Left out, a gap hides any number and never the result."
         },
         "zero": {
           "type": "boolean",
@@ -2451,6 +2452,17 @@
             "last"
           ],
           "description": "Where a written sum of more than two numbers puts its signs: \"all\" on every number but the first, \"last\" only on the last. Default \"all\". Two numbers look the same either way."
+        },
+        "reihen": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10."
+        },
+        "avoid0": {
+          "type": "boolean",
+          "description": "Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true."
         },
         "pa": {
           "type": "string",
@@ -2531,9 +2543,10 @@
           "enum": [
             "a",
             "b",
-            "c"
+            "c",
+            "rest"
           ],
-          "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result."
+          "description": "The number a gap stands for: \"a\", \"b\", \"c\" or \"rest\". \"rest\" hides the remainder of a division and no other number. Left out, the gap hides the result."
         },
         "also": {
           "type": "string",

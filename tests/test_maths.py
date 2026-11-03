@@ -202,10 +202,14 @@ def test_names_the_limit_to_loosen():
     assert out["loosen"][:3] == ["zehner", "a", "b"]
     out = generate(settings_for(a=[(0, 9), (6, 9)], b=[(0, 9), (6, 9)]))
     assert out == {"exercises": [], "loosen": ["a", "b", "max"]}
-    assert generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True))["loosen"] == [
-        "rest",
-        "b",
-    ]
+    # The divisor is 1, so a remainder is impossible. Rest, the divisor and Rest 0 vermeiden
+    # are each in the way. With the switch off, the same divisor fills the block.
+    blocked = generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True))
+    assert blocked["exercises"] == []
+    assert blocked["loosen"] == ["rest", "b", "avoid0"]
+    opened = generate(settings_for(ops=["/"], b=[(1, 1), (0, 0)], rest=True, avoid0=False))
+    assert len(opened["exercises"]) == 5 and opened["loosen"] is None
+    assert all(e["b"] == 1 and e["rest"] == 0 for e in opened["exercises"])
     seven = generate(settings_for(ops=["/"], max=1_000_000, a=[(7, 7)] + [(0, 0)] * 6, count=9))
     assert [e["b"] for e in seven["exercises"]] == [7] or seven["loosen"]
     # Only so many exercises exist: 0 + 0 up to 10 + 0.
