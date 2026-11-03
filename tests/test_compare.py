@@ -92,7 +92,7 @@ def test_each_term_keeps_the_limits(editor):
     for t in terms:
         assert t["a"] <= 100 and t["b"] <= 100 and 0 <= t["value"] <= 100
         if t["op"] == "+":
-            assert t["a"] % 10 + t["b"] % 10 < 10
+            assert t["a"] % 10 + t["b"] % 10 <= 10
         if t["op"] == "-":
             assert t["a"] % 10 >= t["b"] % 10
     props = changed(page, client, lambda: ctl(page, SIGNS["-"]).click())

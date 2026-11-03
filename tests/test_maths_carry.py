@@ -1,7 +1,7 @@
 """Übertrag per place (#838): Zehner, Hunderter and Tausender, each Ohne, Mit or Egal.
 
-Plus crosses a place when its two digits sum to 10 or more, so a sum of 10 carries 1
-(7 + 3, the Einer of 17 + 23). Nothing is carried on, so 395 + 7 does not cross a hundred.
+Plus crosses a place when its two digits sum to more than 10. Landing on 10
+(7 + 3, 17 + 23) does not. Nothing is carried on, so 395 + 7 does not cross a hundred.
 Minus crosses a place when that digit of the first number is smaller than the second's,
 so it would go below 0. A place is offered once the Zahlenraum goes past it.
 """
@@ -15,18 +15,18 @@ from blattwerk.maths import generate
 from blattwerk.maths.carry import crosses_at, offered
 
 
-def test_a_sum_of_ten_carries_one():
-    """#838: 7 + 3 and the Einer of 17 + 23 sum to 10, and a sum of 10 carries 1. 6 + 3 does not."""
-    assert crosses_at("+", 7, 3, 0) is True
-    assert crosses_at("+", 17, 23, 0) is True
+def test_landing_on_ten_is_no_crossing():
+    """#838: 7 + 3 and 17 + 23 do not cross at the Einer; 8 + 5 does; 6 + 3 does not."""
+    assert crosses_at("+", 7, 3, 0) is False
+    assert crosses_at("+", 17, 23, 0) is False
     assert crosses_at("+", 17, 23, 1) is False
+    assert crosses_at("+", 8, 5, 0) is True
     assert crosses_at("+", 6, 3, 0) is False
-    assert crosses_at("+", 20, 80, 1) is True
+    assert crosses_at("+", 20, 80, 1) is False
 
 
 def test_a_carry_does_not_run_on_and_a_digit_below_zero_crosses():
-    """#838: 395 + 7 does not cross a hundred; 8 + 5 and 370 + 280 do; 10 - 4 does, 16 - 4 does not."""
-    assert crosses_at("+", 8, 5, 0) is True
+    """#838: 395 + 7 does not cross a hundred; 370 + 280 does; 10 - 4 does, 16 - 4 does not."""
     assert crosses_at("+", 370, 280, 1) is True
     assert crosses_at("+", 395, 7, 1) is False
     assert crosses_at("-", 13, 5, 0) is True
@@ -40,7 +40,7 @@ def test_a_carry_does_not_run_on_and_a_digit_below_zero_crosses():
 
 
 def test_ohne_zehner_and_mit_hunderter_keep_each_place():
-    """#838: Ohne Zehnerübergang refuses a sum of 10; Mit Hunderter needs the tens to reach 10."""
+    """#838: Ohne Zehnerübergang allows a sum of 10 and refuses one past it; Mit Hunderter needs the tens to pass 10."""
     out = generate(
         settings_for(
             max=1000,
@@ -52,8 +52,8 @@ def test_ohne_zehner_and_mit_hunderter_keep_each_place():
     )
     assert out["exercises"]
     for e in out["exercises"]:
-        assert (e["a"] % 10) + (e["b"] % 10) < 10
-        assert (e["a"] // 10 % 10) + (e["b"] // 10 % 10) >= 10
+        assert (e["a"] % 10) + (e["b"] % 10) <= 10
+        assert (e["a"] // 10 % 10) + (e["b"] // 10 % 10) > 10
 
 
 def test_a_rule_that_leaves_no_task_is_named_in_the_hint():
