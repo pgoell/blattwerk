@@ -18,6 +18,7 @@ import Malquadrat from "../Malquadrat";
 import Zerlegungsfeld from "../Zerlegungsfeld";
 import Halbschriftlich from "../Halbschriftlich";
 import Zehnerfeld from "../Zehnerfeld";
+import Textaufgabe from "../Textaufgabe";
 import Rechendreieck from "../Rechendreieck";
 import Zahlenstrahl from "../Zahlenstrahl";
 import Hunderterfeld from "../Hunderterfeld";
@@ -79,6 +80,7 @@ export function useSchools({
   const zerl = sel.length === 1 && sel[0].type === "zerlegungsfeld" ? sel[0] : undefined;
   const halb = sel.length === 1 && sel[0].type === "halbschriftlich" ? sel[0] : undefined;
   const zehn = sel.length === 1 && sel[0].type === "zehnerfeld" ? sel[0] : undefined;
+  const textaufgabe = sel.length === 1 && sel[0].type === "textaufgabe" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
@@ -96,11 +98,11 @@ export function useSchools({
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], key);
     return true;
   };
-  return { paperHint, refusedType: refusedBlock?.type, maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows };
+  return { paperHint, refusedType: refusedBlock?.type, maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows };
 }
 
 export function SchoolPanels({
-  maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows, style, doc, words, owe, H,
+  maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, calc, grows, style, doc, words, owe, H,
 }: ReturnType<typeof useSchools> & {
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   doc: Doc;
@@ -124,6 +126,7 @@ export function SchoolPanels({
       {zerl && <Zerlegungsfeld key={zerl.id} block={zerl} apply={(props, key) => grows("zerlegungsfeld", props, key)} />}
       {halb && <Halbschriftlich key={halb.id} block={halb} apply={(props, key) => grows("halbschriftlich", props, key)} />}
       {zehn && <Zehnerfeld key={zehn.id} block={zehn} apply={(props, key) => grows("zehnerfeld", props, key)} />}
+      {textaufgabe && <Textaufgabe key={textaufgabe.id} block={textaufgabe} apply={(props, key) => grows("textaufgabe", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
