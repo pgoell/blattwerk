@@ -40,13 +40,14 @@ export function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; co
       </g>
       {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={(x1 === 0 ? 0 : x1 + dx) * S} x2={(x2 + dx) * S} y1={y * S} y2={y * S} stroke="currentColor" strokeWidth={0.08 * S} />)}
       {grid.cells.map(([x, y, ch, kind], i) => {
-        if (!solved && kind) return null;
+        // Kind 3 is a place letter: it prints on the pupil's sheet, smaller, and in grey.
+        if (!solved && kind && kind !== 3) return null;
         const formula = asFormula(ch);
-        const em = (kind === 2 ? 0.45 : 0.75) * S;
+        const em = (kind === 2 ? 0.45 : kind === 3 ? (ch.length > 1 ? 0.42 : 0.55) : 0.75) * S;
         return formula ? (
           <FormulaCell key={i} source={formula} x={at(x) * S} y={y * S} side={S} em={em} />
         ) : (
-          <text key={i} className={kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill="currentColor">
+          <text key={i} className={kind === 3 ? "head" : kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={em} textAnchor="middle" dominantBaseline="central" fill={kind === 3 ? "#555" : "currentColor"}>
             {ch}
           </text>
         );

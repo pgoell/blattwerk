@@ -4,7 +4,7 @@ title: What the server computes
 description: What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 tags: [maths, seed, exercises, server]
 covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-11-03T01:44:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T03:41:00Z }
 ---
 
 # What the server computes
@@ -13,7 +13,7 @@ Some blocks draw their content from a `seed`. Maths blocks get their exercises f
 
 ## Maths exercises
 
-A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest, on the [maths](blocks/maths.md) page. A pattern `pa`, `pb` or `pr` limits the first number, the second or the result (`X` is any digit, the length is the number of digits). `nil` says whether the digit 0 may occur, for plus and minus (`strich`) and for times and divide (`punkt`). The server draws the exercises from them. `columns` and `size` only lay the tasks out: with the limits they set the block's height, and a change to them draws no new tasks.
+A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest, on the [maths](blocks/maths.md) page. A pattern `pa`, `pb` or `pr` limits the first number, the second or the result (`X` is any digit, the length is the number of digits). For a written plus of more than two numbers, `pb` is the pattern of each number after the first. `nil` says whether the digit 0 may occur, for plus and minus (`strich`) and for times and divide (`punkt`). The server draws the exercises from them. `columns` and `size` only lay the tasks out: with the limits they set the block's height, and a change to them draws no new tasks.
 
 * `add_block`: leave `exercises` out of `props`. Props may be partial. The answer gives the block as stored, with its exercises and its real `h`. Place the next block from that answer.
 * `replace_doc`: a doc must carry every maths field, so pass `"exercises": []` and `"loosen": null`. `replace_doc` fills an empty list from the server. A block that already has exercises keeps them.

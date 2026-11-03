@@ -4,7 +4,7 @@ title: "Block: maths"
 description: "The maths block's limits, layout and exercises."
 tags: [block, maths]
 covers: [maths]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:43:27Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T03:40:15Z }
 ---
 
 # maths
@@ -55,7 +55,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | sides | string | `nn`, `tn`, `tt` | no | What stands on each side of a comparison: "nn" number and number, "tn" term and number, "tt" term and term. Default "tn". Only comparisons use it. |
 | close | boolean |  | no | Whether the sides of a comparison lie close together, 1 or 2 units or tens apart. Default false. Only comparisons use it. |
 | equal | string | `none`, `some` | no | Whether comparisons have equal sides: "none" never, "some" about one in five. Default "some". Only comparisons use it. |
-| numbers | number | `2`, `3` | no | How many numbers a task has: 2 or 3. Default 2. |
+| numbers | number | `2`, `3`, `4` | no | How many numbers a task has: 2 or 3 for a row or a gap, and 2, 3 or 4 for a written plus. Default 2. A written plus of 3 or 4 is one column sum. 4 applies to that plus only. |
 | pvs | boolean |  | no | Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false. |
 | brackets | boolean |  | no | Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false. |
 | decimals | number | `0`, `1`, `2` | no | Places after the comma in plus and minus tasks: 0 for whole numbers, 1 for tenths or 2 for hundredths. Default 0. |
@@ -70,8 +70,11 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | one | boolean |  | no | Whether 1 may be a factor or a divisor in times and divide tasks. Default true. |
 | distinct | boolean |  | no | Whether tasks with equal numbers are left out. Default false. |
 | small | boolean |  | no | Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. |
+| minus | string | `fill`, `unbundle`, `extend` | no | How a written subtraction is drawn. "fill" is Ergänzungsverfahren: the small carry sits in the next column, between the numbers and the line. "unbundle" is Entbündelungsverfahren: the changed digits sit above the first number. "extend" is Abziehverfahren mit Erweitern: a small 1 above the first number's digit and a small 1 on the next digit of the second number. Default "fill". |
+| stellen | boolean |  | no | Stellenwerte: true draws the place letters over a written plus or minus, E Z H T from the right, and ZT HT M where the number needs them. Default false. |
+| signs | string | `all`, `last` | no | Where a written sum of more than two numbers puts its signs: "all" on every number but the first, "last" only on the last. Default "all". Two numbers look the same either way. |
 | pa | string |  | no | Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". |
-| pb | string |  | no | Pattern of the second number, as for the first. Empty means no pattern. |
+| pb | string |  | no | Pattern of the second number, as for the first. For a written plus of more than two numbers it is the pattern of each following number. Empty means no pattern. |
 | pr | string |  | no | Pattern of the result, as for the first number, as in "100". Empty means no pattern. A comparison has no result pattern. |
 | nil | object |  | no | Whether the digit 0 may occur, per operation family. A missing family allows it. A 0 the pattern itself asks for counts. |
 

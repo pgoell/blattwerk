@@ -5,11 +5,13 @@ import { SIGNS, type Limits, type MathsBlock, type MathsProps, type Op } from ".
 import { AFTER, anyDigits, CARRIES, DIGITS, FAMILIES, FORMATS, FRACTIONS, LOOSEN, NACH, NTH, PLACES, ROOMS, SIDES, newSeed, type Key } from "./maths/ask";
 import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
+import Schriftlich from "./maths/schriftlich";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
 export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number; owe: (entry: Owed) => void }) {
   const { p, limit, toggle, own, setOwn, typed, setTyped, wrong, commit, room, ranges, digit, show, gap, refused, line, scale, plus, times, open, dec, money, numbered, three, free, pvs, brackets, fam, families, whole, shown, lit } = useFlight(block, apply, foot, owe);
+  const stack = p.format === "written" && (p.numbers ?? 2) > 2 && p.ops.length === 1 && p.ops[0] === "+";
   return (
     <>
       <h2>Rechenart</h2>
@@ -96,7 +98,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
         ];
         return (
           <div key={who}>
-            <h2>{NTH[who]}: Ziffern von, bis</h2>
+            <h2>{who === "b" && stack ? "weitere Zahlen" : NTH[who]}: Ziffern von, bis</h2>
             <div className="places">
               {ranges(who).map((_, i) => row(who, i, PLACES[i], PLACES[i])).reverse()}
               {ranges(AFTER[who]).slice(0, dec).map((_, i) => row(AFTER[who], i, FRACTIONS[i][0], FRACTIONS[i][1]))}
@@ -130,11 +132,12 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
       <h2>Format</h2>
       <div className="seg">
         {FORMATS.map(([format, label]) => (
-          <button key={format} className={p.format === format ? "on" : ""} onClick={() => limit({ format })}>
+          <button key={format} className={p.format === format ? "on" : ""} onClick={() => limit(format !== "written" && (p.numbers ?? 2) > 3 ? { format, numbers: 2 } : { format })}>
             {label}
           </button>
         ))}
       </div>
+      {p.format === "written" && <Schriftlich p={p} limit={limit} plus={plus} />}
       {p.format === "gap" && (
         <>
           <h2>Lücke</h2>

@@ -151,6 +151,7 @@ def maths(client, **more):
             or key in ("sides", "close", "equal", "c", "numbers", "pvs", "brackets")
             or key in ("decimals", "money", "af", "bf", "cf", "family", "moves")
             or key in ("gaps", "zero", "one", "distinct", "small")
+            or key in ("minus", "stellen", "signs", "pa", "pb", "pr", "nil")
         },
     }
     made = client.post("/api/maths", json=limits).json()

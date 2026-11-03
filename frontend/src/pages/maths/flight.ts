@@ -137,7 +137,10 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
   }
   function toggle(op: Op) {
     const ops = p.ops.includes(op) ? p.ops.filter((o) => o !== op) : [...p.ops, op];
-    if (ops.length) limit({ ops });
+    if (!ops.length) return;
+    // A column of 3 or 4 numbers is a written plus alone. Another sign brings the task back to two.
+    const column = p.format === "written" && ops.length === 1 && ops[0] === "+";
+    limit(p.format === "written" && (p.numbers ?? 2) > 2 && !column ? { ops, numbers: 2 } : { ops });
   }
   // The places after the comma are af, bf and cf, two entries always; a missing one is any digit.
   function ranges(key: Key): Range[] {

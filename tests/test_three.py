@@ -62,14 +62,20 @@ def worth(line):
     return eval(lhs) == int(rhs)
 
 
-def test_zahlen_pro_aufgabe_shows_for_zeile_and_luecke_only(editor):
-    """A1: Zahlen pro Aufgabe shows under Zeile and Lücke only; 3 Zahlen gives three numbers."""
+def test_zahlen_pro_aufgabe_shows_for_zeile_luecke_and_a_written_plus(editor):
+    """A1: Zahlen pro Aufgabe shows under Zeile and Lücke, and under Schriftlich when plus is the only
+    sign. 4 Zahlen there is one column sum. Vergleichen hides the control. 3 Zahlen on a row is a chain."""
     client = user()
     page = editor(box("m", "maths", maths(client)), client=client)
     pick(page, "m")
     expect(ctl(page, "2 Zahlen")).to_be_visible()
     changed(page, client, lambda: ctl(page, "Schriftlich").click())
-    expect(ctl(page, "2 Zahlen")).to_have_count(0)
+    expect(ctl(page, "4 Zahlen")).to_be_visible()
+    props = changed(page, client, lambda: ctl(page, "4 Zahlen").click())
+    assert all(
+        e["op"] == "+" and "op2" not in e and e["a"] + e["b"] + e["c"] + e["d"] == e["result"]
+        for e in props["exercises"]
+    )
     changed(page, client, lambda: ctl(page, "Vergleichen").click())
     expect(ctl(page, "2 Zahlen")).to_have_count(0)
     changed(page, client, lambda: ctl(page, "Lücke").click())
