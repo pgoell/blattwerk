@@ -1,6 +1,7 @@
 // The zoom's list, as PowerPoint's zoom dialog: a few percents and a field to type one. A modal dialog like the menus,
 // so the keys are its own while it is open.
-import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { beside } from "./useBackdrop";
 
 // `up` puts the list's bottom edge at `y`, for a list that opens above its button.
 type Props = {
@@ -41,11 +42,6 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
     return () => removeEventListener("resize", shut);
   }, [onClose]);
 
-  // Beside the list is the dialog's backdrop: a press there has the dialog as its target and lies outside its box.
-  const beside = (e: MouseEvent) => {
-    const box = ref.current!.getBoundingClientRect();
-    return e.target === ref.current && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
-  };
   function key(e: KeyboardEvent) {
     // An Escape after the list has shut is the sheet's.
     if (e.key === "Escape" && ref.current!.open) {
@@ -86,7 +82,7 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
       role="menu"
       onClose={onClose}
       onKeyDown={key}
-      onMouseDown={(e) => e.button !== 2 && beside(e) && shut()}
+      onMouseDown={(e) => e.button !== 2 && beside(ref.current!, e) && shut()}
     >
       {PERCENTS.map((p) => (
         <button key={p} role="menuitem" onClick={pick(() => onPercent(p))}>

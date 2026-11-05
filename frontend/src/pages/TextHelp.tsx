@@ -4,6 +4,7 @@ import { post, type Refusal } from "../api";
 import { SYMBOLS } from "../symbols";
 import { levelled, NOTE, STAR, taken } from "../texthelp";
 import type { Doc, TextBlock } from "../sheet";
+import { useBackdrop } from "../components/useBackdrop";
 
 type Kind = "simpler" | "shorter" | "levels";
 type Proposal = { kind: "simpler" | "shorter"; text: string } | { kind: "levels"; texts: [string, string, string] };
@@ -24,6 +25,7 @@ export default function TextHelp({
   const ref = useRef<HTMLDialogElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const [busy, setBusy] = useState(false);
+  const backdrop = useBackdrop(ref, undefined, busy);
   const [error, setError] = useState<string>();
   const [proposal, setProposal] = useState<Proposal>();
   const [editing, setEditing] = useState(false);
@@ -80,10 +82,12 @@ export default function TextHelp({
       ref={ref}
       aria-labelledby="texthelp-title"
       aria-busy={busy}
+      onClose={onClose}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
       }}
+      {...backdrop}
     >
       <h1 id="texthelp-title">Text anpassen</h1>
       {!proposal && (

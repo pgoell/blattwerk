@@ -4,6 +4,7 @@ import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
 import VoiceNotes, { lost } from "./VoiceNotes";
+import { useBackdrop } from "./useBackdrop";
 
 // What is typed outlives the form: a send that finds the session gone brings the login, which takes the form away,
 // and the text, the voice notes and the pictures stand in the form opened after it. The app empties it when the
@@ -26,6 +27,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
   const [{ text, clips, photos }, write] = useState(draft);
   const keep = (change: Partial<typeof NONE>) => write((draft = { ...draft, ...change }));
   const [busy, setBusy] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const backdrop = useBackdrop(dialog, undefined, busy);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
   const stopper = useRef<() => boolean>(null);
@@ -88,8 +91,12 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       {open && (
         <dialog
           className="feedback"
-          ref={(el) => void (el && !el.open && el.showModal())}
+          ref={(el) => {
+            dialog.current = el;
+            if (el && !el.open) el.showModal();
+          }}
           onClose={() => setOpen(false)}
+          {...backdrop}
           // Escape shuts the form at once: the browser's `close` comes a task later. It is the form's, not the sheet's.
           onKeyDown={(e) => {
             if (e.key !== "Escape" || !e.currentTarget.open) return;

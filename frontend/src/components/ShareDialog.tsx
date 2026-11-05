@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, post, signed } from "../api";
 import { attempt } from "../fault";
+import { useBackdrop } from "./useBackdrop";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
 const day = (stamp: string) =>
@@ -20,6 +21,8 @@ export default function ShareDialog({ id, title, onClose }: { id: number; title:
   const [state, setState] = useState<State>();
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const backdrop = useBackdrop(ref, undefined, busy);
   useEffect(() => void ref.current?.showModal(), []);
   useEffect(() => {
     let on = true;
@@ -34,11 +37,16 @@ export default function ShareDialog({ id, title, onClose }: { id: number; title:
   const run = (what: string, go: () => Promise<State>) =>
     void attempt(what, async () => {
       setCopied(false);
-      setState(await signed(go()));
+      setBusy(true);
+      try {
+        setState(await signed(go()));
+      } finally {
+        setBusy(false);
+      }
     });
 
   return (
-    <dialog ref={ref} className="ask" aria-labelledby="share-title" onClose={onClose}>
+    <dialog ref={ref} className="ask" aria-labelledby="share-title" onClose={onClose} {...backdrop}>
       <h1 id="share-title">{title} teilen</h1>
       {failed && <p>Der Stand des Links konnte nicht geladen werden.</p>}
       {!failed && !state && <p>Lädt …</p>}

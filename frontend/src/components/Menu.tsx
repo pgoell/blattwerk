@@ -1,6 +1,7 @@
 // The menu a right click opens: a modal dialog, so the keys are its own and the focus goes back where it was.
-import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import type { LucideIcon } from "lucide-react";
+import { beside } from "./useBackdrop";
 
 // `on` is set for a command that is on or off, and marks the one that is on.
 export type Item = { label: string; icon?: LucideIcon; keys?: string; disabled?: boolean; on?: boolean; run: () => void } | "sep";
@@ -60,11 +61,6 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
     return () => removeEventListener("resize", shut);
   }, [onClose]);
 
-  // Beside the menu is the dialog's backdrop: a press there has the dialog as its target and lies outside its box.
-  const beside = (e: MouseEvent) => {
-    const box = ref.current!.getBoundingClientRect();
-    return e.target === ref.current && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
-  };
   function key(e: KeyboardEvent) {
     // An Escape after the menu has shut is the sheet's.
     if (e.key === "Escape" && ref.current!.open) {
@@ -93,10 +89,10 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
       onClose={onClose}
       onKeyDown={key}
       // The right button is the next line's: where it opens the menu on the press, both would run.
-      onMouseDown={(e) => e.button !== 2 && beside(e) && shut()}
+      onMouseDown={(e) => e.button !== 2 && beside(ref.current!, e) && shut()}
       onContextMenu={(e) => {
         e.preventDefault();
-        if (beside(e)) onElsewhere(e.clientX, e.clientY);
+        if (beside(ref.current!, e)) onElsewhere(e.clientX, e.clientY);
       }}
     >
       {items.map((item, i) =>
