@@ -3,6 +3,7 @@ import { api, post, type Refusal, type User } from "../api";
 import { attempt, status } from "../fault";
 import { signed } from "../saves";
 import { mark, wipe } from "../clip";
+import { useBackdrop } from "../components/useBackdrop";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
 const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
@@ -69,6 +70,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const codeEl = useRef<HTMLElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
+  const revokeBackdrop = useBackdrop(dialog);
+  const unlinkBackdrop = useBackdrop(linkDialog);
 
   function copyKey(token: string) {
     window.clearTimeout(copyTimer.current);
@@ -305,6 +308,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
             const back = askedId.current;
             if (back !== null) rowButtons.current.get(back)?.focus();
           }}
+          {...revokeBackdrop}
         >
           <p id="ask-revoke">Schlüssel „{ask?.name}“ widerrufen? Was diesen Schlüssel nutzt, verliert den Zugang.</p>
           <div className="row">
@@ -337,7 +341,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
             </li>
           ))}
         </ul>
-        <dialog ref={linkDialog} className="ask" aria-labelledby="ask-unlink">
+        <dialog ref={linkDialog} className="ask" aria-labelledby="ask-unlink" {...unlinkBackdrop}>
           <p id="ask-unlink">„{unlink?.name}“ trennen? Das Programm verliert den Zugang zu deinem Konto.</p>
           <div className="row">
             <button type="button" onClick={() => unlink && confirmUnlink(unlink)}>

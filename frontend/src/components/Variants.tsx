@@ -7,6 +7,7 @@ import { ask, flush, isGone, signed } from "../saves";
 import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
 import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
+import { useBackdrop } from "./useBackdrop";
 
 const LETTERS = ["A", "B", "C", "D"];
 // A page is about 60 mm wide on the screen, until the preview has measured its room.
@@ -113,6 +114,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   const [got, setGot] = useState<Record<string, Variant>>({});
   const [failed, setFailed] = useState("");
   const [busy, setBusy] = useState(false);
+  const backdrop = useBackdrop(ref, undefined, busy);
   const ready = useRef<Promise<Record<string, Variant>> | undefined>(undefined);
   useEffect(() => ref.current?.showModal(), []);
 
@@ -231,7 +233,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   }
 
   return (
-    <dialog className="variants" ref={ref} onKeyDown={key} onClose={() => { opener.current?.focus(); onClose(); }}>
+    <dialog className="variants" ref={ref} onKeyDown={key} onClose={() => { opener.current?.focus(); onClose(); }} {...backdrop}>
       <h1>Varianten drucken</h1>
       <fieldset>
         <legend>Varianten</legend>
