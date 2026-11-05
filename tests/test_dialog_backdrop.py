@@ -39,6 +39,7 @@ def check_backdrop(page, dialog, opener, text, reopen):
     expect(dialog).to_be_visible()
     page.keyboard.press("Escape")
     expect(dialog).not_to_be_visible()
+    expect(opener).to_be_focused()
 
 
 def test_teilen_closes_on_a_backdrop_click(window, server):
@@ -66,12 +67,8 @@ def test_teilen_stays_open_while_the_link_is_switched_on(window, server):
             route.continue_()
 
     page.route("**/api/sheets/*/share", hold)
-    page.get_by_role("button", name="Link einschalten").click()
-    for _ in range(200):
-        if held:
-            break
-        page.wait_for_timeout(10)
-    assert held
+    with page.expect_request(lambda r: r.method == "POST" and "/share" in r.url):
+        page.get_by_role("button", name="Link einschalten").click()
     page.mouse.click(4, 4)
     held[0].fulfill(json={"on": True, "token": "t" * 40, "updated": "2026-10-06 09:30:00"})
     expect(page.locator("dialog .link")).to_contain_text("/teilen/")

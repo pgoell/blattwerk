@@ -14,18 +14,27 @@ const DOWN = "Die Texthilfe hat nicht geantwortet.";
 export default function TextHelp({
   block,
   page,
+  opener,
   onClose,
   onTake,
 }: {
   block: TextBlock;
   page: number;
+  opener?: Element | null;
   onClose: () => void;
   onTake: (fn: (doc: Doc) => Doc, to?: number) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const [busy, setBusy] = useState(false);
-  const backdrop = useBackdrop(ref, undefined, busy);
+  // The button that opened the dialog: the focus goes back to it however the dialog shuts.
+  const back = useRef<Element | null>(opener ?? null);
+  const shut = () => {
+    ref.current?.close();
+    (back.current as HTMLElement | null)?.focus();
+    onClose();
+  };
+  const backdrop = useBackdrop(ref, shut, busy);
   const [error, setError] = useState<string>();
   const [proposal, setProposal] = useState<Proposal>();
   const [editing, setEditing] = useState(false);
@@ -82,10 +91,9 @@ export default function TextHelp({
       ref={ref}
       aria-labelledby="texthelp-title"
       aria-busy={busy}
-      onClose={onClose}
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        shut();
       }}
       {...backdrop}
     >
@@ -151,7 +159,7 @@ export default function TextHelp({
           <button type="button" onClick={take}>
             Übernehmen
           </button>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={shut}>
             Verwerfen
           </button>
         </div>

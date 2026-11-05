@@ -1,5 +1,5 @@
 // Feedback from any page: a button that opens a form for text, voice notes and pictures.
-import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type Ref } from "react";
+import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type MouseEvent, type Ref } from "react";
 import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
@@ -28,7 +28,14 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
   const keep = (change: Partial<typeof NONE>) => write((draft = { ...draft, ...change }));
   const [busy, setBusy] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
-  const backdrop = useBackdrop(dialog, undefined, busy);
+  const back = useRef<Element | null>(null);
+  // Escape and a backdrop click shut the form the same way, and the focus goes back to what opened it.
+  const shut = () => {
+    dialog.current?.close();
+    setOpen(false);
+    (back.current as HTMLElement | null)?.focus();
+  };
+  const backdrop = useBackdrop(dialog, shut, busy);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
   const stopper = useRef<() => boolean>(null);
@@ -36,7 +43,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
 
   // The screen as it is when the form is asked for, without the form, goes along with what is sent. The library
   // that draws it loads only now.
-  function show() {
+  function show(e?: MouseEvent<HTMLButtonElement>) {
     shot.current = import("modern-screenshot")
       .then(({ domToBlob }) =>
         domToBlob(document.body, {
@@ -54,6 +61,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
     write(draft);
     setStatus(lost.recording && draft.clips.length ? KEPT : "");
     lost.recording = false;
+    // The editor keeps the focus off the button on a click, so the button that was clicked is the one to return to.
+    back.current = e ? e.currentTarget : document.activeElement;
     setOpen(true);
   }
   useImperativeHandle(opener, () => show);
@@ -102,8 +111,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
             if (e.key !== "Escape" || !e.currentTarget.open) return;
             e.preventDefault();
             e.stopPropagation();
-            e.currentTarget.close();
-            setOpen(false);
+            shut();
           }}
         >
           <form onSubmit={submit}>

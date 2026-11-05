@@ -1,4 +1,5 @@
 // The format of the picked blocks.
+import { useRef, type MouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { owe } from "../../saves";
 import { isLine, type ImageBlock, type NameBlock } from "../../sheet";
@@ -14,6 +15,8 @@ import { useTools } from "./useTools";
 import PanelRest from "./PanelRest";
 
 export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
+  // The button that asked for the text help: its dialog gives the focus back to it.
+  const helpFrom = useRef<HTMLElement | null>(null);
   const H = session.H;
   const W = session.W;
   const align = session.align;
@@ -182,7 +185,14 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 list={takeList}
                 link={takeText}
                 feed={feed}
-                onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
+                onHelp={
+                  canHelp(sel)
+                    ? (e?: MouseEvent<HTMLElement>) => {
+                        helpFrom.current = e?.currentTarget ?? null;
+                        setHelp({ id: sel[0].id, page });
+                      }
+                    : undefined
+                }
                 onInsert={typeChar}
                 markEven={session.markEven}
                 toList={() => setTab("Lernwörter")}
@@ -192,6 +202,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   block={helping}
                   page={help.page}
                   onClose={() => setHelp(null)}
+                  opener={helpFrom.current}
                   onTake={(fn, to) => {
                     const from = help.page;
                     // The box grows with the new words, in this same step, as a text the teacher typed does.
