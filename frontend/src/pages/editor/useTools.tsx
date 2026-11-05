@@ -71,7 +71,8 @@ export function useTools(session: ReturnType<typeof useMenus>) {
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
         ]),
     { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
-    { label: "Feedback", icon: MessageSquare, run: () => feedback.current!() },
+    // The form gives the focus back to what has it when it opens: "Mehr", as for the zoom.
+    { label: "Feedback", icon: MessageSquare, run: () => (bar.current!.querySelector<HTMLElement>(".more")!.focus(), feedback.current!()) },
     { label: "Varianten drucken", icon: Layers, run: () => openVariants(bar.current!.querySelector<HTMLElement>(".more")!) },
   ];
   const more = folding.slice(fits ?? folding.length);

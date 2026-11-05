@@ -35,7 +35,9 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
     setOpen(false);
     (back.current as HTMLElement | null)?.focus();
   };
-  const backdrop = useBackdrop(dialog, shut, busy);
+  // A click beside the form leaves it open while it sends or records.
+  const [recording, setRecording] = useState(false);
+  const backdrop = useBackdrop(dialog, shut, busy || recording);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
   const stopper = useRef<() => boolean>(null);
@@ -126,11 +128,12 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
                 if (gen === generation) keep({ clips });
               }}
               stopper={stopper}
+              onRecording={setRecording}
             />
             <label>Bilder</label>
             <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
             <div className="row">
-              <button type="button" onClick={() => setOpen(false)}>Schließen</button>
+              <button type="button" onClick={shut}>Schließen</button>
               <button className="primary" disabled={busy}>Abschicken</button>
             </div>
             <div className="status" role="status">{status}</div>

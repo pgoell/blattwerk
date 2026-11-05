@@ -4,6 +4,7 @@
 
 from playwright.sync_api import expect
 from test_account_tokens import account, make  # noqa: F401
+from test_bar import item, more, sized
 from test_loading import window  # noqa: F401
 from test_variants import open_dialog
 from test_variants import opener as variants_opener
@@ -94,6 +95,27 @@ def test_feedback_closes_on_a_backdrop_click(editor):
     opener.click()
     dialog = page.locator("dialog.feedback")
     check_backdrop(page, dialog, opener, dialog.get_by_role("heading"), opener.click)
+
+
+def test_feedback_from_mehr_gives_the_focus_back_to_mehr(editor):
+    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False, theme="")
+    dialog = page.locator("dialog.feedback")
+
+    def reopen():
+        more(page).click()
+        item(page, "Feedback").click()
+
+    reopen()
+    check_backdrop(page, dialog, more(page), dialog.get_by_role("heading"), reopen)
+
+
+def test_schliessen_gives_the_focus_back_to_the_feedback_button(editor):
+    page = editor(box("a", "text", TEXT))
+    opener = page.get_by_label("Feedback", exact=True)
+    opener.click()
+    page.locator("dialog.feedback").get_by_role("button", name="Schließen").click()
+    expect(page.locator("dialog.feedback")).to_have_count(0)
+    expect(opener).to_be_focused()
 
 
 def test_text_anpassen_closes_on_a_backdrop_click(editor):

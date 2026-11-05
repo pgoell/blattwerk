@@ -1,12 +1,13 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useObjectUrl } from "./useObjectUrl";
 
-type Props = { clips: Blob[]; onChange: (clips: Blob[]) => void; stopper?: Ref<() => boolean> };
+// `onRecording` hears when a recording starts and ends.
+type Props = { clips: Blob[]; onChange: (clips: Blob[]) => void; stopper?: Ref<() => boolean>; onRecording?: (on: boolean) => void };
 
 // Set when the form shut while a clip was recording: the next opening of the form says the clip was kept.
 export const lost = { recording: false };
 
-export default function VoiceNotes({ clips, onChange, stopper }: Props) {
+export default function VoiceNotes({ clips, onChange, stopper, onRecording }: Props) {
   const recorder = useRef<MediaRecorder | null>(null);
   const mic = useRef<MediaStream | null>(null);
   const gone = useRef(false);
@@ -64,11 +65,13 @@ export default function VoiceNotes({ clips, onChange, stopper }: Props) {
       stream.getTracks().forEach((t) => t.stop());
       recorder.current = null;
       setRecording(false);
+      onRecording?.(false);
       onChange([...latest.current, new Blob(chunks, { type: rec.mimeType })]);
     };
     rec.start();
     recorder.current = rec;
     setRecording(true);
+    onRecording?.(true);
   }
 
   return (
