@@ -110,7 +110,7 @@
    the desk's lower corners. */
 .leaf > header { grid-column: 2 / -1; }
 .leaf .left { grid-area: 1 / 1 / -1; }
-.left .brand { display: flex; padding: 16px 14px 12px; text-decoration: none; }
+.left .brand { display: flex; padding: 16px 14px 12px; text-decoration: none; position: sticky; top: 0; z-index: 1; background: var(--panel); }
 .left .brand .lucide { display: none; }
 .left .logo { font-size: 20px; }
 .left .logo svg { width: 28px; height: 28px; }

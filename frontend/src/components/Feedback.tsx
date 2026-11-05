@@ -1,9 +1,10 @@
 // Feedback from any page: a button that opens a form for text, voice notes and pictures.
-import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type Ref } from "react";
+import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type MouseEvent, type Ref } from "react";
 import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
 import VoiceNotes, { lost } from "./VoiceNotes";
+import { useBackdrop } from "./useBackdrop";
 
 // What is typed outlives the form: a send that finds the session gone brings the login, which takes the form away,
 // and the text, the voice notes and the pictures stand in the form opened after it. The app empties it when the
@@ -26,6 +27,17 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
   const [{ text, clips, photos }, write] = useState(draft);
   const keep = (change: Partial<typeof NONE>) => write((draft = { ...draft, ...change }));
   const [busy, setBusy] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const back = useRef<Element | null>(null);
+  // Escape and a backdrop click shut the form the same way, and the focus goes back to what opened it.
+  const shut = () => {
+    dialog.current?.close();
+    setOpen(false);
+    (back.current as HTMLElement | null)?.focus();
+  };
+  // A click beside the form leaves it open while it sends or records.
+  const [recording, setRecording] = useState(false);
+  const backdrop = useBackdrop(dialog, shut, busy || recording);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
   const stopper = useRef<() => boolean>(null);
@@ -33,7 +45,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
 
   // The screen as it is when the form is asked for, without the form, goes along with what is sent. The library
   // that draws it loads only now.
-  function show() {
+  function show(e?: MouseEvent<HTMLButtonElement>) {
     shot.current = import("modern-screenshot")
       .then(({ domToBlob }) =>
         domToBlob(document.body, {
@@ -51,6 +63,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
     write(draft);
     setStatus(lost.recording && draft.clips.length ? KEPT : "");
     lost.recording = false;
+    // The editor keeps the focus off the button on a click, so the button that was clicked is the one to return to.
+    back.current = e ? e.currentTarget : document.activeElement;
     setOpen(true);
   }
   useImperativeHandle(opener, () => show);
@@ -88,15 +102,18 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       {open && (
         <dialog
           className="feedback"
-          ref={(el) => void (el && !el.open && el.showModal())}
+          ref={(el) => {
+            dialog.current = el;
+            if (el && !el.open) el.showModal();
+          }}
           onClose={() => setOpen(false)}
+          {...backdrop}
           // Escape shuts the form at once: the browser's `close` comes a task later. It is the form's, not the sheet's.
           onKeyDown={(e) => {
             if (e.key !== "Escape" || !e.currentTarget.open) return;
             e.preventDefault();
             e.stopPropagation();
-            e.currentTarget.close();
-            setOpen(false);
+            shut();
           }}
         >
           <form onSubmit={submit}>
@@ -111,11 +128,12 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
                 if (gen === generation) keep({ clips });
               }}
               stopper={stopper}
+              onRecording={setRecording}
             />
             <label>Bilder</label>
             <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
             <div className="row">
-              <button type="button" onClick={() => setOpen(false)}>Schließen</button>
+              <button type="button" onClick={shut}>Schließen</button>
               <button className="primary" disabled={busy}>Abschicken</button>
             </div>
             <div className="status" role="status">{status}</div>
