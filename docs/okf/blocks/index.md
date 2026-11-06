@@ -52,6 +52,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [zahlzerlegung](zahlzerlegung.md): The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in.
 
+* [stellenwerttafel](stellenwerttafel.md): The Stellenwerttafel tasks: tables of Plättchen (dots) in the columns of H, Z and E (or T, H, Z and E) with the number to write, the number with the dots to lay, or one dot to move to another column with every number that makes; Zahlenraum, Aufgabentyp, Plättchen, Leere Stellen, the numbers typed in.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

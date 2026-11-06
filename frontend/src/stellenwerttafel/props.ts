@@ -1,4 +1,6 @@
 // What a Stellenwerttafel stores, and the box one task takes on the page.
+import { PLACES } from "../zahlzerlegung";
+
 /** A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives an empty task). */
 export type StellenwerttafelTyped = [number, number];
 export type StellenwerttafelProps = {
@@ -43,9 +45,65 @@ export const TASKS: [StellenwerttafelProps["task"], string][] = [
   ["move", "Ein Plättchen verschieben"],
 ];
 
-// The implementation fills in, as the contract in ../stellenwerttafel.ts says:
-// - `sane(p): StellenwerttafelProps`: a wrong value gives its default; `typed` only when it has entries.
-// - `placesOf(p): { v: number; letter: string }[]`: the columns of the Zahlenraum, highest first (from zahlzerlegung's
-//   `PLACES`).
-// - `layout(p)`: { k, CW, HH, BH, TBW, TBH, R, SW, NB, G, TW, TH, CG, RG, across, rows, vbW, vbH }.
-// - `heightFor(p, w: number): number` and `widthFor(p): number` (min(vbW, 180)).
+export function sane(p: StellenwerttafelProps): StellenwerttafelProps {
+  const typed = new Map<number, StellenwerttafelTyped>();
+  if (Array.isArray(p.typed)) {
+    for (const t of p.typed) {
+      if (!Array.isArray(t) || t.length !== 2 || !t.every((x) => Number.isInteger(x))) continue;
+      const [i, v] = t;
+      if (i < 0 || i > 11 || v < 0 || v > 9999) continue;
+      typed.set(i, [i, v]);
+    }
+  }
+  return {
+    count: Number.isInteger(p.count) && p.count >= 1 && p.count <= 12 ? p.count : DEFAULTS.count,
+    columns: Number.isInteger(p.columns) && p.columns >= 1 && p.columns <= 4 ? p.columns : DEFAULTS.columns,
+    max: p.max === 10000 ? 10000 : 1000,
+    task: p.task === "lay" || p.task === "move" ? p.task : "read",
+    dots: Number.isInteger(p.dots) && p.dots >= 1 && p.dots <= 36 ? p.dots : DEFAULTS.dots,
+    zero: typeof p.zero === "boolean" ? p.zero : DEFAULTS.zero,
+    seed: Number.isFinite(p.seed) ? p.seed : 0,
+    ...(typed.size ? { typed: [...typed.values()] } : {}),
+  };
+}
+
+// The columns of the Zahlenraum, highest first: H Z E, and T in front for 10000.
+export function placesOf(p: StellenwerttafelProps): { v: number; letter: string }[] {
+  const all = PLACES.map((pl) => ({ v: pl.v, letter: pl.letter }));
+  return sane(p).max === 10000 ? all : all.slice(1);
+}
+
+// The table's sizes in units (mm at scale 1), as the contract in ../stellenwerttafel.ts gives them.
+const CW = 16;
+const HH = 6;
+const BH = 14;
+const R = 1.4;
+const SW = 5;
+const NB = 16;
+const G = 3;
+const CG = 8;
+const RG = 6;
+
+export function layout(p: StellenwerttafelProps) {
+  const s = sane(p);
+  const k = placesOf(s).length;
+  const TBW = k * CW;
+  const TBH = HH + BH;
+  const move = s.task === "move";
+  const TW = move ? TBW : TBW + SW + NB;
+  const TH = move ? TBH + G + (k - 1) * 8 + (k - 2) * 2 : TBH;
+  const across = Math.min(s.columns, s.count);
+  const rows = Math.ceil(s.count / s.columns);
+  const vbW = across * TW + (across - 1) * CG + 1;
+  const vbH = rows * TH + (rows - 1) * RG + 1;
+  return { k, CW, HH, BH, TBW, TBH, R, SW, NB, G, TW, TH, CG, RG, across, rows, vbW, vbH };
+}
+
+export function heightFor(p: StellenwerttafelProps, w: number): number {
+  const l = layout(p);
+  return l.vbH * Math.min(w / l.vbW, 1);
+}
+
+export function widthFor(p: StellenwerttafelProps): number {
+  return Math.min(layout(p).vbW, 180);
+}

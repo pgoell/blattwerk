@@ -82,6 +82,5 @@
 // es keine Aufgabe."; per wrong task "Aufgabe i: Die Zahl passt nicht zu den Einstellungen.". Buttons "Eigene Zahlen
 // entfernen" (with typed), "Neu würfeln" (changes only the seed). Every setting is one undo step.
 
-// The implementation adds `heightFor`, `layout`, `placesOf`, `sane`, `widthFor` from ./stellenwerttafel/props and
-// `fits(p, v): boolean` (v keeps the rule), `moves(n, max): number[]` and `made(p): Made` from ./stellenwerttafel/tasks.
-export { DEFAULTS, TASKS, type Made, type StellenwerttafelProps, type StellenwerttafelTyped, type Task } from "./stellenwerttafel/props";
+export { DEFAULTS, TASKS, heightFor, layout, placesOf, sane, widthFor, type Made, type StellenwerttafelProps, type StellenwerttafelTyped, type Task } from "./stellenwerttafel/props";
+export { fits, made, moves } from "./stellenwerttafel/tasks";

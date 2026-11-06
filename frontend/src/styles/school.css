@@ -83,6 +83,7 @@
 .halbschriftlich svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zehnerfeld { height: 100%; font-family: Andika; }
 .block .stellenwertbild { height: 100%; font-family: Andika; }
+.block .stellenwerttafel { height: 100%; font-family: Andika; }
 .block .zahlzerlegung { height: 100%; font-family: Andika; }
 .block .textaufgabe { height: 100%; overflow: hidden; font-family: Andika; color: #222; }
 .textaufgabe p { margin: 0; overflow: hidden; }
@@ -92,6 +93,7 @@
 .textaufgabe .line { display: inline-block; width: 8em; border-bottom: 1px solid #222; }
 .zehnerfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .stellenwertbild svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.stellenwerttafel svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .zahlzerlegung svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 /* The dots of a Zehnerfeld set by hand: as many columns as the field, each dot as wide as the panel lets it be. */
 .punkte button { width: 100%; min-width: 0; aspect-ratio: 1; height: auto; padding: 0; border-radius: 50%; border: 1px solid #888; background: #fff; }

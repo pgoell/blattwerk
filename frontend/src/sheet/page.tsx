@@ -27,6 +27,7 @@ import { Zahlenstrahl } from "./blocks/zahlenstrahl";
 import { Zehnerfeld } from "./blocks/zehnerfeld";
 import { Stellenwertbild } from "./blocks/stellenwertbild";
 import { Zahlzerlegung } from "./blocks/zahlzerlegung";
+import { Stellenwerttafel } from "./blocks/stellenwerttafel";
 import { Zerlegungsfeld } from "./blocks/zerlegungsfeld";
 import { flipped, K, turned } from "./box";
 import { Words, Whole } from "./context";
@@ -45,7 +46,7 @@ import { isLine, symbol, boxed } from "./text";
 import type { ReactNode, CSSProperties } from "react";
 
 // Maths blocks take the sheet's place colours. A text, a table or a line does not, so its digits stay black.
-const PLACED = new Set<Block["type"]>(["formula", "maths", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "textaufgabe", "zehnerfeld", "stellenwertbild", "zahlzerlegung", "rechendreieck", "zahlenstrahl", "hunderterfeld", "karofeld", "uhr", "selbstkontrolle", "geobrett", "diagramm", "loesungsfeld"]);
+const PLACED = new Set<Block["type"]>(["formula", "maths", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "textaufgabe", "zehnerfeld", "stellenwertbild", "zahlzerlegung", "stellenwerttafel", "rechendreieck", "zahlenstrahl", "hunderterfeld", "karofeld", "uhr", "selbstkontrolle", "geobrett", "diagramm", "loesungsfeld"]);
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
@@ -73,6 +74,7 @@ function drawn({ block, k, solved = false, at, reach, onSquare, children }: { bl
   if (block.type === "zehnerfeld") return <Zehnerfeld block={block} solved={solved} />;
   if (block.type === "stellenwertbild") return <Stellenwertbild block={block} solved={solved} />;
   if (block.type === "zahlzerlegung") return <Zahlzerlegung block={block} solved={solved} />;
+  if (block.type === "stellenwerttafel") return <Stellenwerttafel block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;

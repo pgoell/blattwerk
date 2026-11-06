@@ -14,6 +14,7 @@ import { made as housesOf, sane as saneHaus } from "../zahlenhaus";
 import { made as chainsOf, sane as saneKette, stepLabel } from "../zahlenkette";
 import { made as zehnOf, sane as saneZehn } from "../zehnerfeld";
 import { made as swbOf, sane as saneSwb } from "../stellenwertbild";
+import { made as stafelOf, sane as saneStafel } from "../stellenwerttafel";
 import { made as zahlOf, placesOf, sane as saneZahl } from "../zahlzerlegung";
 import { made as splitsOf, sane as saneSplit } from "../zerlegungsfeld";
 import type { Result } from "./props";
@@ -206,6 +207,17 @@ function swb(props: Block["props"] & object): Result[][] {
   return out;
 }
 
+// A Stellenwerttafel: "read" the number; "move" every number a move makes; "lay" gives no written answer.
+function stafel(props: Block["props"] & object): Result[][] {
+  const p = saneStafel(props as never);
+  const out: Result[][] = [];
+  for (const t of stafelOf(p).tasks) {
+    if (t.wrong || t.none || p.task === "lay") continue;
+    out.push(p.task === "move" ? t.moves.map(num) : [num(t.n)]);
+  }
+  return out;
+}
+
 // A Zahlzerlegung: the answers of its gaps. "split" the parts, "gap" the missing part, "zero" the digits, the other
 // types the number.
 function zahl(props: Block["props"] & object): Result[][] {
@@ -259,6 +271,7 @@ const KINDS: Partial<Record<Block["type"], (props: Block["props"] & object) => R
   halbschriftlich: halb,
   zehnerfeld: zehn,
   stellenwertbild: swb,
+  stellenwerttafel: stafel,
   zahlzerlegung: zahl,
   textaufgabe: story,
   diagramm: bars,
