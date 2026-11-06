@@ -161,14 +161,18 @@ def test_each_task_type_draws_its_shape(editor, task):
             assert int(counts[0]) >= 1, counts
 
 
-def test_max_100_shows_zehner_and_einer_only(editor):
+def test_max_100_shows_zehner_and_einer_only(editor, browser, server):
     """Zahlenraum (#1078): "bis 100" shows only the places Z and E, and every number has 2 digits."""
     page = editor(zz({"max": 100, "task": "places", "count": 6}))
     pick(page, "k")
     shown = drawn(page)
+    paper = key_print(browser, server, sheet_id(page))
     for t in range(6):
         letters = [text for kind, text in grid(shown, t) if kind == "letter"]
         assert set(letters) <= {"Z", "E"}, letters
+        [number] = answers(paper, t)
+        assert 10 <= int(number) <= 99, number
+    paper.context.close()
 
 
 def test_max_10000_gives_four_digit_numbers(editor, browser, server):

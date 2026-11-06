@@ -1,5 +1,5 @@
 // What a Zahlzerlegung stores, and the box one task takes on the page.
-/** A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task). */
+/** A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives a task of empty gaps and no number). */
 export type ZahlzerlegungTyped = [number, number];
 export type ZahlzerlegungProps = {
   /** Number of tasks on the sheet, side by side in rows of `columns`. Default 6.
@@ -18,7 +18,7 @@ export type ZahlzerlegungProps = {
   task: "split" | "join" | "shuffled" | "places" | "gap" | "zero" | "bundle";
   /** Seed for the random numbers. The same seed always gives the same tasks. */
   seed: number;
-  /** Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor. */
+  /** Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives a task of empty gaps and no number, also in the answer key, and a hint in the editor. */
   typed?: ZahlzerlegungTyped[];
 };
 

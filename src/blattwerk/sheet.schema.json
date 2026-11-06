@@ -5881,7 +5881,7 @@
           "items": {
             "$ref": "#/definitions/ZahlzerlegungTyped"
           },
-          "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor."
+          "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives a task of empty gaps and no number, also in the answer key, and a hint in the editor."
         }
       },
       "required": [
@@ -5899,7 +5899,7 @@
       },
       "minItems": 2,
       "maxItems": 2,
-      "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task)."
+      "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives a task of empty gaps and no number)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",
