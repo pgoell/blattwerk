@@ -46,7 +46,7 @@
 //   the given one), in index order, the cell's number. Punkte: no task.
 // - "uhr" with task "read": one task per clock, the time as `written` gives it, no value. With "draw": no task.
 // - Zahlenhaus, Zahlenkette, Rechentabelle, Pfeilbild, Operatorfeld, Rechenrad, Magisches Quadrat, Malquadrat,
-//   Zerlegungsfeld, Halbschriftlich, Zehnerfeld, Stellenwert-Bild, Textaufgabe and Diagramm: the texts their own key writes in red,
+//   Zerlegungsfeld, Halbschriftlich, Zehnerfeld, Stellenwert-Bild, Zahlzerlegung, Textaufgabe and Diagramm: the texts their own key writes in red,
 //   one task per house, chain, table, picture, wheel, square or story. A wrong, empty or undrawn task gives none.
 //   A Diagramm gives the values the key draws and the pupil's sheet leaves out. These blocks are not worded: the
 //   Lösungswort leaves them out, and the panel says so beside them.

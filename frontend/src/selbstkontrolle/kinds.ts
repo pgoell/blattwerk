@@ -14,6 +14,7 @@ import { made as housesOf, sane as saneHaus } from "../zahlenhaus";
 import { made as chainsOf, sane as saneKette, stepLabel } from "../zahlenkette";
 import { made as zehnOf, sane as saneZehn } from "../zehnerfeld";
 import { made as swbOf, sane as saneSwb } from "../stellenwertbild";
+import { made as zahlOf, placesOf, sane as saneZahl } from "../zahlzerlegung";
 import { made as splitsOf, sane as saneSplit } from "../zerlegungsfeld";
 import type { Result } from "./props";
 
@@ -205,6 +206,24 @@ function swb(props: Block["props"] & object): Result[][] {
   return out;
 }
 
+// A Zahlzerlegung: the answers of its gaps. "split" the parts, "gap" the missing part, "zero" the digits, the other
+// types the number.
+function zahl(props: Block["props"] & object): Result[][] {
+  const p = saneZahl(props as never);
+  const places = placesOf(p);
+  const out: Result[][] = [];
+  for (const t of zahlOf(p).tasks) {
+    if (t.wrong) continue;
+    if (p.task === "split") out.push(places.map((pl, j) => num(t.digits[j] * pl.v)));
+    else if (p.task === "gap") {
+      const j = t.order[t.gap];
+      out.push([num(t.digits[j] * places[j].v)]);
+    } else if (p.task === "zero") out.push(places.map((_, j) => num(t.digits[j])));
+    else out.push([num(t.n)]);
+  }
+  return out;
+}
+
 function story(props: Block["props"] & object): Result[][] {
   const p = saneStory(props as never);
   const out: Result[][] = [];
@@ -240,6 +259,7 @@ const KINDS: Partial<Record<Block["type"], (props: Block["props"] & object) => R
   halbschriftlich: halb,
   zehnerfeld: zehn,
   stellenwertbild: swb,
+  zahlzerlegung: zahl,
   textaufgabe: story,
   diagramm: bars,
 };

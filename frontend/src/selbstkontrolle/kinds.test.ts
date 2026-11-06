@@ -6,6 +6,7 @@ import { checked, labelOf, tasksOf, type SelbstkontrolleProps } from "../selbstk
 import { made as housesOf, sane as saneHaus } from "../zahlenhaus";
 import { made as chainsOf, sane as saneKette, stepLabel } from "../zahlenkette";
 import { made as tablesOf, sane as saneTab } from "../rechentabelle";
+import { items as gapsOf, made as zahlOf } from "../zahlzerlegung";
 
 const block = (type: string, props: object, id = "m"): Block =>
   ({ id, type, x: 0, y: 0, w: 180, h: 80, z: 0, locked: false, props }) as unknown as Block;
@@ -81,12 +82,18 @@ describe("tasks of the blocks the issue names", () => {
 });
 
 describe("every other task block with written answers", () => {
-  const kinds = ["pfeilbild", "operatorfeld", "rechenrad", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "textaufgabe"];
+  const kinds = ["pfeilbild", "operatorfeld", "rechenrad", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "zahlzerlegung", "textaufgabe"];
 
   it.each(kinds)("links a %s and takes at least one result", (type) => {
     const found = texts(block(type, { seed: 7 }));
     expect(found).toBeDefined();
     expect(found?.length).toBeGreaterThan(0);
+  });
+
+  it.each(["split", "join", "gap", "zero", "bundle"])("a Zahlzerlegung %s gives the texts its key writes in the gaps", (task) => {
+    const props = { count: 6, columns: 2, max: 1000, task, seed: 7, typed: [[1, 306]] };
+    const key = zahlOf(props as never).tasks.filter((t) => !t.wrong).flatMap((t) => gapsOf(props as never, t).filter((it) => it.kind === "gap").map((it) => it.text));
+    expect(texts(block("zahlzerlegung", props))).toEqual(key.sort());
   });
 
   it("links a Diagramm whose bar the pupil draws", () => {

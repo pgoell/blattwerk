@@ -15,6 +15,7 @@ const FOOT: Record<string, [string, string]> = {
   halbschriftlich: ["Der Block Halbschriftlich rechnen ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe ihn nach oben."],
   zehnerfeld: ["Das Zehnerfeld ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe es nach oben."],
   stellenwertbild: ["Das Stellenwert-Bild ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe es nach oben."],
+  zahlzerlegung: ["Die Zahlzerlegung ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe sie nach oben."],
   textaufgabe: ["Die Textaufgabe ragt unten über den Rand.", "Nimm weniger Aufgaben oder Rechenzeilen oder schiebe sie nach oben."],
   zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
   rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
