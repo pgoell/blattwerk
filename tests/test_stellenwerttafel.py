@@ -80,19 +80,23 @@ def digits(n):
     return [n // 100, (n // 10) % 10, n % 10]
 
 
-def moves_of(counts):
-    """Every number one dot moved to another column makes, rising. counts: the dots of H, Z, E."""
+def moves_of(counts, values):
+    """Every number one dot moved to another column makes, rising. counts: the dots of each column, values: its place values."""
     res = []
-    for i in range(3):
+    k = len(values)
+    for i in range(k):
         if counts[i] < 1:
             continue
-        for j in range(3):
+        for j in range(k):
             if j == i or counts[j] > 8:
                 continue
             e = list(counts)
             e[i] -= 1
             e[j] += 1
-            res.append(e[0] * 100 + e[1] * 10 + e[2])
+            n = 0
+            for x in range(k):
+                n += e[x] * values[x]
+            res.append(n)
     return sorted(res)
 
 
@@ -138,7 +142,7 @@ def test_read_shows_dots_and_the_key_writes_the_number(editor, browser, server):
         assert 1 <= n <= 999, n
         assert [found[100], found[10], found[1]] == digits(n), (found, n)
         assert sum(found.values()) <= 9, found
-        assert all(c >= 1 for c in found.values()), found
+        assert all(found[v] >= 1 for v in (100, 10, 1)), found
     paper.context.close()
 
 
@@ -167,24 +171,37 @@ def test_lay_shows_the_number_and_the_key_draws_its_dots(editor, browser, server
     paper.context.close()
 
 
-def test_move_key_lists_every_number_one_move_makes(editor, browser, server):
-    """Ein Plättchen verschieben (#1077): the key lists every number one move makes, in the boxes in order, rising."""
-    page = editor(sw({"task": "move", "count": 8}))
+@pytest.mark.parametrize("max_", [1000, 10000])
+def test_move_key_lists_every_number_one_move_makes(editor, browser, server, max_):
+    """Ein Plättchen verschieben (#1077): the key lists every number one move makes, in the boxes in order, rising; the boxes stay on the paper."""
+    page = editor(sw({"task": "move", "count": 8, "max": max_}))
     pick(page, "k")
     shown = drawn(page)
     expect(shown.locator("g.task")).to_have_count(8)
+    # The columns come from the block: highest first, 3 for bis 1000 and 4 for bis 10 000.
+    values = shown.locator("g.task[data-task='0'] g.cell").evaluate_all(
+        "els => els.map(e => +e.dataset.v)"
+    )
+    assert values == ([1000, 100, 10, 1] if max_ == 10000 else [100, 10, 1]), values
+    k = len(values)
     paper = key_print(browser, server, sheet_id(page))
     for task in range(8):
         found = cells(shown, task)
-        counts = [found[100], found[10], found[1]]
-        want = moves_of(counts)
+        counts = [found[v] for v in values]
+        want = moves_of(counts, values)
         assert len(want) >= 1, counts
         boxes = paper.locator(f".stellenwerttafel g.task[data-task='{task}'] rect.box").count()
-        assert boxes == 6, boxes
+        assert boxes == k * (k - 1), boxes
         got = paper.locator(
             f".stellenwerttafel g.task[data-task='{task}'] text.answer"
         ).evaluate_all("els => els.map(e => +e.textContent)")
         assert got == want, (counts, got, want)
+    # The lowest box ends inside the drawing's viewBox (coordinates in the svg's user space).
+    bottoms = paper.locator(".stellenwerttafel rect.box").evaluate_all(
+        "els => els.map(e => { const m = e.getCTM(); return m.f + m.d * (+e.getAttribute('y') + +e.getAttribute('height')); })"
+    )
+    view = paper.locator(".stellenwerttafel svg").first.get_attribute("viewBox").split()
+    assert max(bottoms) <= float(view[3]), (max(bottoms), view)
     paper.context.close()
 
 
