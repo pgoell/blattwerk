@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState } from "react";
-import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Hash, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -92,6 +92,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Zerlegungsfeld", icon: Split, run: () => addInsert(INSERTS.zerlegungsfeld(newSeed())) },
     { label: "Halbschriftlich rechnen", icon: Split, run: () => addInsert(INSERTS.halbschriftlich(newSeed())) },
     { label: "Zehnerfeld", icon: Grid2x2Plus, run: () => addInsert(INSERTS.zehnerfeld(newSeed())) },
+    { label: "Stellenwert-Bild", icon: Hash, run: () => addInsert(INSERTS.stellenwertbild(newSeed())) },
     { label: "Textaufgaben", icon: BookOpenText, run: () => addInsert(INSERTS.textaufgabe(newSeed())) },
     { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },

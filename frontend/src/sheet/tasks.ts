@@ -20,6 +20,7 @@ import type { ZahlenhausProps } from "../zahlenhaus";
 import type { ZahlenketteProps } from "../zahlenkette";
 import type { ZahlenstrahlProps } from "../zahlenstrahl";
 import type { ZehnerfeldProps } from "../zehnerfeld";
+import type { StellenwertbildProps } from "../stellenwertbild";
 import type { ZerlegungsfeldProps } from "../zerlegungsfeld";
 import type { Box } from "./box";
 
@@ -177,6 +178,12 @@ export type ZehnerfeldBlock = Box & {
   type: "zehnerfeld";
   /** The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand. */
   props: ZehnerfeldProps;
+};
+// A Stellenwert-Bild block: its stored shape is the contract at the top of stellenwertbild.ts.
+export type StellenwertbildBlock = Box & {
+  type: "stellenwertbild";
+  /** The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in. */
+  props: StellenwertbildProps;
 };
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {

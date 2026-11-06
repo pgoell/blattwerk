@@ -34,6 +34,7 @@ const NAMES: Record<string, string> = {
   zerlegungsfeld: "Zerlegungsfeld",
   halbschriftlich: "Halbschriftlich rechnen",
   zehnerfeld: "Zehnerfeld",
+  stellenwertbild: "Stellenwert-Bild",
   textaufgabe: "Textaufgabe",
   diagramm: "Diagramm",
   zahlenstrahl: "Zahlenstrahl",

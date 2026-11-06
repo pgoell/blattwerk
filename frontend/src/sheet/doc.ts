@@ -8,7 +8,7 @@ import type { MathsBlock, Range } from "./maths";
 import { type RulingBlock, listOf, rowsNeeded } from "./ruling";
 import type { TableBlock } from "./table";
 import type { FormulaProps } from "../formula";
-import type { SuchselBlock, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, TextaufgabeBlock, GeobrettBlock, KarofeldBlock, DiagrammBlock, LoesungsfeldBlock } from "./tasks";
+import type { SuchselBlock, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, StellenwertbildBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, TextaufgabeBlock, GeobrettBlock, KarofeldBlock, DiagrammBlock, LoesungsfeldBlock } from "./tasks";
 import type { TextBlock, ShapeBlock } from "./text";
 
 // The words of a name line, as a new one has them. A line's `fields` replace them.
@@ -65,7 +65,7 @@ export type FormulaBlock = Box & {
   /** A formula of fractions, mixed numbers, powers and roots, set in the sheet's font. The same formula can sit inline in a text or a cell. */
   props: FormulaProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZerlegungsfeldBlock | HalbschriftlichBlock | ZehnerfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock | TextaufgabeBlock | GeobrettBlock | FormulaBlock | KarofeldBlock | DiagrammBlock | LoesungsfeldBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZerlegungsfeldBlock | HalbschriftlichBlock | ZehnerfeldBlock | StellenwertbildBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock | TextaufgabeBlock | GeobrettBlock | FormulaBlock | KarofeldBlock | DiagrammBlock | LoesungsfeldBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {

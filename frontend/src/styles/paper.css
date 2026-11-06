@@ -16,6 +16,8 @@
 :is(.sheet, .paper) :is(text.answer, text.note, .letter text) { fill: var(--key, #c0392b); }
 :is(.sheet, .paper) path.answer { stroke: var(--key, #c0392b); }
 :is(.sheet, .paper) .uhr.solved :is(line.hour.answer, line.minute.answer) { stroke: var(--key, #c0392b); }
+:is(.sheet, .paper) .stellenwertbild .sym { stroke: var(--key, #c0392b); }
+:is(.sheet, .paper) .stellenwertbild circle.sym { fill: var(--key, #c0392b); }
 .folio { position: absolute; z-index: 0; pointer-events: none; font-family: Andika; line-height: 1; white-space: nowrap; }
 /* The page's picture, under the blocks. The clip keeps it on the paper; the picture itself may be larger. */
 .ground-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }

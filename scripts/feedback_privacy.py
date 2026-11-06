@@ -24,6 +24,8 @@ SAID = set(
 BLOCK_NAMES = set(
     """Text Texte Bild Bilder Symbol Symbole Lineatur Lineaturen Suchsel Zahlenmauer
     Zehnerfeld Zehnerfelder Zwanzigerfeld Zwanzigerfelder
+    Stellenwert Stellenwert-Bild Stellenwert-Bilder Hunderterplatte Hunderterplatten
+    Zehnerstange Zehnerstangen Einerwürfel
     Zahlenmauern Zahlenhaus Zahlenhäuser Rechendreieck Rechendreiecke Zahlenstrahl
     Zahlenstrahlen Zahlenkette Zahlenketten Pfeilbild Pfeilbilder Operatorfeld Operatorfelder
     Rechenrad Rechenräder Rechentabelle Rechentabellen Magisches Magische Quadrat Quadrate
