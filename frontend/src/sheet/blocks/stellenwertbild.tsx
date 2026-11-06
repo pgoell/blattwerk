@@ -1,7 +1,8 @@
 // Draws one Stellenwert-Bild block.
 
 import { sane, made, layout, placesOf, formOf } from "../../stellenwertbild";
-import { SvgInk } from "../places";
+import { placeName } from "../../places";
+import { SvgInk, usePlaces } from "../places";
 import type { StellenwertbildBlock } from "../tasks";
 
 // The size of a piece by its place's value: the plate (100), the rod (10) and the cube (1).
@@ -23,6 +24,8 @@ export function Stellenwertbild({ block, solved }: { block: StellenwertbildBlock
   const { PW, PH, G, LW, LH, KL, FW, TW, TH, CG, RG, across, vbW, vbH, zones } = layout(p);
   const places = placesOf(p);
   const draw = p.task === "draw";
+  // A table cell holds one digit, so it takes the colour of its column's place, not of a number read from its right.
+  const colors = usePlaces();
   return (
     <div className={`stellenwertbild${solved ? " solved" : ""}`}>
       <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
@@ -97,7 +100,13 @@ export function Stellenwertbild({ block, solved }: { block: StellenwertbildBlock
                             <rect x={cx} y={ly + 5} width={8} height={8} fill="white" stroke="#222" strokeWidth={0.3} />
                             {answered && (
                               <text className="answer" x={cx + 4} y={ly + 9} fontSize={5.5} fill="#c0392b" textAnchor="middle" dominantBaseline="central">
-                                <SvgInk text={t.digits[j]} />
+                                {colors ? (
+                                  <tspan data-place={placeName(places.length - 1 - j)} style={{ fill: colors[placeName(places.length - 1 - j)] }}>
+                                    {t.digits[j]}
+                                  </tspan>
+                                ) : (
+                                  t.digits[j]
+                                )}
                               </text>
                             )}
                           </g>

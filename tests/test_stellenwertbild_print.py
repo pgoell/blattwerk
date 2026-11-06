@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_stellenwertbild import SW, sw
 from test_suchsel_print import key_print
-from ui import pick
+from ui import pick, user
 
 from blattwerk import variants
 
@@ -55,6 +55,45 @@ def test_the_key_of_a_draw_task_shows_the_symbols(editor, browser, server):
     sheet.context.close()
     paper = key_print(browser, server, sheet_id(page))
     expect(paper.locator(".stellenwertbild .sym").first).to_be_visible()
+    paper.context.close()
+
+
+def store(page, client, **more):
+    """Sets keys of the whole sheet (place colours, Lösungsfarbe) as the server holds it."""
+    mine = sheet_id(page)
+    got = client.get(f"/api/sheets/{mine}").json()
+    body = {"doc": {**got["doc"], **more}, "version": got["version"]}
+    assert client.patch(f"/api/sheets/{mine}", json=body).status_code == 200
+    return mine
+
+
+def test_each_table_digit_in_the_key_takes_its_own_places_colour(editor, browser, server):
+    """Print matches (#1076, review): with place colours on, the key's H, Z and E digits are red, blue, green."""
+    client = user()
+    page = editor(sw({"count": 1}), client=client)
+    mine = store(page, client, places={"on": True})
+    paper = key_print(browser, server, mine)
+    cells = paper.locator(".stellenwertbild g.cell text.answer tspan")
+    expect(cells).to_have_count(3)
+    assert cells.evaluate_all("els => els.map(e => e.dataset.place)") == [
+        "hunderter",
+        "zehner",
+        "einer",
+    ]
+    expect(cells.nth(0)).to_have_css("fill", "rgb(227, 6, 19)")
+    expect(cells.nth(1)).to_have_css("fill", "rgb(0, 87, 168)")
+    expect(cells.nth(2)).to_have_css("fill", "rgb(0, 150, 64)")
+    paper.context.close()
+
+
+def test_the_symbols_of_a_draw_key_take_the_losungsfarbe(editor, browser, server):
+    """Print matches (#1076, review): a blue Lösungsfarbe colours the key's squares, strokes and dots."""
+    client = user()
+    page = editor(sw({"task": "draw", "count": 1}), client=client)
+    mine = store(page, client, keyColor="#0000ff")
+    paper = key_print(browser, server, mine)
+    expect(paper.locator(".stellenwertbild rect.sym").first).to_have_css("stroke", "rgb(0, 0, 255)")
+    expect(paper.locator(".stellenwertbild circle.sym").first).to_have_css("fill", "rgb(0, 0, 255)")
     paper.context.close()
 
 
