@@ -1,5 +1,12 @@
 {
   "prompt": "Mach mir ein Arbeitsblatt mit vier Stellenwert-Bildern bis 1000: Hunderterplatten, Zehnerstangen und Einerwürfel, die Kinder schreiben die Zahl. Lege das Blatt mit dem Titel Eval Stellenwert-Bild an.",
   "recipe": "stellenwertbild",
-  "expect": {"types": ["stellenwertbild"], "text": ["Stellenwert"]}
+  "expect": {
+    "types": ["stellenwertbild"],
+    "text": ["Stellenwert"],
+    "match": [
+      "\\{(?=[^{}]*\"max\": 1000[,}])(?=[^{}]*\"task\": \"read\")[^{}]*\\}",
+      "^(?![\\s\\S]*\"task\": \"draw\")(?![\\s\\S]*\"max\": 100[,}])"
+    ]
+  }
 }
