@@ -24,7 +24,7 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Zerlegungsfelder](zerlegungsfelder.md): A heading, a name line, and six Zerlegungsfelder bis 20 for the Zehnerübergang in two steps, with the first and the second number given and the split and the result to fill in.
 * [Halbschriftlich rechnen](halbschriftlich.md): A heading, a name line, and six Plusaufgaben bis 1000 for the halbschriftliche Rechnen with the Zehnerübergang in the Einer step, the second number split place by place, with the first and the second number given and the steps and the result to fill in.
 * [Zehnerfeld](zehnerfeld.md): A heading, a name line, and four Plusaufgaben bis 20 on a Zwanzigerfeld with the Zehnerübergang, the dots given and the sums to write.
-* [Stellenwert-Bilder](stellenwertbild.md): A heading, a name line, and four Stellenwert-Bilder bis 1000 with Hunderterplatten, Zehnerstangen and Einerwürfel shown and the number to write in a Stellenwerttafel.
+* [Stellenwert-Bilder](stellenwertbild.md): A heading, a name line, and four Stellenwert-Bilder bis 1000 with Hunderterplatten, Zehnerstangen and Einerwürfel shown, the number to write in a Stellenwerttafel.
 * [Textaufgaben](textaufgaben.md): A heading, a name line, and two Sachaufgaben bis 20 with the story and the question shown and the Rechnung and the Antwort left for the pupil.
 * [Zahlenstrahl bis 100](zahlenstrahl-bis-100.md): A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 * [Hunderterfeld](hunderterfeld.md): A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.

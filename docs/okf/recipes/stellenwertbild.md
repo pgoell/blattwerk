@@ -12,11 +12,12 @@ generated: { by: "human:pgoell", at: 2026-11-06T16:30:00Z }
 When a teacher asks for: "Ein Arbeitsblatt mit vier Stellenwert-Bildern bis 1000: die Kinder schreiben die Zahl."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
+* In the editor the block is the button "Stellenwert-Bild" in the menu "Mathe-Blöcke" in the insert bar.
 * A Stellenwert-Bild block shows each task as a picture of pieces: a Hunderterplatte for each hundred, a Zehnerstange for each ten and an Einerwürfel for each one. Under the picture the pupil writes the number in the box.
 * `count` is the number of tasks (1 to 12, default 4) and `columns` how many sit side by side (1 to 4, default 2).
 * `max` is the Zahlenraum: 1000 (default for this recipe) or 100.
 * `task` is "read" (Bild gegeben, Zahl schreiben, the default for this recipe) or "draw" (Zahl gegeben, Bild zeichnen).
-* `table` set to true (default) puts a Stellenwerttafel with the places H, Z and E above the number box. It plays a part only with "read".
+* `table` set to true (default) puts a Stellenwerttafel with the places H, Z and E before the number box. It plays a part only with "read".
 * `zero` set to false (default) gives numbers without a 0 digit. `bundle` set to false (default) gives pictures with no more than 9 pieces in a place.
 * `seed` gives the tasks. The same seed gives the same tasks. Change the seed to change them.
 * See [stellenwertbild](../blocks/stellenwertbild.md) for the other props.
