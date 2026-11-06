@@ -379,6 +379,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zahlzerlegung"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZahlzerlegungBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -536,6 +548,7 @@
                 "halbschriftlich",
                 "zehnerfeld",
                 "stellenwertbild",
+                "zahlzerlegung",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -7272,6 +7285,141 @@
           },
           "type": "object"
         },
+        "ZahlzerlegungBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZahlzerlegungProps",
+              "description": "The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in."
+            },
+            "type": {
+              "const": "zahlzerlegung",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZahlzerlegungProps": {
+          "properties": {
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (Zehner and Einer, numbers 10 to 99), 1000 (Hunderter, Zehner, Einer, numbers 100 to 999) or 10000 (Tausender too, numbers 1000 to 9999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "enum": [
+                "split",
+                "join",
+                "shuffled",
+                "places",
+                "gap",
+                "zero",
+                "bundle"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/ZahlzerlegungTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZahlzerlegungTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "ZehnerfeldBlock": {
           "properties": {
             "angle": {
@@ -8334,6 +8482,9 @@
               "$ref": "#/definitions/StellenwertbildProps"
             },
             {
+              "$ref": "#/definitions/ZahlzerlegungProps"
+            },
+            {
               "$ref": "#/definitions/ZahlenstrahlProps"
             },
             {
@@ -8395,6 +8546,7 @@
             "halbschriftlich",
             "zehnerfeld",
             "stellenwertbild",
+            "zahlzerlegung",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -9000,6 +9152,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zahlzerlegung"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZahlzerlegungBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -9157,6 +9321,7 @@
                 "halbschriftlich",
                 "zehnerfeld",
                 "stellenwertbild",
+                "zahlzerlegung",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -16153,6 +16318,148 @@
           ],
           "type": "object"
         },
+        "ZahlzerlegungBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZahlzerlegungProps",
+              "description": "The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in."
+            },
+            "type": {
+              "const": "zahlzerlegung",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZahlzerlegungProps": {
+          "properties": {
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (Zehner and Einer, numbers 10 to 99), 1000 (Hunderter, Zehner, Einer, numbers 100 to 999) or 10000 (Tausender too, numbers 1000 to 9999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "enum": [
+                "split",
+                "join",
+                "shuffled",
+                "places",
+                "gap",
+                "zero",
+                "bundle"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/ZahlzerlegungTyped"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "count",
+            "columns",
+            "max",
+            "task",
+            "seed"
+          ],
+          "type": "object"
+        },
+        "ZahlzerlegungTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "ZehnerfeldBlock": {
           "properties": {
             "angle": {
@@ -17031,6 +17338,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zahlzerlegung"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZahlzerlegungBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -17188,6 +17507,7 @@
                 "halbschriftlich",
                 "zehnerfeld",
                 "stellenwertbild",
+                "zahlzerlegung",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -23924,6 +24244,141 @@
           },
           "type": "object"
         },
+        "ZahlzerlegungBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZahlzerlegungProps",
+              "description": "The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in."
+            },
+            "type": {
+              "const": "zahlzerlegung",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZahlzerlegungProps": {
+          "properties": {
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (Zehner and Einer, numbers 10 to 99), 1000 (Hunderter, Zehner, Einer, numbers 100 to 999) or 10000 (Tausender too, numbers 1000 to 9999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "enum": [
+                "split",
+                "join",
+                "shuffled",
+                "places",
+                "gap",
+                "zero",
+                "bundle"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/ZahlzerlegungTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZahlzerlegungTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "ZehnerfeldBlock": {
           "properties": {
             "angle": {
@@ -24979,6 +25434,9 @@
             },
             {
               "$ref": "#/definitions/StellenwertbildProps"
+            },
+            {
+              "$ref": "#/definitions/ZahlzerlegungProps"
             },
             {
               "$ref": "#/definitions/ZahlenstrahlProps"
