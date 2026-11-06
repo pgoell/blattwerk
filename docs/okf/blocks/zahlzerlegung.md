@@ -4,7 +4,7 @@ title: "Block: zahlzerlegung"
 description: "The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in."
 tags: [block, zahlzerlegung]
 covers: [zahlzerlegung]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-06T17:01:20Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-06T17:24:50Z }
 ---
 
 # zahlzerlegung
@@ -40,7 +40,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | count | number | 1 to 12 | yes | Number of tasks on the sheet, side by side in rows of `columns`. Default 6. |
 | columns | number | 1 to 3 | yes | Number of tasks per row. Default 2. |
 | max | number |  | yes | The Zahlenraum: 100 (Zehner and Einer, numbers 10 to 99), 1000 (Hunderter, Zehner, Einer, numbers 100 to 999) or 10000 (Tausender too, numbers 1000 to 9999). Default 1000. |
-| task | string | `split`, `join`, `shuffled`, `places`, `gap`, `zero`, `bundle` | yes | The Aufgabentyp: "split" the number shows and the pupil writes its place values (348 = __ + __ + __); "join" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); "shuffled" the place values show out of order (8 + 400 + 50 = __); "places" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); "gap" one place value is missing (600 + __ + 4 = 674); "zero" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); "bundle" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default "split". |
+| task | string | `split`, `join`, `shuffled`, `places`, `gap`, `zero`, `bundle` | yes | The Aufgabentyp: "split" the number shows and the pupil writes its place values (348 = __ + __ + __; a typed number with a 0 place keeps that gap and the key writes 0, 306 = 300 + 0 + 6); "join" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); "shuffled" the place values show out of order (8 + 400 + 50 = __); "places" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); "gap" one place value is missing (600 + __ + 4 = 674); "zero" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); "bundle" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default "split". |
 | seed | number |  | yes | Seed for the random numbers. The same seed always gives the same tasks. |
 | typed | list of list of number |  | no | Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and the Aufgabentyp gives no task and a hint in the editor. |
 

@@ -54,9 +54,9 @@ def test_a_typed_number_wins_over_the_seed(editor):
 
 
 def test_a_typed_number_that_does_not_fit_gives_the_hint_and_an_empty_task(editor, browser, server):
-    """Eigene Zahlen (#1078): 306 with "Zerlegen" does not fit (a 0 in the middle): the hint says so, the task has
-    class wrong, no given number, and its gaps stay empty in the key too."""
-    page = editor(zz({"count": 1, "typed": [[0, 306]]}))
+    """Eigene Zahlen (#1078): 3065 with "Zerlegen" bis 1000 does not fit (four digits): the hint says so, the task
+    has class wrong, no given number, and its gaps stay empty in the key too."""
+    page = editor(zz({"count": 1, "typed": [[0, 3065]]}))
     pick(page, "k")
     expect(hint(page)).to_have_text(NOTE_WRONG)
     task = drawn(page).locator("g.task[data-task='0']")
@@ -66,6 +66,23 @@ def test_a_typed_number_that_does_not_fit_gives_the_hint_and_an_empty_task(edito
     paper = key_print(browser, server, sheet_id(page))
     expect(paper.locator(".zahlzerlegung g.task[data-task='0'] text.answer")).to_have_count(0)
     expect(paper.locator(".zahlzerlegung g.task[data-task='0'] rect.gap").first).to_be_visible()
+    paper.context.close()
+
+
+def test_a_typed_split_number_with_a_0_place_keeps_every_gap_and_the_key_writes_the_0(
+    editor, browser, server
+):
+    """Eigene Zahlen (#1078): 306 with "Zerlegen" fits: no hint, three gaps, the key writes 300, 0 and 6."""
+    page = editor(zz({"count": 1, "typed": [[0, 306]]}))
+    pick(page, "k")
+    expect(hint(page)).to_have_count(0)
+    task = drawn(page).locator("g.task[data-task='0']")
+    expect(task.locator("text.given")).to_have_text("306")
+    expect(task.locator("rect.gap")).to_have_count(3)
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(".zahlzerlegung g.task[data-task='0'] text.answer")).to_have_text(
+        ["300", "0", "6"]
+    )
     paper.context.close()
 
 

@@ -7389,7 +7389,7 @@
               "type": "number"
             },
             "task": {
-              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __; a typed number with a 0 place keeps that gap and the key writes 0, 306 = 300 + 0 + 6); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
               "enum": [
                 "split",
                 "join",
@@ -16422,7 +16422,7 @@
               "type": "number"
             },
             "task": {
-              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __; a typed number with a 0 place keeps that gap and the key writes 0, 306 = 300 + 0 + 6); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
               "enum": [
                 "split",
                 "join",
@@ -24348,7 +24348,7 @@
               "type": "number"
             },
             "task": {
-              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
+              "description": "The Aufgabentyp: \"split\" the number shows and the pupil writes its place values (348 = __ + __ + __; a typed number with a 0 place keeps that gap and the key writes 0, 306 = 300 + 0 + 6); \"join\" the place values show in order and the pupil writes the number (400 + 30 + 5 = __); \"shuffled\" the place values show out of order (8 + 400 + 50 = __); \"places\" the digits show with the place letters, a place with 0 left out, every second task out of order (3 H 7 Z 2 E = __, 8 Z 4 H = __); \"gap\" one place value is missing (600 + __ + 4 = 674); \"zero\" numbers with a 0 in a place, the pupil writes every digit (506 = __ H __ Z __ E); \"bundle\" one place has more than 9 (4 H 12 Z 3 E = __). Every gap has the same width; the answer key fills them in. Default \"split\".",
               "enum": [
                 "split",
                 "join",

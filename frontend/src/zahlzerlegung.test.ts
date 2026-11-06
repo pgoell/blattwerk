@@ -116,10 +116,11 @@ function checkLine(max: number, type: string, i: number, t: Task, its: Item[]): 
 
   switch (type) {
     case "split": {
+      // A gap per place whatever the digit: each part is its place's value, 0 for a 0 place (306 = 300 + 0 + 6).
       const parts = gaps.map((g) => g.text);
       if (gaps.length !== k || givens.length !== 1) errs.push("split: gap count");
-      checkParts(parts);
-      if (!isDesc(parts.map(Number))) errs.push("split: parts not in place order");
+      if (parts.join() !== d.map((x, j) => String(x * vs[j])).join()) errs.push(`split: parts ${parts.join(",")}`);
+      if (parts.some((s) => !/^(0|[1-9]0*)$/.test(s))) errs.push(`split: a part ${parts.join(",")} is no place value`);
       break;
     }
     case "join": {
@@ -230,8 +231,10 @@ describe("typed numbers", () => {
     let misses = 0;
     for (const max of MAXES)
       for (const type of TYPE_NAMES) {
-        const set = oracleSet(max, type);
         const k = PV[max].length;
+        // A typed "split" number fits with any k digits, a 0 place too; the drawn ones never have a 0.
+        const set = type === "split" ? new Set<number>() : oracleSet(max, type);
+        if (type === "split") for (let n = 10 ** (k - 1); n < max; n++) set.add(n);
         for (let r = 0; r < 300; r++) {
           const i = Math.floor(rnd() * 12);
           // Half of them in the Zahlenraum's k digits, so that bis 100 gets its share of numbers that fit.
@@ -264,6 +267,15 @@ describe("typed numbers", () => {
     expect(misses).toBeGreaterThan(0);
     expect(bad.slice(0, 5)).toEqual([]);
     expect(bad.length).toBe(0);
+  });
+});
+
+describe("a typed split number with a 0 place", () => {
+  it("306 keeps three gaps and the key writes 300, 0, 6; 3065 bis 1000 does not fit", () => {
+    const p: ZahlzerlegungProps = { count: 2, columns: 2, max: 1000, task: "split", seed: 3, typed: [[0, 306], [1, 3065]] };
+    const [t, w] = made(p).tasks;
+    expect(items(p, t).filter((it) => it.kind === "gap").map((it) => it.text)).toEqual(["300", "0", "6"]);
+    expect(w.wrong).toBe(true);
   });
 });
 

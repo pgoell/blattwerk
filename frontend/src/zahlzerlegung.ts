@@ -10,7 +10,9 @@
 //   with 100 Z and E (values [10, 1]), with 1000 H, Z and E, with 10000 T, H, Z and E. k is their number (2, 3, 4).
 //   Every number of a task has exactly k digits: 10^(k−1) ≤ n < max, its leading digit 1 to 9.
 // - `task`, the Aufgabentyp (default "split"); d are n's digits per place, highest first:
-//   - "split" Zerlegen: "348 = __ + __ + __", one gap per place, in place order; the key 300, 40, 8.
+//   - "split" Zerlegen: "348 = __ + __ + __", one gap per place, in place order; the key 300, 40, 8. A typed number
+//     with a 0 place keeps that place's gap and the key writes 0 in it (306 = 300 + 0 + 6), so the number of gaps
+//     never shows how many zeros there are.
 //   - "join" Zusammensetzen: "400 + 30 + 5 = __", the parts in place order; the key n.
 //   - "shuffled" Durcheinander: "8 + 400 + 50 = __", the parts in an order that is not the place order; the key n.
 //   - "places" Stellenwerte: "3 H 7 Z 2 E = __"; a place whose digit is 0 is left out ("4 H 8 Z" for 480); tasks with
@@ -29,6 +31,7 @@
 //
 // The rule every task keeps, drawn or typed (a "part" is a number d·10^j with d 1 to 9: a single place value):
 // - "split", "join", "shuffled", "gap": n has k digits and no digit 0; its parts are its k place values, all > 0.
+//   A typed "split" number needs k digits only; a 0 place gives the part 0.
 // - "places": n has k digits; the places shown are those with d > 0, each with its digit 1 to 9 as count.
 // - "zero": n has k digits and at least one digit 0 in a place that is not the first (506, 840, 70).
 // - "bundle": counts c, one per place: the first 1 to 9, exactly one other place 10 to 19, the rest 0 to 9, and

@@ -135,7 +135,8 @@ export function made(props: ZahlzerlegungProps): Made {
         counts = hit;
         n = v;
       }
-    } else if ((P as number[]).includes(v)) {
+    } else if (p.task === "split" ? v >= 10 ** (vs.length - 1) && v < p.max : (P as number[]).includes(v)) {
+      // A typed "split" number may have a 0 place (306): its gap stays and the key writes 0 in it.
       fits = true;
       n = v;
     }
