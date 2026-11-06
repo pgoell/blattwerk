@@ -48,6 +48,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [zehnerfeld](zehnerfeld.md): The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand.
 
+* [stellenwertbild](stellenwertbild.md): The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

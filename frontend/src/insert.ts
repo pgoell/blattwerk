@@ -21,6 +21,7 @@ import { DEFAULTS as MALQ, heightFor as heightForMalq, sane as saneMalq } from "
 import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "./zerlegungsfeld";
 import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFor as widthForHalb } from "./halbschriftlich";
 import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
+import { DEFAULTS as SWB, heightFor as heightForSwb, sane as saneSwb, widthFor as widthForSwb } from "./stellenwertbild";
 import { DEFAULTS as TEXTAUFGABE, heightFor as heightForText, sane as saneText } from "./textaufgabe";
 import { DEFAULTS as LOESUNG } from "./loesungsfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
@@ -94,6 +95,11 @@ export const INSERTS = {
     const props = { ...ZEHN, seed };
     const w = round(widthForZehn(props));
     return { w, h: round(heightForZehn(saneZehn(props), w)), type: "zehnerfeld", props };
+  },
+  stellenwertbild: (seed: number): Fresh => {
+    const props = { ...SWB, seed };
+    const w = round(widthForSwb(props));
+    return { w, h: round(heightForSwb(saneSwb(props), w)), type: "stellenwertbild", props };
   },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
@@ -169,6 +175,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zerlegungsfeld: [(p, w) => heightForZerl(saneZerl(p), w), ["count", "columns"]],
   halbschriftlich: [(p, w) => heightForHalb(saneHalb(p), w), ["count", "columns", "head", "digits", "max", "typed"]],
   zehnerfeld: [(p, w) => heightForZehn(saneZehn(p), w), ["count", "columns", "field"]],
+  stellenwertbild: [(p, w) => heightForSwb(saneSwb(p), w), ["count", "columns", "max", "task", "table", "bundle"]],
   textaufgabe: [(p, w) => heightForText(saneText(p), w), ["count", "steps", "sketch", "rows"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };

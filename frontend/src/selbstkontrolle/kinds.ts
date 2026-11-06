@@ -13,6 +13,7 @@ import { made as storiesOf, sane as saneStory } from "../textaufgabe";
 import { made as housesOf, sane as saneHaus } from "../zahlenhaus";
 import { made as chainsOf, sane as saneKette, stepLabel } from "../zahlenkette";
 import { made as zehnOf, sane as saneZehn } from "../zehnerfeld";
+import { made as swbOf, sane as saneSwb } from "../stellenwertbild";
 import { made as splitsOf, sane as saneSplit } from "../zerlegungsfeld";
 import type { Result } from "./props";
 
@@ -192,6 +193,18 @@ function zehn(props: Block["props"] & object): Result[][] {
   return out;
 }
 
+function swb(props: Block["props"] & object): Result[][] {
+  const p = saneSwb(props as never);
+  const out: Result[][] = [];
+  for (const t of swbOf(p).tasks) {
+    if (t.wrong || t.none) continue;
+    // A "draw" task without Bündeln shows its number; the pupil writes nothing.
+    if (p.task === "draw" && !p.bundle) continue;
+    out.push([num(t.n)]);
+  }
+  return out;
+}
+
 function story(props: Block["props"] & object): Result[][] {
   const p = saneStory(props as never);
   const out: Result[][] = [];
@@ -226,6 +239,7 @@ const KINDS: Partial<Record<Block["type"], (props: Block["props"] & object) => R
   zerlegungsfeld: split,
   halbschriftlich: halb,
   zehnerfeld: zehn,
+  stellenwertbild: swb,
   textaufgabe: story,
   diagramm: bars,
 };
