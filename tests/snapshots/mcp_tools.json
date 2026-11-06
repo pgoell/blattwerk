@@ -367,6 +367,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "stellenwertbild"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/StellenwertbildBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -523,6 +535,7 @@
                 "zerlegungsfeld",
                 "halbschriftlich",
                 "zehnerfeld",
+                "stellenwertbild",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -5158,6 +5171,148 @@
           ],
           "type": "number"
         },
+        "StellenwertbildBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/StellenwertbildProps",
+              "description": "The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in."
+            },
+            "type": {
+              "const": "stellenwertbild",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "StellenwertbildProps": {
+          "properties": {
+            "bundle": {
+              "description": "Bündeln: true gives every picture more than 9 pieces in exactly one place (2 H 14 Z 6 E), so the pupil exchanges first; the answer key shows the number and the exchanged form (3 H 4 Z 6 E). With \"draw\" the task shows that form as text. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (pictures) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (two places, Zehner and Einer; numbers 10 to 99) or 1000 (three places, Hunderter, Zehner and Einer; numbers 100 to 999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "table": {
+              "description": "Stellenwerttafel: true puts a table of the places (H Z E) before the number box of a \"read\" task, for the pupil to write the digits in. Plays no part with \"draw\". Default true.",
+              "type": "boolean"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"read\" the picture of Hunderterplatten, Zehnerstangen and Einerwürfel shows and the pupil writes the number; \"draw\" the number shows and the pupil draws it as square (Hunderter), stroke (Zehner) and dot (Einer). Default \"read\".",
+              "enum": [
+                "read",
+                "draw"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and Bündeln gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/StellenwertbildTyped"
+              },
+              "type": "array"
+            },
+            "zero": {
+              "description": "Stellen mit 0: false every number has no digit 0; true every number has a 0 in a place that is not the first (305, 260). Default false.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "StellenwertbildTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -8176,6 +8331,9 @@
               "$ref": "#/definitions/ZehnerfeldProps"
             },
             {
+              "$ref": "#/definitions/StellenwertbildProps"
+            },
+            {
               "$ref": "#/definitions/ZahlenstrahlProps"
             },
             {
@@ -8236,6 +8394,7 @@
             "zerlegungsfeld",
             "halbschriftlich",
             "zehnerfeld",
+            "stellenwertbild",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -8829,6 +8988,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "stellenwertbild"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/StellenwertbildBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -8985,6 +9156,7 @@
                 "zerlegungsfeld",
                 "halbschriftlich",
                 "zehnerfeld",
+                "stellenwertbild",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -13782,6 +13954,158 @@
           ],
           "type": "number"
         },
+        "StellenwertbildBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/StellenwertbildProps",
+              "description": "The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in."
+            },
+            "type": {
+              "const": "stellenwertbild",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "StellenwertbildProps": {
+          "properties": {
+            "bundle": {
+              "description": "Bündeln: true gives every picture more than 9 pieces in exactly one place (2 H 14 Z 6 E), so the pupil exchanges first; the answer key shows the number and the exchanged form (3 H 4 Z 6 E). With \"draw\" the task shows that form as text. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (pictures) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (two places, Zehner and Einer; numbers 10 to 99) or 1000 (three places, Hunderter, Zehner and Einer; numbers 100 to 999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "table": {
+              "description": "Stellenwerttafel: true puts a table of the places (H Z E) before the number box of a \"read\" task, for the pupil to write the digits in. Plays no part with \"draw\". Default true.",
+              "type": "boolean"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"read\" the picture of Hunderterplatten, Zehnerstangen and Einerwürfel shows and the pupil writes the number; \"draw\" the number shows and the pupil draws it as square (Hunderter), stroke (Zehner) and dot (Einer). Default \"read\".",
+              "enum": [
+                "read",
+                "draw"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and Bündeln gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/StellenwertbildTyped"
+              },
+              "type": "array"
+            },
+            "zero": {
+              "description": "Stellen mit 0: false every number has no digit 0; true every number has a 0 in a place that is not the first (305, 260). Default false.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "count",
+            "columns",
+            "max",
+            "task",
+            "table",
+            "zero",
+            "bundle",
+            "seed"
+          ],
+          "type": "object"
+        },
+        "StellenwertbildTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -16695,6 +17019,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "stellenwertbild"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/StellenwertbildBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -16851,6 +17187,7 @@
                 "zerlegungsfeld",
                 "halbschriftlich",
                 "zehnerfeld",
+                "stellenwertbild",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -21486,6 +21823,148 @@
           ],
           "type": "number"
         },
+        "StellenwertbildBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/StellenwertbildProps",
+              "description": "The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in."
+            },
+            "type": {
+              "const": "stellenwertbild",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "StellenwertbildProps": {
+          "properties": {
+            "bundle": {
+              "description": "Bündeln: true gives every picture more than 9 pieces in exactly one place (2 H 14 Z 6 E), so the pupil exchanges first; the answer key shows the number and the exchanged form (3 H 4 Z 6 E). With \"draw\" the task shows that form as text. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (pictures) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum: 100 (two places, Zehner and Einer; numbers 10 to 99) or 1000 (three places, Hunderter, Zehner and Einer; numbers 100 to 999). Default 1000.",
+              "type": "number"
+            },
+            "seed": {
+              "description": "Seed for the random numbers. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "table": {
+              "description": "Stellenwerttafel: true puts a table of the places (H Z E) before the number box of a \"read\" task, for the pupil to write the digits in. Plays no part with \"draw\". Default true.",
+              "type": "boolean"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"read\" the picture of Hunderterplatten, Zehnerstangen and Einerwürfel shows and the pupil writes the number; \"draw\" the number shows and the pupil draws it as square (Hunderter), stroke (Zehner) and dot (Einer). Default \"read\".",
+              "enum": [
+                "read",
+                "draw"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed; one that does not fit the Zahlenraum and Bündeln gives no task and a hint in the editor.",
+              "items": {
+                "$ref": "#/definitions/StellenwertbildTyped"
+              },
+              "type": "array"
+            },
+            "zero": {
+              "description": "Stellen mit 0: false every number has no digit 0; true every number has a 0 in a place that is not the first (305, 260). Default false.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "StellenwertbildTyped": {
+          "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives no task).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -24497,6 +24976,9 @@
             },
             {
               "$ref": "#/definitions/ZehnerfeldProps"
+            },
+            {
+              "$ref": "#/definitions/StellenwertbildProps"
             },
             {
               "$ref": "#/definitions/ZahlenstrahlProps"
