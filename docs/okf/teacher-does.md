@@ -3,8 +3,8 @@ type: Explanation
 title: What the teacher does herself
 description: What the teacher does herself, such as printing, PDFs, the answer key, variants and locked blocks.
 tags: [editor, print, pdf, answers, variants, locked]
-covers: [text, selbstkontrolle, stellenwertbild]
-generated: { by: "human:pgoell", at: 2026-11-06T16:30:00Z }
+covers: [text, selbstkontrolle, stellenwertbild, zahlzerlegung]
+generated: { by: "human:pgoell", at: 2026-11-06T18:30:00Z }
 ---
 
 # What the teacher does herself
@@ -29,9 +29,9 @@ The button "Varianten drucken" opens a dialog. The teacher picks how many varian
 
 Variant A is the stored sheet. Letters B to D draw new content from each block's own seed and the letter. The same letter gives the same content on every run.
 
-* Changes: maths (new exercises), suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, stellenwertbild, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
+* Changes: maths (new exercises), suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, stellenwertbild, zahlzerlegung, textaufgabe, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
 * Stays: a block without a seed prints the same on every letter. Give every block that should change a whole-number seed: `seed` on the seeded blocks; `mix`, `bank` or `holeSeed` on a text or shape; `bank` on a table.
-* Numbers the teacher typed into stones or fields (`typed`) and operators typed onto a Pfeilbild's arrows (`typedOps`) are dropped in B to D. A Zehnerfeld drops its typed numbers too, and the dots set by hand (`marks`) stay. A Stellenwert-Bild drops its typed numbers in B to D. A Textaufgabe drops the four parts the teacher wrote (`written`).
+* Numbers the teacher typed into stones or fields (`typed`) and operators typed onto a Pfeilbild's arrows (`typedOps`) are dropped in B to D. A Zehnerfeld drops its typed numbers too, and the dots set by hand (`marks`) stay. A Stellenwert-Bild drops its typed numbers in B to D. A Zahlzerlegung drops its typed numbers in B to D. A Textaufgabe drops the four parts the teacher wrote (`written`).
 
 If a variant cannot fill a maths block, the dialog names the block and its page and asks for a new roll, looser limits or fewer variants. Then give that block a new seed with `update_block`, loosen its limits, or tell the teacher to print fewer variants.
 

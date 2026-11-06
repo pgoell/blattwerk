@@ -50,6 +50,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [stellenwertbild](stellenwertbild.md): The Stellenwert-Bild tasks: pictures of Hunderterplatten, Zehnerstangen and Einerwürfel with the number to write, or the number with the picture to draw; Zahlenraum, Aufgabentyp, Stellenwerttafel, Stellen mit 0, Bündeln, the numbers typed in.
 
+* [zahlzerlegung](zahlzerlegung.md): The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

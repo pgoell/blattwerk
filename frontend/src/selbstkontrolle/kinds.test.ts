@@ -81,7 +81,7 @@ describe("tasks of the blocks the issue names", () => {
 });
 
 describe("every other task block with written answers", () => {
-  const kinds = ["pfeilbild", "operatorfeld", "rechenrad", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "textaufgabe"];
+  const kinds = ["pfeilbild", "operatorfeld", "rechenrad", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "zahlzerlegung", "textaufgabe"];
 
   it.each(kinds)("links a %s and takes at least one result", (type) => {
     const found = texts(block(type, { seed: 7 }));

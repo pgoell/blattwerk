@@ -96,6 +96,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "halbschriftlich",
                 "zehnerfeld",
                 "stellenwertbild",
+                "zahlzerlegung",
                 "textaufgabe",
                 "rechendreieck",
                 "zahlenstrahl",

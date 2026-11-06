@@ -93,6 +93,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Halbschriftlich rechnen", icon: Split, run: () => addInsert(INSERTS.halbschriftlich(newSeed())) },
     { label: "Zehnerfeld", icon: Grid2x2Plus, run: () => addInsert(INSERTS.zehnerfeld(newSeed())) },
     { label: "Stellenwert-Bild", icon: Hash, run: () => addInsert(INSERTS.stellenwertbild(newSeed())) },
+    { label: "Zahlzerlegung", icon: Split, run: () => addInsert(INSERTS.zahlzerlegung(newSeed())) },
     { label: "Textaufgaben", icon: BookOpenText, run: () => addInsert(INSERTS.textaufgabe(newSeed())) },
     { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },

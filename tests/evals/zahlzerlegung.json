@@ -1,0 +1,13 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit sechs Zerlegungsaufgaben bis 1000: die Kinder zerlegen jede Zahl in Hunderter, Zehner und Einer (348 = 300 + 40 + 8). Lege das Blatt mit dem Titel Eval Zahlzerlegung an.",
+  "recipe": "zahlzerlegung",
+  "expect": {
+    "types": ["zahlzerlegung"],
+    "text": ["Zahlzerlegung"],
+    "match": [
+      "\\{(?=[^{}]*\"max\": 1000[,}])(?=[^{}]*\"task\": \"split\")[^{}]*\\}",
+      "^(?![\\s\\S]*\"task\": \"(join|shuffled|places|gap|zero|bundle)\")",
+      "^(?![\\s\\S]*\"max\": (100|10000)[,}])"
+    ]
+  }
+}
