@@ -22,6 +22,7 @@ import type { ZahlenstrahlProps } from "../zahlenstrahl";
 import type { ZehnerfeldProps } from "../zehnerfeld";
 import type { StellenwertbildProps } from "../stellenwertbild";
 import type { ZahlzerlegungProps } from "../zahlzerlegung";
+import type { StellenwerttafelProps } from "../stellenwerttafel";
 import type { ZerlegungsfeldProps } from "../zerlegungsfeld";
 import type { Box } from "./box";
 
@@ -191,6 +192,12 @@ export type ZahlzerlegungBlock = Box & {
   type: "zahlzerlegung";
   /** The Zahlzerlegung tasks: numbers split into place values (348 = 300 + 40 + 8) or put together from them, in place order, out of order, with H Z E letters, with a gap, with zeros or bundled; Zahlenraum, Aufgabentyp, the numbers typed in. */
   props: ZahlzerlegungProps;
+};
+// A Stellenwerttafel block: its stored shape is the contract at the top of stellenwerttafel.ts.
+export type StellenwerttafelBlock = Box & {
+  type: "stellenwerttafel";
+  /** The Stellenwerttafel tasks: tables of Plättchen (dots) in the columns of H, Z and E (or T, H, Z and E) with the number to write, the number with the dots to lay, or one dot to move to another column with every number that makes; Zahlenraum, Aufgabentyp, Plättchen, Leere Stellen, the numbers typed in. */
+  props: StellenwerttafelProps;
 };
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {

@@ -164,6 +164,7 @@
             "zehnerfeld",
             "stellenwertbild",
             "zahlzerlegung",
+            "stellenwerttafel",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -500,6 +501,18 @@
           },
           "then": {
             "$ref": "#/definitions/ZahlzerlegungBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "stellenwerttafel"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/StellenwerttafelBlock"
           }
         },
         {
@@ -5900,6 +5913,156 @@
       "minItems": 2,
       "maxItems": 2,
       "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives a task of empty gaps and no number)."
+    },
+    "StellenwerttafelBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "stellenwerttafel"
+        },
+        "props": {
+          "$ref": "#/definitions/StellenwerttafelProps",
+          "description": "The Stellenwerttafel tasks: tables of Plättchen (dots) in the columns of H, Z and E (or T, H, Z and E) with the number to write, the number with the dots to lay, or one dot to move to another column with every number that makes; Zahlenraum, Aufgabentyp, Plättchen, Leere Stellen, the numbers typed in."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "StellenwerttafelProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of tasks (tables) on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of tasks per row. Default 2.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: 1000 (columns H Z E, numbers 1 to 999) or 10000 (columns T H Z E, numbers 1 to 9999). Default 1000."
+        },
+        "task": {
+          "type": "string",
+          "enum": [
+            "read",
+            "lay",
+            "move"
+          ],
+          "description": "The Aufgabentyp: \"read\" the table shows the dots (Plättchen) and the pupil writes the number; \"lay\" the number shows and the pupil draws its dots in the empty table; \"move\" the table shows the dots, the pupil moves one dot to another column and writes every number that makes (the answer key lists them all). Default \"read\"."
+        },
+        "dots": {
+          "type": "number",
+          "description": "Plättchen: the most dots of one task (the sum of its digits), 1 to 36, so tasks like \"lege Zahlen mit höchstens 4 Plättchen\" stay in range. Default 9.",
+          "minimum": 1,
+          "maximum": 36
+        },
+        "zero": {
+          "type": "boolean",
+          "description": "Leere Stellen: false every column holds at least one dot (no digit 0); true a column may be empty (306, 45). Default false."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random numbers. The same seed always gives the same tasks."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StellenwerttafelTyped"
+          },
+          "description": "Numbers the teacher typed. Each entry is [task index from 0, number 0 to 9999]. A typed number wins over the seed and may have empty columns (306) whatever `zero` says; one outside the Zahlenraum, with more dots than `dots`, or with no move in \"move\" gives an empty task and a hint in the editor."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "max",
+        "task",
+        "dots",
+        "zero",
+        "seed"
+      ]
+    },
+    "StellenwerttafelTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "A number the teacher typed: the task's index (from 0) and the number (0 to 9999; one that does not fit the settings gives an empty task)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",

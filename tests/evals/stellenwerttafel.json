@@ -1,0 +1,13 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit vier Stellenwerttafeln bis 1000 mit Plättchen: die Kinder lesen die Plättchen und schreiben die Zahl. Lege das Blatt mit dem Titel Eval Stellenwerttafel an.",
+  "recipe": "stellenwerttafel",
+  "expect": {
+    "types": ["stellenwerttafel"],
+    "text": ["Stellenwerttafel"],
+    "match": [
+      "\\{(?=[^{}]*\"max\": 1000[,}])(?=[^{}]*\"task\": \"read\")[^{}]*\\}",
+      "^(?![\\s\\S]*\"task\": \"(lay|move)\")",
+      "^(?![\\s\\S]*\"max\": 10000[,}])"
+    ]
+  }
+}

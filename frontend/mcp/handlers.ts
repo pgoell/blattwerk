@@ -20,7 +20,7 @@ const MATHS_KEYS = [
   "one", "distinct", "small", "reihen", "avoid0",
 ];
 // The types a Block's `props` may take, each with the seed it is drawn with when added.
-const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "zahlzerlegung", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "karofeld", "diagramm"] as const;
+const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "zehnerfeld", "stellenwertbild", "stellenwerttafel", "zahlzerlegung", "textaufgabe", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle", "geobrett", "karofeld", "diagramm"] as const;
 
 
 function problems(body: any): string[] {

@@ -23,6 +23,7 @@ import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFo
 import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
 import { DEFAULTS as SWB, heightFor as heightForSwb, sane as saneSwb, widthFor as widthForSwb } from "./stellenwertbild";
 import { DEFAULTS as ZAHL, heightFor as heightForZahl, sane as saneZahl, widthFor as widthForZahl } from "./zahlzerlegung";
+import { DEFAULTS as STAFEL, heightFor as heightForStafel, sane as saneStafel, widthFor as widthForStafel } from "./stellenwerttafel";
 import { DEFAULTS as TEXTAUFGABE, heightFor as heightForText, sane as saneText } from "./textaufgabe";
 import { DEFAULTS as LOESUNG } from "./loesungsfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
@@ -107,6 +108,11 @@ export const INSERTS = {
     const w = round(widthForZahl(props));
     return { w, h: round(heightForZahl(saneZahl(props), w)), type: "zahlzerlegung", props };
   },
+  stellenwerttafel: (seed: number): Fresh => {
+    const props = { ...STAFEL, seed };
+    const w = round(widthForStafel(props));
+    return { w, h: round(heightForStafel(saneStafel(props), w)), type: "stellenwerttafel", props };
+  },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
@@ -183,6 +189,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zehnerfeld: [(p, w) => heightForZehn(saneZehn(p), w), ["count", "columns", "field"]],
   stellenwertbild: [(p, w) => heightForSwb(saneSwb(p), w), ["count", "columns", "max", "task", "table", "bundle"]],
   zahlzerlegung: [(p, w) => heightForZahl(saneZahl(p), w), ["count", "columns", "max", "task"]],
+  stellenwerttafel: [(p, w) => heightForStafel(saneStafel(p), w), ["count", "columns", "max", "task"]],
   textaufgabe: [(p, w) => heightForText(saneText(p), w), ["count", "steps", "sketch", "rows"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };

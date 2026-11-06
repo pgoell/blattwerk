@@ -33,6 +33,7 @@ describe("INSERTS", () => {
     expect(INSERTS.halbschriftlich(7)).toMatchObject({ type: "halbschriftlich", props: { count: 6, columns: 2, op: "+", max: 1000, digits: 3, einer: "any", zehner: "any", seed: 7 } });
     expect(INSERTS.zehnerfeld(7)).toMatchObject({ type: "zehnerfeld", props: { count: 4, columns: 2, field: "zwanzig", op: "+", task: "dots", max: 20, cross: "any", lines: true, colors: "color", manual: false, seed: 7 } });
     expect(INSERTS.stellenwertbild(7)).toMatchObject({ type: "stellenwertbild", props: { count: 4, columns: 2, max: 1000, task: "read", table: true, zero: false, bundle: false, seed: 7 } });
+    expect(INSERTS.stellenwerttafel(7)).toMatchObject({ type: "stellenwerttafel", props: { count: 4, columns: 2, max: 1000, task: "read", dots: 9, zero: false, seed: 7 } });
     expect(INSERTS.zahlzerlegung(7)).toMatchObject({ type: "zahlzerlegung", props: { count: 6, columns: 2, max: 1000, task: "split", seed: 7 } });
     expect(INSERTS.textaufgabe(7)).toMatchObject({ w: 180, h: 83, type: "textaufgabe", props: { count: 2, themes: ["sach"], ops: ["+"], steps: 1, max: 20, numbers: "whole", carry: "any", frage: true, rechnung: false, antwort: false, sketch: false, rows: "auto", manual: false, zeit: "both", seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
