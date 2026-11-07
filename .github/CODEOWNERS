@@ -1,0 +1,30 @@
+# The paths whose pull requests wait for pgoell's review: CI and the review
+# itself, deploy and containers, agent settings and hooks, the database, auth,
+# tokens, billing, and the dependency files. Branch protection requires a code
+# owner's approval, which no workflow can forge, and GitHub reads this file from
+# the base branch, so a pull request cannot take itself off the list. A push
+# dismisses the approval. The security review reads this list too: it reruns on
+# a later push that touches one of these paths (.github/review/round.sh).
+/.github/ @pgoell
+/.claude/ @pgoell
+/.cursor/ @pgoell
+Dockerfile* @pgoell
+/docker-compose*.yml @pgoell
+/mise.toml @pgoell
+pyproject.toml @pgoell
+uv.lock @pgoell
+package.json @pgoell
+package-lock.json @pgoell
+/REVIEW.md @pgoell
+/scripts/apply-github-settings.sh @pgoell
+/scripts/deploy.sh @pgoell
+/scripts/canary.sh @pgoell
+/scripts/go-back.sh @pgoell
+/src/blattwerk/db.py @pgoell
+/src/blattwerk/auth.py @pgoell
+/src/blattwerk/oauth.py @pgoell
+/src/blattwerk/remote.py @pgoell
+/src/blattwerk/billing.py @pgoell
+/src/blattwerk/shares.py @pgoell
+/src/blattwerk/uploads.py @pgoell
+/src/blattwerk/pdf.py @pgoell
