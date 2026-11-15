@@ -31,7 +31,8 @@ def test_the_menu_loads_the_sheet_as_powerpoint_and_as_word(editor):
 
     with page.expect_download() as got:
         open_menu(page).get_by_role("menuitem", name="Word mit Lösungen").click()
-    assert got.value.suggested_filename.endswith(" Lösungen.docx")
+    # WebKit's download names the file with a line for each blank.
+    assert got.value.suggested_filename.endswith("Lösungen.docx")
     with zipfile.ZipFile(got.value.path()) as z:
         assert ">Lies genau</w:t>" in z.read("word/document.xml").decode()
     expect(page.locator(".fault")).to_have_count(0)
