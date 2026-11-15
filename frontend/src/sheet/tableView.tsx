@@ -4,6 +4,7 @@ import { cellEntries } from "../bank";
 import { FormulaText } from "./formulaView";
 import { heightsOf, spansOf, rectOf } from "../cells";
 import { edged, linesOf, type Pen } from "../edges";
+import { lookAt, looksOf } from "../looks";
 import { pairOf, splitting, Bows } from "./bows";
 import { Inks, sane } from "./inks";
 import { useBreaks } from "./context";
@@ -194,6 +195,17 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
   const fade = fadeOf(block.props);
   const shade = (i: number): CSSProperties | undefined =>
     fade && { opacity: fade === "row" ? fadeAt(i % cols.length, cols.length) : fadeAt(Math.floor(i / cols.length), cells.length) };
+  // A cell with a look of its own takes the table's text style with its keys over it; its bold wins over the
+  // Kopfzeile's. Cells without one stay as they were.
+  const looks = looksOf(block.props);
+  const cellLook = (i: number): CSSProperties | undefined => {
+    const [r, c] = [Math.floor(i / cols.length), i % cols.length];
+    const look = looks && lookAt(block.props, r, c);
+    if (!look || !Object.keys(look).length) return undefined;
+    const { textAlign: _, color: __, ...rest } = textStyle({ text: "", ...block.props, ...look, bold: look.bold ?? (!!head && r === 0) }, k);
+    // WebKit's lift is the font's own: a cell without one must not take the table's.
+    return { "--lift": "0px", ...rest } as CSSProperties;
+  };
   // A merged cell is drawn once, over the cells it covers: those are not drawn, and each drawn cell takes its place in the grid.
   const spans = spansOf(block.props);
   const anchors = new Map(spans.map((s) => [s[0] * cols.length + s[1], s]));
@@ -213,7 +225,7 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
         const span = anchors.get(i);
         if (covered.has(i)) return null;
         return (
-          <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...(place(i) || undefined) }}>
+          <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...cellLook(i), ...(place(i) || undefined) }}>
             {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : hyphens[i] !== undefined ? <p style={{ ...shade(i), hyphens: "manual", WebkitHyphens: "manual" }}>{wrap(hyphens[i], i)}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
           </div>
         );

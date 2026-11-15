@@ -24,6 +24,9 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
   const at = session.at;
   const blocks = session.blocks;
   const border = session.border;
+  const lookCells = session.lookCells;
+  const lookTables = session.lookTables;
+  const pickLine = session.pickLine;
   const boxes = session.boxes;
   const bump = session.bump;
   const cell = session.cell;
@@ -168,6 +171,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 evenCells={evenCells}
                 lines={drawLines}
                 border={table && border}
+                cellLook={{ cells: lookCells, tables: lookTables, line: pickLine }}
                 cutting={cutting}
                 cropping={!!cropping}
                 spin={spin}

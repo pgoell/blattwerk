@@ -6,6 +6,7 @@ import { mark as markCopy } from "../../clip";
 import { EDGE, anchorOf, beside, emptied, evened, merged, next, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../../cells";
 import { bordered, cutLines, lined, type Border } from "../../borders";
 import type { LineStyle, Pen } from "../../edges";
+import { looked, unlooked, type CellLook } from "../../looks";
 import { round } from "./palette";
 import { useMove } from "./useMove";
 
@@ -248,6 +249,35 @@ export function useTable(session: ReturnType<typeof useMove>) {
     tight.current = true;
     change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: bordered(table.props, rect, which, pen) } : o)));
   }
+  // The cells a cell format acts on: those picked with the open cell, or the open cell alone, or with no cell open,
+  // the whole table.
+  function formatRect(t: TableBlock): Rect {
+    const [r, c, h, w] = spanAt(t.props, slot);
+    if (editing !== t.id) return [0, 0, t.props.cells.length - 1, t.props.cols.length - 1];
+    return reach === undefined ? [r, c, r + h - 1, c + w - 1] : rectOf(t.props, slot, reach);
+  }
+  // Sets font, size, bold, italic or underline on the cells a cell format acts on. It is one step of undo, and the
+  // cells stay picked.
+  function lookCells(patch: NonNullable<CellLook>) {
+    if (!table) return;
+    tight.current = true;
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: looked(table.props, formatRect(table), patch) } : o)));
+  }
+  // Sets the font or size of every picked table, and takes it out of each cell, so that it holds for all of them.
+  function lookTables(patch: { font: string } | { size: number }) {
+    const key = "font" in patch ? "font" : "size";
+    tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "table" ? ({ ...b, props: unlooked({ ...b.props, ...patch } as TableBlock["props"], key) } as Block) : b)));
+  }
+  // Picks the whole row or column of the open cell, so that what the panel sets acts on all of it.
+  function pickLine(axis: "row" | "col") {
+    if (!table) return;
+    const [r, c, h, w] = spanAt(table.props, slot);
+    const cols = table.props.cols.length;
+    const [from, to] = axis === "row" ? [r * cols, (r + h - 1) * cols + cols - 1] : [c, (table.props.cells.length - 1) * cols + c + w - 1];
+    setSlot(anchorOf(table.props, from));
+    setReach(to);
+  }
   // Turns Schneidelinien on or off for every picked table.
   function cutting(on: boolean) {
     tight.current = true;
@@ -316,5 +346,5 @@ export function useTable(session: ReturnType<typeof useMove>) {
     const page = e.currentTarget.closest(".sheet")!.getBoundingClientRect();
     return [(e.clientX - grab.current[0] - page.left) / k, (e.clientY - grab.current[1] - page.top) / k];
   }
-    return Object.assign(session, { copyCells, hop, sameLine, merge, unmerge, mmOf, laidMm, needs, sizeCells, evenCells, drawLines, border, cutting, rank, widen, shown, grip, point });
+    return Object.assign(session, { copyCells, hop, sameLine, merge, unmerge, mmOf, laidMm, needs, sizeCells, evenCells, drawLines, border, lookCells, lookTables, pickLine, cutting, rank, widen, shown, grip, point });
 }

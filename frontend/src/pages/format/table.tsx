@@ -1,7 +1,8 @@
 // A table's rows, its pen and the borders that pen draws.
 import { useEffect, useState } from "react";
 import { Scissors, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
-import { rectOf, spanAt, widthsOf, type Rect } from "../../cells";
+import { rectOf, slotsIn, spanAt, widthsOf, type Rect } from "../../cells";
+import { lookAt, type CellLook } from "../../looks";
 import type { Border } from "../../borders";
 import type { LineStyle, Pen } from "../../edges";
 import { boxed, fontOf, sum, type Align, type Block, type TableBlock } from "../../sheet";
@@ -34,6 +35,15 @@ function sizeFields(t: TableBlock, cell: number, reach: number | undefined, laid
   return { width, height };
 }
 
+// What the panel's cell format calls: set a look on the picked cells, set font or size for whole tables, pick the
+// open cell's row or column.
+export type CellLooks = {
+  cells: (patch: NonNullable<CellLook>) => void;
+  tables: (patch: { font: string } | { size: number }) => void;
+  line: (axis: "row" | "col") => void;
+};
+const FLAGS = [["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const;
+
 // The border buttons of the panel, each with the border it draws.
 const BORDERS: [Border, string][] = [
   ["all", "Alle"],
@@ -48,7 +58,7 @@ const BORDERS: [Border, string][] = [
 ];
 
 export function TablePanel({
-  sel, style, part, look, mendWord, doc, words, cell, reach, rank, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, traced, gap, every,
+  sel, style, part, look, mendWord, doc, words, cell, reach, rank, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, cellLook, traced, gap, every,
 }: {
   sel: Block[];
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
@@ -68,6 +78,7 @@ export function TablePanel({
   lines: (patch: { style?: LineStyle; width?: number }, key?: string) => void;
   cutting: (on: boolean) => void;
   border?: (which: Border, pen: Pen) => void;
+  cellLook: CellLooks;
   traced: (props: object) => void;
   gap: (on: boolean) => void;
   every: (n: number) => void;
@@ -99,6 +110,13 @@ export function TablePanel({
   const single = !!first && first[0] === r0 && first[1] === c0 && first[2] === r1 - r0 + 1 && first[3] === c1 - c0 + 1;
   const off = (which: Border) => (which === "across" ? single || r0 === r1 : which === "down" ? single || c0 === c1 : which === "inner" && (single || r0 === r1 || c0 === c1));
   if (!tables.length) return null;
+  // The cells a format acts on, each with its look: the picked ones, or the open one, or with none open all of them.
+  // What the font and size show is the first one's; a flag is on when every one of them has it.
+  const formatted = grid ? slotsIn(grid, rect).map((slot) => [Math.floor(slot / grid.cols.length), slot % grid.cols.length] as const) : [];
+  const lookOf = ([r, c]: readonly [number, number]) => ({ ...lookAt(grid!, r, c), bold: lookAt(grid!, r, c).bold ?? (!!grid!.head && r === 0) });
+  const shown: NonNullable<CellLook> = open && formatted.length ? lookOf(formatted[0]) : {};
+  const flagged = (k: (typeof FLAGS)[number][0]) => formatted.length > 0 && formatted.every((at) => !!lookOf(at)[k]);
+  const size = shown.size ?? tables[0].props.size;
   const putFormula = (text: string) => {
     const t = tables[0];
     if (tables.length !== 1 || cell === undefined) return;
@@ -161,12 +179,33 @@ export function TablePanel({
               </div>
             </>
           )}
-          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => style("table", { font })} />
+          {/* With a cell open, font and size are the picked cells' own; else the tables', for all their cells. */}
+          {tables.length === 1 && open && (
+            <div className="acts">
+              <button onClick={() => cellLook.line("row")}>Ganze Zeile</button>
+              <button onClick={() => cellLook.line("col")}>Ganze Spalte</button>
+            </div>
+          )}
+          <FontSelect
+            label={open ? "Schriftart der Zellen" : "Schriftart der Tabelle"}
+            value={fontOf(shown.font ?? tables[0].props.font)}
+            unknown={unknownFont(tables.map((b) => b.props.font))}
+            onChange={(font) => (open ? cellLook.cells({ font: fontOf(font) }) : cellLook.tables({ font }))}
+          />
           <div className="seg">
-            <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
-            <output>{tables[0].props.size} pt</output>
-            <button aria-label="Schrift größer" onClick={() => style("table", { size: tables[0].props.size + 2 })}>＋</button>
+            <button aria-label="Schrift kleiner" onClick={() => (open ? cellLook.cells({ size: Math.max(8, size - 2) }) : cellLook.tables({ size: Math.max(8, size - 2) }))}>−</button>
+            <output>{size} pt</output>
+            <button aria-label="Schrift größer" onClick={() => (open ? cellLook.cells({ size: size + 2 }) : cellLook.tables({ size: size + 2 }))}>＋</button>
           </div>
+          {tables.length === 1 && (
+            <div className="seg">
+              {FLAGS.map(([prop, label]) => (
+                <button key={prop} className={`${prop}${flagged(prop) ? " on" : ""}`} aria-label={label} aria-pressed={flagged(prop)} onClick={() => cellLook.cells({ [prop]: !flagged(prop) })}>
+                  {label[0]}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="seg">
             {ALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={tables[0].props.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={tables[0].props.align === value} onClick={() => style("table", { align: value })}>
