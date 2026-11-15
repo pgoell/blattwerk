@@ -1,8 +1,14 @@
 """Font, size, bold, italic and underline for single cells of a table, a whole row or column (#1154)."""
 
+import re
+
 from playwright.sync_api import expect
 from test_cells import GRID, cell, open_cell, print_page, props
 from ui import at, box, pick, unpick, user
+
+# Chromium quotes a font's name in `font-family`, WebKit does not.
+NORD = re.compile(r'^"?Fibel Nord"?$')
+SUED = re.compile(r'^"?Fibel Sued"?$')
 
 
 def button(page, label):
@@ -70,15 +76,15 @@ def test_a_cell_font_shows_and_the_table_font_clears_it(editor):
     open_cell(page, "t", 2)
     # The keys of the closed list step through the fonts: andika, nord, sued.
     page.locator(".panel").get_by_label("Schriftart der Zellen").press("ArrowDown")
-    expect(cell(page, "t", 2)).to_have_css("font-family", '"Fibel Nord"')
-    expect(cell(page, "t", 1)).not_to_have_css("font-family", '"Fibel Nord"')
+    expect(cell(page, "t", 2)).to_have_css("font-family", NORD)
+    expect(cell(page, "t", 1)).not_to_have_css("font-family", NORD)
     assert props(page, client)["looks"][0][2] == {"font": "nord"}
     # With no cell open the font is the table's, for every cell.
     unpick(page)
     pick(page, "t")
     page.locator(".panel").get_by_label("Schriftart der Tabelle").press("ArrowDown")
     page.locator(".panel").get_by_label("Schriftart der Tabelle").press("ArrowDown")
-    expect(cell(page, "t", 2)).to_have_css("font-family", '"Fibel Sued"')
+    expect(cell(page, "t", 2)).to_have_css("font-family", SUED)
     assert "looks" not in props(page, client)
 
 
