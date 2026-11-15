@@ -17,7 +17,7 @@ The teacher prints the sheet herself.
 
 The download "PDF" saves the sheet as a PDF. The download "Lösungen" saves the same sheet with the answers. Its file name ends in " Lösungen.pdf". The plain PDF has no answers.
 
-The arrow beside "PDF" ("Als PowerPoint oder Word laden") saves the sheet as a PowerPoint (.pptx) or a Word (.docx) file, plain or "mit Lösungen". There a plain text is a text box the teacher can type in, and every other block is a picture she can move, size and delete. A text box keeps the sheet's look only where its font (Andika, Fibel Nord or Fibel Sued) is installed on her computer.
+The button "Als PowerPoint oder Word laden" saves the sheet as a PowerPoint (.pptx) or a Word (.docx) file, plain or "mit Lösungen". There a plain text is a text box the teacher can type in, and every other block is a picture she can move, size and delete. A text box keeps the sheet's look only where its font (Andika, Fibel Nord or Fibel Sued) is installed on her computer.
 
 ## The answers on screen
 

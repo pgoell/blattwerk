@@ -43,8 +43,8 @@ EDITS = [
     "Lösungen zeigen",
 ]
 ZOOM = ["Kleiner", "Zoom", "Ganze Seite", "Größer"]
-LAST = ["Rundgang", "Feedback", "Varianten drucken"]
-# What the bar says of itself: whether the five that never fold (four on a phone) lie in the window, whether it is
+LAST = ["Rundgang", "Feedback", "Varianten drucken", "Als PowerPoint oder Word laden"]
+# What the bar says of itself: whether the four that never fold lie in the window, whether it is
 # one row that does not scroll, and the names of the commands in it that may fold.
 BAR = """() => {
     const top = document.querySelector("header .top");
@@ -52,11 +52,10 @@ BAR = """() => {
     const inside = (el) => box(el).width > 0 && box(el).left >= 0 && box(el).top >= 0
         && box(el).right <= innerWidth && box(el).bottom <= innerHeight;
     const never = '.pdf button, [aria-label="Rückgängig"], [aria-label="Wiederholen"]';
-    // A phone's bar has no arrow beside PDF.
-    const kept = [...top.querySelectorAll(never)].filter((el) => getComputedStyle(el).display !== "none");
+    const kept = [...top.querySelectorAll(never)];
     const may = [...top.querySelectorAll(".sep ~ :is(.ib, .zoom):not(.pin, .more)")];
     return {
-        kept: kept.length === (innerWidth > 700 ? 5 : 4) && kept.every(inside),
+        kept: kept.length === 4 && kept.every(inside),
         row: top.scrollWidth <= top.clientWidth && box(top).height < 2 * box(kept[0]).height,
         names: may.map((el) => el.ariaLabel ?? el.title),
     };
@@ -82,7 +81,7 @@ def sized(editor, *blocks, width, height, touch, **more):
 
 
 def expect_fitted(page, row=True):
-    """Waits until the bar keeps PDF, its arrow, Lösungen, Rückgängig and Wiederholen in the window, in one row
+    """Waits until the bar keeps PDF, Lösungen, Rückgängig and Wiederholen in the window, in one row
     that does not scroll: the bar is measured anew after the window's size changes."""
     want = {"kept": True, **({"row": True} if row else {})}
     fitted = f"(want) => Object.keys(want).every((key) => ({BAR})()[key])"
@@ -227,7 +226,7 @@ def test_the_bar_is_fitted_anew_when_a_right_click_beside_the_menu_shuts_it(edit
     box = page.evaluate(
         """() => {
             const top = document.querySelector("header .top");
-            top.style.width = `${top.clientWidth - 220}px`;
+            top.style.width = `${top.clientWidth - 250}px`;
             const { x, y } = top.getBoundingClientRect();
             const frame = (then) => requestAnimationFrame(then);
             return new Promise((done) => frame(() => frame(() => done({ x, y }))));

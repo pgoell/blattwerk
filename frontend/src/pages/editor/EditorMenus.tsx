@@ -105,6 +105,8 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
       )}
       {menu && (
         <Menu
+          // The files' menu may open where "Mehr" has just shut: a menu of its own, which opens anew.
+          key={menu.office ? "office" : "menu"}
           x={menu.x}
           y={menu.y}
           // A command picked in "Mehr" first ends what is written in, as the press of its button in the bar does:

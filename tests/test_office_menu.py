@@ -1,4 +1,4 @@
-"""The button beside "PDF": the sheet as a PowerPoint or a Word file."""
+"""The bar's button for the other files: the sheet as a PowerPoint or a Word file."""
 
 import io
 import zipfile
@@ -13,7 +13,7 @@ ENTRIES = ["PowerPoint (.pptx)", "Word (.docx)", "PowerPoint mit Lösungen", "Wo
 
 
 def open_menu(page):
-    page.locator("header .pdf").get_by_role("button", name=OTHER).click()
+    page.locator("header").get_by_role("button", name=OTHER).click()
     menu = page.get_by_role("menu")
     expect(menu.get_by_role("menuitem")).to_have_text(ENTRIES)
     return menu
@@ -39,7 +39,7 @@ def test_the_menu_loads_the_sheet_as_powerpoint_and_as_word(editor):
 
 def test_the_keys_open_the_menu_and_escape_gives_the_button_the_focus_back(editor):
     page = editor(box("a", "text", TEXT))
-    button = page.locator("header .pdf").get_by_role("button", name=OTHER)
+    button = page.locator("header").get_by_role("button", name=OTHER)
     button.focus()
     page.keyboard.press("Enter")
     menu = page.get_by_role("menu")
