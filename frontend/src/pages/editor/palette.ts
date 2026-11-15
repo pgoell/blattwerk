@@ -10,6 +10,8 @@ import { FRAMES as FRAME_KINDS } from "../../insert";
 
 // The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
 export const pdfFault = "Das PDF konnte nicht erstellt werden.";
+// The same for a PowerPoint or a Word file.
+export const officeFault = "Die Datei konnte nicht erstellt werden.";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 export const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {

@@ -1,6 +1,7 @@
 // The tour, the zoom list, and the menus.
 import { flushSync } from "react-dom";
-import Menu from "../../components/Menu";
+import { FileText, Presentation } from "lucide-react";
+import Menu, { type Item } from "../../components/Menu";
 import ZoomList from "../../components/ZoomList";
 import Tour from "../../components/Tour";
 import type { Axis } from "../../sheet";
@@ -26,6 +27,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const menuAt = session.menuAt;
   const mini = session.mini;
   const more = session.more;
+  const office = session.office;
   const pickedBox = session.pickedBox;
   const refit = session.refit;
   const rule = session.rule;
@@ -45,6 +47,14 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const tools = session.tools;
   const tour = session.tour;
   const zoomTo = session.zoomTo;
+  // What the button beside "PDF" lists: the sheet as a file to go on working with, plain or with the answers.
+  const files: Item[] = [
+    { label: "PowerPoint (.pptx)", icon: Presentation, run: () => office("pptx", false) },
+    { label: "Word (.docx)", icon: FileText, run: () => office("docx", false) },
+    "sep",
+    { label: "PowerPoint mit Lösungen", icon: Presentation, run: () => office("pptx", true) },
+    { label: "Word mit Lösungen", icon: FileText, run: () => office("docx", true) },
+  ];
   return (
     <>
       {tour && (
@@ -100,7 +110,8 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
           // A command picked in "Mehr" first ends what is written in, as the press of its button in the bar does:
           // the menu has just handed the focus back to it.
           items={
-            menu.more
+            menu.office ? files
+            : menu.more
               ? more.map((item) => ({
                   ...item,
                   run: () => {

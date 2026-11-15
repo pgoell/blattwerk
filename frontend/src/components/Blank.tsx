@@ -66,6 +66,9 @@ export default function Blank({ late }: { late: boolean }) {
                 <svg width={14} height={14} />
                 PDF
               </button>
+              <button className="other">
+                <svg width={14} height={14} />
+              </button>
             </span>
           </div>
         ) : (

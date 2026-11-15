@@ -28,7 +28,7 @@ The `pre-push` hook runs `mise run lint`, the commit check and `scripts/check-fi
 
 ## Layout
 
-- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `pdf.py` (the PDF export), `app.py` (legal pages and the built frontend).
+- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `pdf.py` (the PDF export), `office.py` (the PowerPoint and Word export), `app.py` (legal pages and the built frontend).
 - `frontend/`: React, TypeScript and Vite. `npm run build` writes to `src/blattwerk/static/`, which FastAPI serves.
 
 ## Run it
@@ -65,6 +65,12 @@ A picture lies in `users/<id>/uploads/<n>` with a row in `uploads`. Once no shee
 `GET /api/sheets/<id>/pdf` starts headless Chromium (Playwright), which prints the page `/druck/<id>` of this same server over loopback. `?solved=true` gives the answer key. Chromium has no session. It sends a token in the `X-Render-Token` header, signed for that one sheet and good for a minute. The token opens the sheet's document and the pictures on it, and nothing else.
 
 Chromium prints the built frontend, so `mise run test` builds it first, and a PDF from the dev servers shows the last `mise run build`.
+
+## PowerPoint and Word
+
+`GET /api/sheets/<id>/pptx` and `GET /api/sheets/<id>/docx` give the sheet as a file to go on working with, a slide or a page to each page of the sheet; `?solved=true` gives the answer key. Chromium draws the same page as for the PDF (`office.py`). A plain text becomes a text box of the file's own: upright, in a print script (Andika, Fibel Nord, Fibel Sued), in a plain box, with no list, gap, formula, Silbenbögen or other look the file's text has no like for (`plain` in `office.py`). Every other block is a picture of itself at 288 to the inch, cut to what it draws, which can be moved, sized and deleted.
+
+The files do not carry the fonts. A text box looks as on the sheet where its font is installed. Elsewhere PowerPoint or Word takes another font, and the lines may break at other words.
 
 ## Feedback
 

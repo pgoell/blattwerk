@@ -1,5 +1,5 @@
 // The bar: the title, the commands that fit, and the clash.
-import { CircleHelp, ClipboardPaste, Copy, CopyPlus, Ellipsis, Eye, Group, FileCheck, FileDown, Layers, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
+import { ChevronDown, CircleHelp, ClipboardPaste, Copy, CopyPlus, Ellipsis, Eye, Group, FileCheck, FileDown, Layers, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
 import Feedback from "../../components/Feedback";
 import Variants from "../../components/Variants";
 import { fresh } from "../../history";
@@ -200,6 +200,20 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
             <button className="primary" onClick={() => pdf(false)}>
               <FileDown size={14} aria-hidden />
               PDF
+            </button>
+            {/* The sheet as a PowerPoint or a Word file: the menu opens under the button, and stays in the window. */}
+            <button
+              className="other"
+              aria-label="Als PowerPoint oder Word laden"
+              title="Als PowerPoint oder Word laden"
+              aria-haspopup="menu"
+              aria-expanded={!!menu?.office}
+              onClick={(e) => {
+                const box = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: box.left, y: box.bottom + 4, office: true });
+              }}
+            >
+              <ChevronDown size={14} aria-hidden />
             </button>
           </span>
           {variants && (
