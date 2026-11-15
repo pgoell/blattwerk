@@ -6,6 +6,7 @@ import { mark as markCopy } from "../../clip";
 import { EDGE, anchorOf, beside, emptied, evened, merged, next, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../../cells";
 import { bordered, cutLines, lined, type Border } from "../../borders";
 import type { LineStyle, Pen } from "../../edges";
+import { fresh } from "../../history";
 import { looked, unlooked, type CellLook } from "../../looks";
 import { round } from "./palette";
 import { useMove } from "./useMove";
@@ -267,7 +268,7 @@ export function useTable(session: ReturnType<typeof useMove>) {
   function lookTables(patch: { font: string } | { size: number }) {
     const key = "font" in patch ? "font" : "size";
     tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "table" ? ({ ...b, props: unlooked({ ...b.props, ...patch } as TableBlock["props"], key) } as Block) : b)));
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "table" ? ({ ...b, props: unlooked({ ...b.props, ...fresh(b, patch) } as TableBlock["props"], key) } as Block) : b)));
   }
   // Picks the whole row or column of the open cell, so that what the panel sets acts on all of it.
   function pickLine(axis: "row" | "col") {

@@ -179,19 +179,15 @@ export function TablePanel({
               </div>
             </>
           )}
-          {/* With a cell open, font and size are the picked cells' own; else the tables', for all their cells. */}
+          {/* The table's font holds for all its cells; with a cell open a second list sets the picked cells' own, and the size and B, K, U act on them. */}
           {tables.length === 1 && open && (
             <div className="acts">
               <button onClick={() => cellLook.line("row")}>Ganze Zeile</button>
               <button onClick={() => cellLook.line("col")}>Ganze Spalte</button>
             </div>
           )}
-          <FontSelect
-            label={open ? "Schriftart der Zellen" : "Schriftart der Tabelle"}
-            value={fontOf(shown.font ?? tables[0].props.font)}
-            unknown={unknownFont(tables.map((b) => b.props.font))}
-            onChange={(font) => (open ? cellLook.cells({ font: fontOf(font) }) : cellLook.tables({ font }))}
-          />
+          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => cellLook.tables({ font })} />
+          {open && <FontSelect label="Schriftart der Zellen" value={fontOf(shown.font ?? tables[0].props.font)} onChange={(font) => cellLook.cells({ font: fontOf(font) })} />}
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => (open ? cellLook.cells({ size: Math.max(8, size - 2) }) : cellLook.tables({ size: Math.max(8, size - 2) }))}>−</button>
             <output>{size} pt</output>
