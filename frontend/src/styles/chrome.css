@@ -92,3 +92,6 @@ nav a.brand { margin-right: auto; padding-left: 0; background: none; }
   nav a { padding-inline: 8px; }
 }
 main { flex: 1; width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 16px 48px; }
+.thanks { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 0 8px; text-align: center; }
+.thanks .check { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 32px; }
+.thanks p { margin: 0; font-size: 1.25em; font-weight: 600; }
