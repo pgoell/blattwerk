@@ -24,7 +24,7 @@ You cannot print. When the teacher asks for answers or for variants, end by nami
 * [mm and pt](mm-and-pt.md): Lengths are mm from the paper's top left, font sizes are pt, and a text box needs room for its lines.
 * [What the server computes](server-computes.md): What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 * [Versions and the 409 rule](versions.md): How sheet versions work, what a stale write answers, and what to do before you write again.
-* [What the teacher does herself](teacher-does.md): What the teacher does herself, such as printing, PDFs, the answer key, variants and locked blocks.
+* [What the teacher does herself](teacher-does.md): What the teacher does herself, such as printing, PDFs, PowerPoint and Word files, the answer key, variants and locked blocks.
 
 # Reference
 

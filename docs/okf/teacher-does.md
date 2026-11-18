@@ -1,21 +1,23 @@
 ---
 type: Explanation
 title: What the teacher does herself
-description: What the teacher does herself, such as printing, PDFs, the answer key, variants and locked blocks.
+description: What the teacher does herself, such as printing, PDFs, PowerPoint and Word files, the answer key, variants and locked blocks.
 tags: [editor, print, pdf, answers, variants, locked]
 covers: [text, selbstkontrolle, stellenwertbild, stellenwerttafel, zahlzerlegung]
-generated: { by: "human:pgoell", at: 2026-11-06T19:45:00Z }
+generated: { by: "human:pgoell", at: 2026-11-15T18:10:00Z }
 ---
 
 # What the teacher does herself
 
-Claude makes and changes sheets. Claude never prints and never downloads a PDF. When the teacher needs one of these, tell her which button to press.
+Claude makes and changes sheets. Claude never prints and never downloads a PDF, a PowerPoint or a Word file. When the teacher needs one of these, tell her which button to press.
 
 ## Print and PDF
 
 The teacher prints the sheet herself.
 
 The download "PDF" saves the sheet as a PDF. The download "Lösungen" saves the same sheet with the answers. Its file name ends in " Lösungen.pdf". The plain PDF has no answers.
+
+The button "Als PowerPoint oder Word laden" saves the sheet as a PowerPoint (.pptx) or a Word (.docx) file, plain or "mit Lösungen". There a plain text is a text box the teacher can type in, and every other block is a picture she can move, size and delete. A text box keeps the sheet's look only where its font (Andika, Fibel Nord or Fibel Sued) is installed on her computer.
 
 ## The answers on screen
 

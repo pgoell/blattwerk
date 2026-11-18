@@ -171,7 +171,7 @@ export function useMenus(session: ReturnType<typeof usePick>) {
     { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, run: () => (dip(part?.marks), setBrush(1)) },
   ];
   // The block menu, which has the row. Not the Mehr list, the thumbs, a guide line or a table's cells.
-  const blockMenu = !menu?.more && menu?.thumb === undefined && !menu?.rule && !menu?.cells && sel.length > 0;
+  const blockMenu = !menu?.more && !menu?.office && menu?.thumb === undefined && !menu?.rule && !menu?.cells && sel.length > 0;
   // The box around the picked blocks, which the row keeps clear of.
   const pickedBox = () => {
     // On the whole desk: a right click on a block of another page picks it in the same render that brings its page.

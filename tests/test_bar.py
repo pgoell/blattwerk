@@ -43,7 +43,7 @@ EDITS = [
     "Lösungen zeigen",
 ]
 ZOOM = ["Kleiner", "Zoom", "Ganze Seite", "Größer"]
-LAST = ["Rundgang", "Feedback", "Varianten drucken"]
+LAST = ["Rundgang", "Feedback", "Varianten drucken", "Als PowerPoint oder Word laden"]
 # What the bar says of itself: whether the four that never fold lie in the window, whether it is
 # one row that does not scroll, and the names of the commands in it that may fold.
 BAR = """() => {

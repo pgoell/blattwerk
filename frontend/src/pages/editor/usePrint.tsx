@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { NEWER } from "../../components/Variants";
 import { attempt, drop as dropFault, note } from "../../fault";
 import { ask, flush, inClash, isGone, newer, signed } from "../../saves";
-import { pdfFault } from "./palette";
+import { officeFault, pdfFault } from "./palette";
 import { useGuides } from "./useGuides";
 
 export function usePrint(session: ReturnType<typeof useGuides>) {
@@ -53,6 +53,36 @@ export function usePrint(session: ReturnType<typeof useGuides>) {
     }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
+  // The sheet as a PowerPoint or a Word file, made of what the server holds as the PDF is. It does not wait for a
+  // clash's choice as the PDF does: the line says to choose first.
+  async function office(kind: "pptx" | "docx", key: boolean) {
+    const what = officeFault;
+    const clash = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt, und lade die Datei dann noch einmal.";
+    const deleted = "Die Datei konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder eine Datei.";
+    await attempt(what, async () => {
+      if (inClash(file.id)) return note(what, clash);
+      dropFault(NEWER);
+      await newerSheet();
+      if (isGone(file.id)) throw new Error("404");
+      const current = await flush(file.id);
+      if (inClash(file.id)) return note(what, clash);
+      await ask("/me");
+      const res = await signed(
+        fetch(`/api/sheets/${file.id}/${kind}${key ? "?solved=true" : ""}`).then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res;
+        }),
+      );
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(await res.blob());
+      link.download = decodeURIComponent(/filename\*=UTF-8''(.+)/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `Blatt.${kind}`);
+      link.click();
+      // After the browser has taken the file.
+      setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      if (!current) note(what, "Die Datei zeigt den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
+    }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
+  }
+
   // The print variants: the dialog's choice lives here, so it stays while the editor is open.
   const [variants, setVariants] = useState(!!opened);
   // What opened the dialog: a press that came with a newer sheet prints once, and the line stays while the dialog is open.
@@ -75,5 +105,5 @@ export function usePrint(session: ReturnType<typeof useGuides>) {
     setVariants(true);
   };
 
-    return Object.assign(session, { holdPdf, pdf, variants, setVariants, fromPress, setFromPress, count, setCount, letters, setLetters, variantsDoor, openVariants });
+    return Object.assign(session, { holdPdf, pdf, office, variants, setVariants, fromPress, setFromPress, count, setCount, letters, setLetters, variantsDoor, openVariants });
 }

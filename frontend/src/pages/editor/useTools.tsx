@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState } from "react";
-import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Hash, Columns3, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Hash, Columns3, Split, LayoutGrid, Orbit, Paintbrush, Presentation, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -42,6 +42,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const groups = session.groups;
   const zoomBy = session.zoomBy;
   const fitPage = session.fitPage;
+  const setMenu = session.setMenu;
 // The bar's commands that may fold, in the bar's order, and those of them that "Mehr" holds now. A menu has no
   // double click, so the brush picked there stays on, as after one on its button, until its ticked item is picked
   // again or Escape puts it down.
@@ -74,6 +75,15 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     // The form gives the focus back to what has it when it opens: "Mehr", as for the zoom.
     { label: "Feedback", icon: MessageSquare, run: () => (bar.current!.querySelector<HTMLElement>(".more")!.focus(), feedback.current!()) },
     { label: "Varianten drucken", icon: Layers, run: () => openVariants(bar.current!.querySelector<HTMLElement>(".more")!) },
+    // The last, so the first to fold: its menu then opens where "Mehr" has just shut.
+    {
+      label: "Als PowerPoint oder Word laden",
+      icon: Presentation,
+      run: () => {
+        const box = bar.current!.querySelector<HTMLElement>(".more")!.getBoundingClientRect();
+        setMenu({ x: box.left, y: box.bottom + 4, office: true });
+      },
+    },
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
