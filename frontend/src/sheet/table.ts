@@ -61,7 +61,7 @@ export type TableBlock = Box & {
     spans?: Span[];
     /** The lowest height of each row, in mm. A row still grows when its text needs more. */
     rows?: number[];
-    /** The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look. */
+    /** The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile, and with fill (the cell's background as a hex colour such as "#ffe680") and pad (its padding in mm as [top, right, bottom, left]). Left out, every cell takes the table's look. */
     looks?: Looks;
   } & Lines;
 };

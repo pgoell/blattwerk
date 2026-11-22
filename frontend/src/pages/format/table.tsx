@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Scissors, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import { rectOf, slotsIn, spanAt, widthsOf, type Rect } from "../../cells";
-import { lookAt, type CellLook } from "../../looks";
+import { PAD_MOST, lookAt, padOf, type CellLook, type Pad } from "../../looks";
 import type { Border } from "../../borders";
 import type { LineStyle, Pen } from "../../edges";
 import { boxed, fontOf, sum, type Align, type Block, type TableBlock } from "../../sheet";
@@ -38,11 +38,12 @@ function sizeFields(t: TableBlock, cell: number, reach: number | undefined, laid
 // What the panel's cell format calls: set a look on the picked cells, set font or size for whole tables, pick the
 // open cell's row or column.
 export type CellLooks = {
-  cells: (patch: NonNullable<CellLook>) => void;
+  cells: (patch: { [K in keyof NonNullable<CellLook>]: NonNullable<CellLook>[K] | undefined }, key?: string) => void;
   tables: (patch: { font: string } | { size: number }) => void;
   line: (axis: "row" | "col") => void;
 };
 const FLAGS = [["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const;
+const SIDES = ["oben", "rechts", "unten", "links"] as const;
 
 // The border buttons of the panel, each with the border it draws.
 const BORDERS: [Border, string][] = [
@@ -117,6 +118,12 @@ export function TablePanel({
   const shown: NonNullable<CellLook> = open && formatted.length ? lookOf(formatted[0]) : {};
   const flagged = (k: (typeof FLAGS)[number][0]) => formatted.length > 0 && formatted.every((at) => !!lookOf(at)[k]);
   const size = shown.size ?? tables[0].props.size;
+  // The background and padding show the first of those cells too, also with no cell open: they act on the whole table then.
+  const firstLook: NonNullable<CellLook> = formatted.length ? lookAt(grid!, ...formatted[0]) : {};
+  const filled = formatted.some(([r, c]) => lookAt(grid!, r, c).fill);
+  const padShown = firstLook.pad ?? padOf(firstLook.size ?? tables[0].props.size);
+  // One side's padding on every cell the format acts on; the other sides take what the first cell shows.
+  const setPad = (side: number, mm: number) => cellLook.cells({ pad: padShown.map((old, i) => (i === side ? Math.min(PAD_MOST, Math.max(0, mm)) : old)) as Pad });
   const putFormula = (text: string) => {
     const t = tables[0];
     if (tables.length !== 1 || cell === undefined) return;
@@ -201,6 +208,21 @@ export function TablePanel({
                 </button>
               ))}
             </div>
+          )}
+          {/* The background and the padding of the picked cells, of the open one, or with no cell open of every cell. */}
+          {tables.length === 1 && (
+            <>
+              <label>
+                Hintergrund
+                <input type="color" value={firstLook.fill ?? "#ffffff"} disabled={fixed} onChange={(e) => cellLook.cells({ fill: e.target.value }, "fill")} />
+              </label>
+              <button className="wide" aria-disabled={!filled} onClick={() => filled && !fixed && cellLook.cells({ fill: undefined })}>Kein Hintergrund</button>
+              <div role="group" aria-label="Innenabstand">
+                {SIDES.map((side, i) => (
+                  <Num key={side} label={`Abstand ${side}`} value={padShown[i]} disabled={fixed} onCommit={(n) => setPad(i, n)} />
+                ))}
+              </div>
+            </>
           )}
           <div className="seg">
             {ALIGNS.map(([value, label, Icon]) => (

@@ -2987,7 +2987,7 @@
             },
             "looks": {
               "$ref": "#/definitions/Looks",
-              "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
+              "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile, and with fill (the cell's background as a hex colour such as \"#ffe680\") and pad (its padding in mm as [top, right, bottom, left]). Left out, every cell takes the table's look."
             }
           },
           "required": [
@@ -3186,6 +3186,14 @@
             "underline": {
               "type": "boolean",
               "description": "True underlines this cell's text. Left out, no underline."
+            },
+            "fill": {
+              "type": "string",
+              "description": "Background colour of this cell, as a hex colour such as \"#ffe680\". Left out, the cell has no background."
+            },
+            "pad": {
+              "$ref": "#/definitions/Pad",
+              "description": "The room between this cell's lines and its text, in mm, as [top, right, bottom, left], each from 0 to 20. Left out, the usual room, which grows with the font size."
             }
           }
         },
@@ -3193,6 +3201,29 @@
           "type": "null"
         }
       ]
+    },
+    "Pad": {
+      "type": "array",
+      "minItems": 4,
+      "items": [
+        {
+          "type": "number",
+          "title": "top"
+        },
+        {
+          "type": "number",
+          "title": "right"
+        },
+        {
+          "type": "number",
+          "title": "bottom"
+        },
+        {
+          "type": "number",
+          "title": "left"
+        }
+      ],
+      "maxItems": 4
     },
     "SuchselBlock": {
       "type": "object",

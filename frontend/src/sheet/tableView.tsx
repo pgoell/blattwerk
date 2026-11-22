@@ -196,15 +196,22 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
   const shade = (i: number): CSSProperties | undefined =>
     fade && { opacity: fade === "row" ? fadeAt(i % cols.length, cols.length) : fadeAt(Math.floor(i / cols.length), cells.length) };
   // A cell with a look of its own takes the table's text style with its keys over it; its bold wins over the
-  // Kopfzeile's. Cells without one stay as they were.
+  // Kopfzeile's. Its background lies under its text, and its padding takes the place of the usual one: the cell stays
+  // at least a line high with it. Cells without one stay as they were.
   const looks = looksOf(block.props);
   const cellLook = (i: number): CSSProperties | undefined => {
     const [r, c] = [Math.floor(i / cols.length), i % cols.length];
     const look = looks && lookAt(block.props, r, c);
     if (!look || !Object.keys(look).length) return undefined;
-    const { textAlign: _, color: __, ...rest } = textStyle({ text: "", ...block.props, ...look, bold: look.bold ?? (!!head && r === 0) }, k);
+    const { fill, pad, ...type } = look;
+    const box: CSSProperties = {
+      ...(fill && { backgroundColor: fill }),
+      ...(pad && { padding: pad.map((mm) => `${mm * k}px`).join(" "), minHeight: `calc(1lh + ${(pad[0] + pad[2]) * k}px + var(--edge))` }),
+    };
+    if (!Object.keys(type).length) return box;
+    const { textAlign: _, color: __, ...rest } = textStyle({ text: "", ...block.props, ...type, bold: type.bold ?? (!!head && r === 0) }, k);
     // WebKit's lift is the font's own: a cell without one must not take the table's.
-    return { "--lift": "0px", ...rest } as CSSProperties;
+    return { "--lift": "0px", ...rest, ...box } as CSSProperties;
   };
   // A merged cell is drawn once, over the cells it covers: those are not drawn, and each drawn cell takes its place in the grid.
   const spans = spansOf(block.props);

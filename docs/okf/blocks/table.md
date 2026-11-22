@@ -4,7 +4,7 @@ title: "Block: table"
 description: "The table's text, layout and lines."
 tags: [block, table]
 covers: [table]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-15T16:07:50Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-22T20:43:39Z }
 ---
 
 # table
@@ -61,7 +61,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | fade | string | `row`, `rows` | no | Makes the trace fade step by step until it is gone: "row" along each row, "rows" from row to row. Left out, no fade. |
 | spans | list of list of number and number and number and number |  | no | Merged cells, each as [row, column, rows, columns]: the cell where it starts and how many rows and columns it covers, counted from 0. |
 | rows | list of number |  | no | The lowest height of each row, in mm. A row still grows when its text needs more. |
-| looks | list of list of object or null |  | no | The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look. |
+| looks | list of list of object or null |  | no | The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile, and with fill (the cell's background as a hex colour such as "#ffe680") and pad (its padding in mm as [top, right, bottom, left]). Left out, every cell takes the table's look. |
 
 # Examples
 
