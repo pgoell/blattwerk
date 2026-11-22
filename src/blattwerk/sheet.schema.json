@@ -2984,6 +2984,10 @@
                 "type": "number"
               },
               "description": "The lowest height of each row, in mm. A row still grows when its text needs more."
+            },
+            "looks": {
+              "$ref": "#/definitions/Looks",
+              "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
             }
           },
           "required": [
@@ -3147,6 +3151,48 @@
       ],
       "maxItems": 4,
       "description": "A merged cell: where it starts, counted from 0, and how many rows and columns it covers."
+    },
+    "Looks": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/CellLook"
+        }
+      }
+    },
+    "CellLook": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "font": {
+              "$ref": "#/definitions/Font",
+              "description": "Font of this cell's text. Left out, the table's font."
+            },
+            "size": {
+              "type": "number",
+              "description": "Font size of this cell's text, in pt. Left out, the table's size.",
+              "minimum": 1
+            },
+            "bold": {
+              "type": "boolean",
+              "description": "True makes this cell's text bold, false makes it plain, also in a Kopfzeile. Left out, the table's setting."
+            },
+            "italic": {
+              "type": "boolean",
+              "description": "True makes this cell's text italic. Left out, upright."
+            },
+            "underline": {
+              "type": "boolean",
+              "description": "True underlines this cell's text. Left out, no underline."
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "SuchselBlock": {
       "type": "object",
