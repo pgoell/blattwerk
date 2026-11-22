@@ -5,6 +5,7 @@ import { type Span, heightsOf, spansOf } from "../cells";
 import type { Lines } from "../edges";
 import { PT } from "../height";
 import type { LetterMarks } from "../letters";
+import { looksOf, type Looks } from "../looks";
 import type { Breaks } from "../syllables";
 import type { Box, Align } from "./box";
 import type { Font, Tints, Fade } from "./look";
@@ -60,6 +61,8 @@ export type TableBlock = Box & {
     spans?: Span[];
     /** The lowest height of each row, in mm. A row still grows when its text needs more. */
     rows?: number[];
+    /** The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look. */
+    looks?: Looks;
   } & Lines;
 };
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
@@ -67,17 +70,19 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // is as wide as the others are on average. The block's width changes by that in `rank`: the widths are shares of it.
 // A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
-// A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
+// A row that comes takes the height a new row gets in the editor; set heights of the other rows stay. The cells'
+// looks go with their cells as the gap flags do; a new row or column has none.
 export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean, after = false): TableBlock["props"] {
   // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
   // Lines that do not hold go too: with a row more or less they could fit by chance, on the wrong cells.
-  const { cells, cols, gaps, spans: _, rows: __, edges: ___, ...rest } = props;
+  const { cells, cols, gaps, spans: _, rows: __, edges: ___, looks: ____, ...rest } = props;
   const put =<T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
   const heights = heightsOf(props);
   // A sheet may come from anywhere: the flags take the shape of the cells first.
   const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
   const grid = cells.map((row) => [...row]);
   const flagged = held?.map((row) => [...row]);
+  const styled = looksOf(props)?.map((row) => [...row]);
   const spans = spansOf(props).flatMap(([r, c, h, w]): Span[] => {
     const start = axis === "row" ? r : c;
     const len = axis === "row" ? h : w;
@@ -89,6 +94,7 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
       grid[ar][ac] = grid[r][c];
       grid[r][c] = "";
       if (flagged) [flagged[ar][ac], flagged[r][c]] = [flagged[r][c], false];
+      if (styled) [styled[ar][ac], styled[r][c]] = [styled[r][c], null];
       n = len - 1;
     } else if (add ? start < i && i < start + len : start <= i && i < start + len) n = len + (add ? 1 : -1);
     const span: Span = axis === "row" ? [to, c, n, w] : [r, to, h, n];
@@ -96,7 +102,9 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   });
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
+  const added = styled && (axis === "row" ? put(styled, cols.map(() => null)) : styled.map((row) => put(row, null)));
+  const looks = added?.some((row) => row.some(Boolean)) ? { looks: added } : {};
   const edges = edgesSpliced(props, axis, i, add, after);
-  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }), ...(edges && { edges }) };
-  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }), ...(edges && { edges }) };
+  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...looks, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }), ...(edges && { edges }) };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...looks, ...kept, ...(heights && { rows: heights }), ...(edges && { edges }) };
 }

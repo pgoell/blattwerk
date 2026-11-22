@@ -22,8 +22,8 @@ from playwright.sync_api import sync_playwright
 from blattwerk import db
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
-import pixels  # ty: ignore[unresolved-import]
-import ui  # ty: ignore[unresolved-import]
+import pixels  # ty: ignore[import-not-found]
+import ui  # ty: ignore[import-not-found]
 
 args = sys.argv[1:]
 page = int(args[args.index("--page") + 1]) if "--page" in args else 0

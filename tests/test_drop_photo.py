@@ -92,7 +92,9 @@ def test_a_dropped_photo_goes_out_with_the_feedback(editor, data_dir):
     drop(page, *field(page), PNG)
     photos(page, 1)
     page.get_by_role("button", name="Abschicken").click()
-    expect(page.locator("dialog.feedback .status")).to_have_text("Danke! Ist angekommen.")
+    expect(page.locator("dialog.feedback").get_by_role("status")).to_have_text(
+        "Danke! Ist angekommen."
+    )
     assert [name.split(".")[0] for name in sent(data_dir)] == ["photo-1"]
     photos(page, 0)
 
@@ -105,7 +107,9 @@ def test_entfernen_takes_a_dropped_photo_away(editor, data_dir):
     page.get_by_label("Bild 1 entfernen").click()
     photos(page, 1)
     page.get_by_role("button", name="Abschicken").click()
-    expect(page.locator("dialog.feedback .status")).to_have_text("Danke! Ist angekommen.")
+    expect(page.locator("dialog.feedback").get_by_role("status")).to_have_text(
+        "Danke! Ist angekommen."
+    )
     assert [name.split(".")[0] for name in sent(data_dir)] == ["photo-1"]
 
 

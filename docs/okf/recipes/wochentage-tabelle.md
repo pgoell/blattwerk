@@ -4,7 +4,7 @@ title: "Wochentage als Tabelle"
 description: A heading, a name line, and a table with the weekdays Montag to Freitag in a bold head row.
 tags: [tabelle, wochentage, klasse-1]
 covers: [text, name, table]
-generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
+generated: { by: "human:pgoell", at: 2026-11-15T17:00:00Z }
 ---
 
 # Wochentage als Tabelle
@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 When a teacher asks for: "Ein Blatt mit einer Tabelle für die Wochentage, Montag bis Freitag."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the table is the button "Tabelle" in the insert bar, group "Einfügen". Its `cells` hold the text of each cell, row by row, and `cols` the width share of each column. `head` true sets the first row in bold.
+* In the editor the table is the button "Tabelle" in the insert bar, group "Einfügen". Its `cells` hold the text of each cell, row by row, and `cols` the width share of each column. `head` true sets the first row in bold. `looks` gives single cells their own font, size, bold, italic or underline.
 * See [table](../blocks/table.md) for the other props.
 
 # Doc
