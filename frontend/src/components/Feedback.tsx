@@ -3,6 +3,7 @@ import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type 
 import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
+import Thanks from "./Thanks";
 import VoiceNotes, { lost } from "./VoiceNotes";
 import { useBackdrop } from "./useBackdrop";
 
@@ -39,6 +40,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
   const [recording, setRecording] = useState(false);
   const backdrop = useBackdrop(dialog, shut, busy || recording);
   const [status, setStatus] = useState("");
+  const [sent, setSent] = useState(false);
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
   const stopper = useRef<() => boolean>(null);
   const gen = generation;
@@ -61,6 +63,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
     // A clip kept from a form that shut while recording is told once; the draft empty after a logout tells nothing.
     // The draft is read anew: the other form (the editor's or the list's) may have changed it since.
     write(draft);
+    setSent(false);
     setStatus(lost.recording && draft.clips.length ? KEPT : "");
     lost.recording = false;
     // The editor keeps the focus off the button on a click, so the button that was clicked is the one to return to.
@@ -88,7 +91,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       // With no limit of time: voice notes and pictures may take long.
       await signed(api("/feedback", { method: "POST", body: data }));
       keep(NONE);
-      setStatus("Danke! Ist angekommen.");
+      setStatus("");
+      setSent(true);
     } catch {
       setStatus("Das hat nicht geklappt. Dein Feedback ist noch da, versuch es gleich nochmal.");
     } finally {
@@ -116,28 +120,32 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
             shut();
           }}
         >
-          <form onSubmit={submit}>
-            <h1>Feedback</h1>
-            <p className="lead">Was fällt dir auf, was fehlt, was nervt? Ein Bild von dieser Seite, so wie du sie gerade siehst, geht von selbst mit.</p>
-            <label htmlFor="feedback-text">Schreiben</label>
-            <textarea id="feedback-text" value={text} onChange={(e) => keep({ text: e.target.value })} />
-            <label>Sprechen</label>
-            <VoiceNotes
-              clips={clips}
-              onChange={(clips) => {
-                if (gen === generation) keep({ clips });
-              }}
-              stopper={stopper}
-              onRecording={setRecording}
-            />
-            <label>Bilder</label>
-            <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
-            <div className="row">
-              <button type="button" onClick={shut}>Schließen</button>
-              <button className="primary" disabled={busy}>Abschicken</button>
-            </div>
-            <div className="status" role="status">{status}</div>
-          </form>
+          {sent ? (
+            <Thanks button="Schließen" onClick={shut} />
+          ) : (
+            <form onSubmit={submit}>
+              <h1>Feedback</h1>
+              <p className="lead">Was fällt dir auf, was fehlt, was nervt? Ein Bild von dieser Seite, so wie du sie gerade siehst, geht von selbst mit.</p>
+              <label htmlFor="feedback-text">Schreiben</label>
+              <textarea id="feedback-text" value={text} onChange={(e) => keep({ text: e.target.value })} />
+              <label>Sprechen</label>
+              <VoiceNotes
+                clips={clips}
+                onChange={(clips) => {
+                  if (gen === generation) keep({ clips });
+                }}
+                stopper={stopper}
+                onRecording={setRecording}
+              />
+              <label>Bilder</label>
+              <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
+              <div className="row">
+                <button type="button" onClick={shut}>Schließen</button>
+                <button className="primary" disabled={busy}>Abschicken</button>
+              </div>
+              <div className="status" role="status">{status}</div>
+            </form>
+          )}
         </dialog>
       )}
     </>
