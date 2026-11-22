@@ -41,7 +41,6 @@
 .maths .at { display: inline-block; text-align: right; }
 .maths .at:is([data-at="op"], [data-at="op2"]) { text-align: center; }
 .maths .at:is([data-at="close-b"], [data-at="close-c"]) { text-align: left; }
-.maths .at > u { min-width: max(var(--gap), 100%); }
 /* A family is one grid item: its tasks stand under each other, each a row of its own. */
 .maths > .family { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: .5em; }
 .maths .family > div { display: flex; align-items: baseline; gap: .5em; white-space: nowrap; }
