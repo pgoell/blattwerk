@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Which round of review this push is, and which commits it covers. Each kind of
+# review (review, security) keeps one comment on the pull request with a marker
+# that records the last commit it covered and the round. Round 1 reads the whole
+# pull request, later rounds only the commits since.
+#
+# Security reads every line on round 1 but a later round only when the new
+# commits are big or touch a risky path, as a fix push is a few lines and
+# rereading it costs plan usage for nothing. A skipped round counts no round
+# and leaves the marker where it was, so the next round that runs reads the
+# skipped commits too.
+#
+#   round.sh plan    writes round, from, comment_id, stop, rerun and skip to $GITHUB_OUTPUT
+#   round.sh record  writes the marker comment for this round
+#
+# Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
+# ROUND, FROM, COMMENT_ID and SKIP for record.
+set -euo pipefail
+# So a failed command inside $(...) stops the script too.
+shopt -s inherit_errexit
+
+MAX_SKIP_LINES=100
+marker="<!-- blattwerk-review:$KIND"
+
+# Prints the first changed file a pattern in .github/CODEOWNERS matches, so the
+# risky paths have one list. Read from the base branch, as GitHub reads it, so
+# a pull request cannot shorten the list for itself. A `*` here also matches a
+# `/`, which can only call a path risky that is not. Every doubt fails toward
+# running: a file that cannot be read stops the script, and an empty list
+# calls the push risky.
+risky_path() {
+  local owners file pattern patterns files
+  owners=$(git show "origin/$GITHUB_BASE_REF:.github/CODEOWNERS")
+  mapfile -t patterns < <(sed -E 's/#.*//; s/[[:space:]].*//; /^$/d' <<<"$owners")
+  if [ "${#patterns[@]}" -eq 0 ]; then echo "(no pattern in .github/CODEOWNERS)"; return; fi
+  # NUL-separated, as git quotes a name with a tab, a quote or a byte above
+  # 0x7f, and no glob would match the quoted form.
+  mapfile -d '' -t files < <(git diff -z --name-only --no-renames "$1" "$HEAD_SHA")
+  for file in "${files[@]}"; do
+    for pattern in "${patterns[@]}"; do
+      # Unquoted on purpose: the pattern is a glob.
+      # shellcheck disable=SC2053
+      case $pattern in
+        /*/) [[ $file == "${pattern#/}"* ]] ;;
+        /*) [[ $file == ${pattern#/} || $file == ${pattern#/}/* ]] ;;
+        *) [[ $file == $pattern || $file == */$pattern ]] ;;
+      esac && { echo "$file"; return; }
+    done
+  done
+  return 0
+}
+
+case $1 in
+  plan)
+    # The comment this workflow wrote, not one a person pasted the marker into.
+    found=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+      --jq ".[] | select(.user.login == \"github-actions[bot]\") | select(.body | startswith(\"$marker\")) | [.id, .body] | @tsv" | tail -1)
+    round=1
+    from=$BASE_SHA
+    comment_id=
+    rerun=false
+    if [ -n "$found" ]; then
+      comment_id=${found%%$'\t'*}
+      last_sha=$(sed -nE 's/.*sha=([0-9a-f]{40}).*/\1/p' <<<"$found")
+      last_round=$(sed -nE 's/.*round=([0-9]+).*/\1/p' <<<"$found")
+      round=$((last_round + 1))
+      # A rerun on a commit a finished round already covered has nothing new
+      # to read, and must not use up a round.
+      if [ "$last_sha" = "$HEAD_SHA" ]; then rerun=true; fi
+      # A force push can drop the commit the last round covered: then this
+      # round reads the whole pull request again, and still counts.
+      if git merge-base --is-ancestor "$last_sha" "$HEAD_SHA" 2>/dev/null; then
+        from=$last_sha
+      fi
+    fi
+    stop=$rerun
+    skip=
+    if [ "$KIND" = security ] && [ "$round" -gt 1 ] && [ "$stop" = false ]; then
+      # A binary file counts no lines, but any file can still be risky.
+      lines=$(git diff --numstat "$from" "$HEAD_SHA" | awk '{ n += ($1 == "-" ? 0 : $1 + $2) } END { print n + 0 }')
+      risky=$(risky_path "$from")
+      if [ "$lines" -le "$MAX_SKIP_LINES" ] && [ -z "$risky" ]; then
+        skip="the new commits change $lines lines (the limit is $MAX_SKIP_LINES) and no path in .github/CODEOWNERS"
+        stop=true
+      fi
+    fi
+    {
+      echo "round=$round"
+      echo "from=$from"
+      echo "comment_id=$comment_id"
+      echo "stop=$stop"
+      echo "rerun=$rerun"
+      echo "skip=$skip"
+    } >>"$GITHUB_OUTPUT"
+    ;;
+  record)
+    sha=$HEAD_SHA
+    if [ -n "${SKIP:-}" ]; then
+      # The marker stays on the commit the last round covered, and its round.
+      # shellcheck disable=SC2153 # FROM comes from the environment.
+      sha=$FROM
+      ROUND=$((ROUND - 1))
+      text="**${KIND^}** skipped \`${FROM:0:7}..${HEAD_SHA:0:7}\`: $SKIP. It counts no round, and the next round reads these commits too."
+    else
+      text="**${KIND^}** round $ROUND covered \`${FROM:0:7}..${HEAD_SHA:0:7}\`."
+    fi
+    body="$marker sha=$sha round=$ROUND -->
+$text"
+    if [ -n "$COMMENT_ID" ]; then
+      gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" -f body="$body" >/dev/null
+    else
+      gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+    fi
+    ;;
+esac

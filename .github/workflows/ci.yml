@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # `ready_for_review` beside the defaults, so a draft marked ready gets the
+  # reviews it skipped while a draft.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [master]
 
@@ -196,3 +199,122 @@ jobs:
           persist_github_token: true
       - name: Conventional commits
         run: mise run check-commits
+
+  # The reviews run on `pull_request`, never `pull_request_target`: a pull
+  # request from a fork runs with no secrets and a read-only token, so its code
+  # never meets the OAuth token. Anyone may comment on a public pull request, so the reviewer reads no
+  # comment straight from GitHub: a step writes it the pull request and the
+  # earlier threads by the bot and the owner. It can read files in the checkout,
+  # run git, post inline comments and write its summary, nothing more; the steps
+  # around it do the rest with the token.
+  review:
+    name: ${{ matrix.name }}
+    # The job always runs and its first step decides, as a matrix job skipped by
+    # its `if:` never expands: it reports one check named `${{ matrix.name }}`,
+    # and the required Review and Security would wait forever. So a fork or a
+    # Dependabot pull request (whose runs see neither the token nor write
+    # access), a draft, or a run whose Lint, Test or Commits did not pass passes here
+    # with no round; pgoell reads the first two by hand.
+    needs: [lint, test, commits]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: review
+            name: Review
+          - kind: security
+            name: Security
+    env:
+      KIND: ${{ matrix.kind }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      OWNER: ${{ github.repository_owner }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - id: decide
+        env:
+          RUN: >-
+            ${{ needs.lint.result == 'success' && needs.test.result == 'success' && needs.commits.result == 'success' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
+            github.event.pull_request.user.login != 'dependabot[bot]' &&
+            !github.event.pull_request.draft }}
+        run: |
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          if [ "$RUN" != true ]; then echo "No round: a fork, Dependabot, a draft, or Lint, Test or Commits did not pass." >> "$GITHUB_STEP_SUMMARY"; fi
+      - if: steps.decide.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      # The scrub below runs each command in Claude Code's sandbox, which needs
+      # bubblewrap and socat, neither on the runner image, and user namespaces,
+      # which Ubuntu's AppArmor blocks by default.
+      - if: steps.decide.outputs.run == 'true'
+        run: |
+          sudo apt-get install -y -qq bubblewrap socat
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # Out of the checkout, where the reviewer's git cannot write over it.
+      - if: steps.decide.outputs.run == 'true'
+        run: cp .github/review/round.sh .github/review/context.sh "$RUNNER_TEMP/"
+      - id: base
+        if: steps.decide.outputs.run == 'true'
+        run: echo "sha=$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" >> "$GITHUB_OUTPUT"
+      - id: round
+        if: steps.decide.outputs.run == 'true'
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: bash "$RUNNER_TEMP/round.sh" plan
+      - if: steps.round.outputs.stop == 'false'
+        run: bash "$RUNNER_TEMP/context.sh"
+      - id: prompt
+        if: steps.round.outputs.stop == 'false'
+        env:
+          FROM: ${{ steps.round.outputs.from }}
+          ROUND: ${{ steps.round.outputs.round }}
+        run: |
+          {
+            echo 'text<<PROMPT_END'
+            echo "Round $ROUND. FROM: $FROM. HEAD: $HEAD_SHA."
+            echo
+            sed -e "s|{FROM}|$FROM|g" ".github/review/$KIND.md"
+            echo 'PROMPT_END'
+          } >> "$GITHUB_OUTPUT"
+      - if: steps.round.outputs.stop == 'false'
+        uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064 # v1.0.265
+        env:
+          # Strips the tokens from the environment of every command it runs.
+          # Files are another matter: the action writes a token into
+          # .git/config, so the reviewer may not read .git.
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: 1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_args: >-
+            --model claude-opus-5-5
+            --disallowedTools "Read(./.git/**)"
+            --allowedTools "Read(./**),Write(./.review/summary.md),Edit(./.review/summary.md),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git grep:*),Bash(git ls-files:*),mcp__github_inline_comment__create_inline_comment"
+      - if: steps.round.outputs.stop == 'false'
+        run: |
+          if [ -s .review/summary.md ]; then
+            gh pr comment "$PR" --body-file .review/summary.md
+          else
+            echo "The reviewer wrote no summary." >&2
+            exit 1
+          fi
+      # Only after a review that ran to the end, so a failed run is redone in
+      # full by its rerun and not counted as a round.
+      - if: steps.round.outputs.rerun == 'false'
+        env:
+          ROUND: ${{ steps.round.outputs.round }}
+          FROM: ${{ steps.round.outputs.from }}
+          COMMENT_ID: ${{ steps.round.outputs.comment_id }}
+          SKIP: ${{ steps.round.outputs.skip }}
+        run: bash "$RUNNER_TEMP/round.sh" record
