@@ -1,7 +1,7 @@
 // What a table's cell looks hold, and what the writers put in them.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { lookAt, looked, looksOf, unlooked } from "./looks";
+import { lookAt, looked, looksOf, padOf, unlooked } from "./looks";
 import { merged } from "./cells";
 import { spliced, type TableBlock } from "./sheet";
 
@@ -24,6 +24,30 @@ describe("looksOf", () => {
     expect(lookAt({ ...grid, looks } as never, 0, 0)).toStrictEqual({ bold: true });
     expect(lookAt({ ...grid, looks } as never, 0, 2)).toStrictEqual({ size: 14, font: "nord", underline: false });
     expect(lookAt({ ...grid, looks } as never, 1, 1)).toStrictEqual({});
+  });
+});
+
+describe("fill and pad", () => {
+  it("keep a hex colour and four paddings from 0 to 20 mm, and drop anything else", () => {
+    const looks = [[{ fill: "#ffe680", pad: [1, 2, 3, 4] }, { fill: "red", pad: [1, 2, 3] }, { fill: "#FFF", pad: [0, 0, 0, 21] }, { pad: [0, -1, 0, 0], bold: true }], [null, null, null, null], [null, null, null, null]];
+    expect(lookAt({ ...grid, looks } as never, 0, 0)).toStrictEqual({ fill: "#ffe680", pad: [1, 2, 3, 4] });
+    expect(lookAt({ ...grid, looks } as never, 0, 1)).toStrictEqual({});
+    expect(lookAt({ ...grid, looks } as never, 0, 2)).toStrictEqual({});
+    expect(lookAt({ ...grid, looks } as never, 0, 3)).toStrictEqual({ bold: true });
+  });
+
+  it("go on a rect beside the text format, and go again without it", () => {
+    const bold = looked(grid, [0, 0, 0, 1], { bold: true });
+    const out = looked(bold, [0, 1, 1, 1], { fill: "#ffe680", pad: [2, 2, 2, 2] });
+    expect(lookAt(out, 0, 0)).toStrictEqual({ bold: true });
+    expect(lookAt(out, 0, 1)).toStrictEqual({ bold: true, fill: "#ffe680", pad: [2, 2, 2, 2] });
+    expect(lookAt(out, 1, 1)).toStrictEqual({ fill: "#ffe680", pad: [2, 2, 2, 2] });
+    const bare = looked(out, [0, 0, 2, 3], { fill: undefined, pad: undefined });
+    expect(bare.looks).toStrictEqual(bold.looks);
+  });
+
+  it("the usual padding is .15em and .3em of the font size, in mm", () => {
+    expect(padOf(20)).toStrictEqual([1.06, 2.12, 1.06, 2.12]);
   });
 });
 

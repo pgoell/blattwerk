@@ -257,12 +257,12 @@ export function useTable(session: ReturnType<typeof useMove>) {
     if (editing !== t.id) return [0, 0, t.props.cells.length - 1, t.props.cols.length - 1];
     return reach === undefined ? [r, c, r + h - 1, c + w - 1] : rectOf(t.props, slot, reach);
   }
-  // Sets font, size, bold, italic or underline on the cells a cell format acts on. It is one step of undo, and the
-  // cells stay picked.
-  function lookCells(patch: NonNullable<CellLook>) {
+  // Sets font, size, bold, italic, underline, background or padding on the cells a cell format acts on. It is one
+  // step of undo, and the cells stay picked. A drag in the colour picker passes its `key`, so that the whole drag is one step.
+  function lookCells(patch: { [K in keyof NonNullable<CellLook>]: NonNullable<CellLook>[K] | undefined }, key?: string) {
     if (!table) return;
-    tight.current = true;
-    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: looked(table.props, formatRect(table), patch) } : o)));
+    if (!key) tight.current = true;
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: looked(table.props, formatRect(table), patch) } : o)), key);
   }
   // Sets the font or size of every picked table, and takes it out of each cell, so that it holds for all of them.
   function lookTables(patch: { font: string } | { size: number }) {

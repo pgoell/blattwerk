@@ -1,6 +1,5 @@
-// The look of single cells of a table: their font, size, bold, italic and underline, each over the table's own.
-// The grid lies beside `cells`, a row of columns at a time, as `gaps` does. Each cell's entry is an object, so that
-// more keys (a fill, a padding) can join it later.
+// The look of single cells of a table: their font, size, bold, italic and underline, each over the table's own, and
+// their background and padding. The grid lies beside `cells`, a row of columns at a time, as `gaps` does.
 import type { Rect } from "./cells";
 import { FONTS, type Font } from "./sheet/look";
 
@@ -18,7 +17,21 @@ export type CellLook = {
   italic?: boolean;
   /** True underlines this cell's text. Left out, no underline. */
   underline?: boolean;
+  /** Background colour of this cell, as a hex colour such as "#ffe680". Left out, the cell has no background. */
+  fill?: string;
+  /** The room between this cell's lines and its text, in mm, as [top, right, bottom, left], each from 0 to 20. Left out, the usual room, which grows with the font size. */
+  pad?: Pad;
 } | null;
+// A cell's padding in mm: top, right, bottom, left.
+export type Pad = [top: number, right: number, bottom: number, left: number];
+// The most padding a side takes, in mm.
+export const PAD_MOST = 20;
+// The padding a cell has with none set, in mm, for a font size in pt: .15em above and below, .3em at the sides.
+export const padOf = (size: number): Pad => {
+  const em = (size * 25.4) / 72;
+  const [v, h] = [Math.round(em * 15) / 100, Math.round(em * 30) / 100];
+  return [v, h, v, h];
+};
 export type Looks = CellLook[][];
 type Look = NonNullable<CellLook>;
 type Grid = { cells: string[][]; cols: number[]; looks?: unknown };
@@ -33,6 +46,8 @@ const sane = (x: unknown): Look => {
   if (typeof o.font === "string" && Object.hasOwn(FONTS, o.font)) out.font = o.font as Font;
   if (typeof o.size === "number" && Number.isFinite(o.size) && o.size >= 1) out.size = o.size;
   for (const k of FLAGS) if (typeof o[k] === "boolean") out[k] = o[k];
+  if (typeof o.fill === "string" && /^#[0-9a-f]{6}$/i.test(o.fill)) out.fill = o.fill;
+  if (Array.isArray(o.pad) && o.pad.length === 4 && o.pad.every((n) => typeof n === "number" && n >= 0 && n <= PAD_MOST)) out.pad = o.pad as Pad;
   return out;
 };
 
