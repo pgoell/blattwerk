@@ -117,7 +117,7 @@ def test_feedback_that_reaches_no_server_says_so_stays_and_goes_with_the_next_pr
         photographed(page)
         within, text = page.locator("main"), page.get_by_label("Was gefällt dir daran?")
         what = "Die Fotos sind"
-        thanks = "Danke! Ist angekommen. Du kannst gleich das nächste schicken."
+        thanks = "Danke! Ist angekommen."
     send = within.get_by_role("button", name="Abschicken")
     said = within.get_by_role("status")
     mend = broken(page, how, "/feedback$")

@@ -5,7 +5,7 @@
 export type Span = [row: number, col: number, rows: number, cols: number];
 // A rectangle of cells, both ends inside: [first row, first col, last row, last col].
 export type Rect = [number, number, number, number];
-type Grid = { cells: string[][]; cols: number[]; gaps?: boolean[][]; spans?: unknown };
+type Grid = { cells: string[][]; cols: number[]; gaps?: boolean[][]; spans?: unknown; looks?: unknown };
 
 // The merged cells of a table that hold: a sheet may come from anywhere. An entry counts only when it is an array
 // of four whole numbers, rows >= 1, cols >= 1, rows * cols >= 2, it lies inside the grid, it does not overlap an
@@ -115,7 +115,8 @@ const withSpans = <T extends Grid>(p: T, spans: Span[]): T => {
 
 // The table with the cells of `rect` as one cell. The texts that are not empty join in reading order with "\n"
 // into the top-left cell, the others become "". The merged cells inside `rect` go into the new one. The top-left
-// cell keeps its gap flag, the others lose theirs (when `gaps` is there). A rect of one cell changes nothing.
+// cell keeps its gap flag and its look, the others lose theirs (when `gaps` or `looks` is there). A rect of one cell
+// changes nothing.
 export function merged<T extends Grid>(p: T, rect: Rect): T {
   const [r0, c0, r1, c1] = rect;
   if (r0 === r1 && c0 === c1) return p;
@@ -126,7 +127,8 @@ export function merged<T extends Grid>(p: T, rect: Rect): T {
   cells[r0][c0] = texts.join("\n");
   const gaps = p.gaps?.map((row, r) => row.map((flag, c) => (inside(r, c) && (r !== r0 || c !== c0) ? false : flag)));
   const kept = spansOf(p).filter(([r, c, h, w]) => r + h - 1 < r0 || r > r1 || c + w - 1 < c0 || c > c1);
-  return withSpans({ ...p, cells, ...(gaps && { gaps }) }, [...kept, [r0, c0, r1 - r0 + 1, c1 - c0 + 1]]);
+  const looks = Array.isArray(p.looks) ? p.looks.map((row, r) => (Array.isArray(row) ? row.map((look, c) => (inside(r, c) && (r !== r0 || c !== c0) ? null : look)) : row)) : undefined;
+  return withSpans({ ...p, cells, ...(gaps && { gaps }), ...(looks && { looks }) }, [...kept, [r0, c0, r1 - r0 + 1, c1 - c0 + 1]]);
 }
 
 // The table without the merged cell at `slot`: its cells are single again, the text stays in the first.
