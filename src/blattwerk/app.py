@@ -21,6 +21,7 @@ from blattwerk import (
     grounds,
     maths,
     oauth,
+    office,
     pdf,
     remote,
     shares,
@@ -55,6 +56,7 @@ app.include_router(folder.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)
 app.include_router(oauth.router)
+app.include_router(office.router)
 app.include_router(pdf.router)
 app.include_router(remote.router)
 app.include_router(sheets.router)

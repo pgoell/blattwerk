@@ -1,5 +1,5 @@
 // The bar: the title, the commands that fit, and the clash.
-import { CircleHelp, ClipboardPaste, Copy, CopyPlus, Ellipsis, Eye, Group, FileCheck, FileDown, Layers, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
+import { CircleHelp, ClipboardPaste, Copy, CopyPlus, Ellipsis, Eye, Group, FileCheck, FileDown, Layers, MessageSquare, Paintbrush, PanelLeft, PanelRight, Presentation, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
 import Feedback from "../../components/Feedback";
 import Variants from "../../components/Variants";
 import { fresh } from "../../history";
@@ -177,6 +177,20 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
             <MessageSquare size={16} aria-hidden />
           </Feedback>
           {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={(e) => openVariants(e.currentTarget)} />}
+          {/* The sheet as a PowerPoint or a Word file: the menu opens under the button. */}
+          {inBar("Als PowerPoint oder Word laden") && (
+            <Tool
+              icon={Presentation}
+              label="Als PowerPoint oder Word laden"
+              className="office"
+              aria-haspopup="menu"
+              aria-expanded={!!menu?.office}
+              onClick={(e) => {
+                const box = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: box.left, y: box.bottom + 4, office: true });
+              }}
+            />
+          )}
           {more.length > 0 && (
             <Tool
               icon={Ellipsis}
