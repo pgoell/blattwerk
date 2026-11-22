@@ -9,16 +9,29 @@ import { KARO, PT } from "../height";
 import { useLetters } from "./context";
 import { type Calc, type Side, SIGNS, type Grid, type MathsBlock, type Exercise } from "./maths";
 import { Count } from "./numbering";
-import { useRef, useLayoutEffect, type CSSProperties } from "react";
+import { useRef, useLayoutEffect, type CSSProperties, type ReactNode } from "react";
+
+// The pieces of a task that stand under the same piece of the tasks above and below: the numbers, the signs between
+// them, the brackets of a chain and the left side of a comparison.
+const ATS = ["a", "b", "c", "result", "op", "op2", "close-b", "close-c", "left"] as const;
+type AtName = (typeof ATS)[number];
+
+// One such piece. `fit` gives every piece of a kind the width of the block's widest, so the ones stand under the
+// ones, the signs under the signs and the answer lines under each other (#1160).
+function At({ at, children }: { at: AtName; children?: ReactNode }) {
+  return <span className="at" data-at={at} style={{ minWidth: `var(--at-${at}, 0)` }}>{children}</span>;
+}
 
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
 // With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
-export function Part({ e, part, solved, d, money, blank = true }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean; blank?: boolean }) {
+// A bracket that opens before the number stands against it, in the number's piece: the ones stay where they are.
+function Part({ e, part, solved, d, money, blank = true, open = false }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean; blank?: boolean; open?: boolean }) {
   const gap = part === "rest" ? blank : part === (e.hide ?? "result") || part === e.also;
   const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
-  const euro = money && part !== "rest" ? " €" : "";
+  const euro = money && part !== "rest" ? " €" : "";
   const shown = <FormulaText text={text} />;
-  return <>{gap ? <u>{solved && shown}</u> : shown}{euro}</>;
+  const number = gap ? <u>{solved && shown}</u> : shown;
+  return <>{part === "rest" ? number : <At at={part}>{open && "("}{number}</At>}{euro}</>;
 }
 
 // One side of a comparison as it reads: a number, or a term with its sign.
@@ -95,7 +108,13 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
     // width, whole pixels and blind to a turn of the block; one pixel more holds the fraction it drops.
     el.style.removeProperty("--num");
     const marks = [...el.querySelectorAll<HTMLElement>("b")];
-    if (marks.length) el.style.setProperty("--num", `${(Math.max(...marks.map((b) => b.offsetWidth)) + 1) / parseFloat(getComputedStyle(el).fontSize)}em`);
+    const em = parseFloat(getComputedStyle(el).fontSize);
+    if (marks.length) el.style.setProperty("--num", `${(Math.max(...marks.map((b) => b.offsetWidth)) + 1) / em}em`);
+    // So do the pieces of the tasks, kind by kind. A kind whose pieces are all one width already keeps it.
+    for (const at of ATS) el.style.removeProperty(`--at-${at}`);
+    const widths = new Map<string, number[]>();
+    for (const piece of el.querySelectorAll<HTMLElement>(".at")) widths.set(piece.dataset.at!, [...(widths.get(piece.dataset.at!) ?? []), piece.offsetWidth]);
+    for (const [at, ws] of widths) if (Math.max(...ws) > Math.min(...ws)) el.style.setProperty(`--at-${at}`, `${(Math.max(...ws) + 1) / em}em`);
     // A block with no width to speak of has no scale: it would come out below nothing.
     const over = el.clientWidth > 2 && el.scrollWidth > el.clientWidth + 1;
     // Two pixels of room: the paper's outer line lies half outside its svg, and the block cuts what leaves it.
@@ -116,6 +135,10 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
     document.fonts.addEventListener("loadingdone", fit);
     return () => document.fonts.removeEventListener("loadingdone", fit);
   }, []);
+  // A closing bracket has a place of its own after its number, where any task of the block has one there.
+  const paren = (where: "left" | "right") => p.exercises.some((e) => !("sign" in e) && e.paren === where);
+  const [left, right] = [paren("left"), paren("right")];
+  const sign = (op: string) => SIGNS[op as keyof typeof SIGNS] ?? op;
   // The numbering runs through every task. With families, the tasks of one family stand together in one grid item.
   const task = (e: Exercise, i: number) => (
     <div key={i}>
@@ -123,7 +146,7 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
       {"sign" in e ? (
         // The ring is empty for the pupil to write the sign in; the answer key writes it there.
         <span>
-          <HtmlInk text={side(e.left)} /> <i className="ring">{solved && e.sign}</i> <HtmlInk text={side(e.right)} />
+          <At at="left"><HtmlInk text={side(e.left)} /></At> <i className="ring">{solved && e.sign}</i> <HtmlInk text={side(e.right)} />
         </span>
       ) : e.grid ? (
         // A division keeps its head on the left, as written.
@@ -131,11 +154,11 @@ export function Maths({ block, k, solved }: { block: MathsBlock; k: number; solv
       ) : e.op2 ? (
         // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
         <span>
-          {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2] ?? e.op2} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
+          <Part e={e} part="a" {...num} open={e.paren === "left"} /> <At at="op">{sign(e.op)}</At> <Part e={e} part="b" {...num} open={e.paren === "right"} />{left && <At at="close-b">{e.paren === "left" && ")"}</At>} <At at="op2">{sign(e.op2)}</At> <Part e={e} part="c" {...num} />{right && <At at="close-c">{e.paren === "right" && ")"}</At>} = <Part e={e} part="result" {...num} />
         </span>
       ) : (
         <span>
-          <Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
+          <Part e={e} part="a" {...num} /> <At at="op">{sign(e.op)}</At> <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
           {e.rest > 0 && <> R <Part e={e} part="rest" {...num} blank={restBlank} /></>}
         </span>
       )}
