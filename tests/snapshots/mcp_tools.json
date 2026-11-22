@@ -702,6 +702,39 @@
           ],
           "type": "string"
         },
+        "CellLook": {
+          "anyOf": [
+            {
+              "properties": {
+                "bold": {
+                  "description": "True makes this cell's text bold, false makes it plain, also in a Kopfzeile. Left out, the table's setting.",
+                  "type": "boolean"
+                },
+                "font": {
+                  "$ref": "#/definitions/Font",
+                  "description": "Font of this cell's text. Left out, the table's font."
+                },
+                "italic": {
+                  "description": "True makes this cell's text italic. Left out, upright.",
+                  "type": "boolean"
+                },
+                "size": {
+                  "description": "Font size of this cell's text, in pt. Left out, the table's size.",
+                  "minimum": 1,
+                  "type": "number"
+                },
+                "underline": {
+                  "description": "True underlines this cell's text. Left out, no underline.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "ChartAxes": {
           "enum": [
             "keine",
@@ -2387,6 +2420,15 @@
             "iso"
           ],
           "type": "string"
+        },
+        "Looks": {
+          "items": {
+            "items": {
+              "$ref": "#/definitions/CellLook"
+            },
+            "type": "array"
+          },
+          "type": "array"
         },
         "MagischesQuadratBlock": {
           "properties": {
@@ -5827,6 +5869,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "looks": {
+                  "$ref": "#/definitions/Looks",
+                  "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
+                },
                 "marks": {
                   "$ref": "#/definitions/LetterMarks",
                   "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
@@ -8537,6 +8583,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "looks": {
+                  "$ref": "#/definitions/Looks",
+                  "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
+                },
                 "marks": {
                   "$ref": "#/definitions/LetterMarks",
                   "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
@@ -9632,6 +9682,39 @@
             "either"
           ],
           "type": "string"
+        },
+        "CellLook": {
+          "anyOf": [
+            {
+              "properties": {
+                "bold": {
+                  "description": "True makes this cell's text bold, false makes it plain, also in a Kopfzeile. Left out, the table's setting.",
+                  "type": "boolean"
+                },
+                "font": {
+                  "$ref": "#/definitions/Font",
+                  "description": "Font of this cell's text. Left out, the table's font."
+                },
+                "italic": {
+                  "description": "True makes this cell's text italic. Left out, upright.",
+                  "type": "boolean"
+                },
+                "size": {
+                  "description": "Font size of this cell's text, in pt. Left out, the table's size.",
+                  "minimum": 1,
+                  "type": "number"
+                },
+                "underline": {
+                  "description": "True underlines this cell's text. Left out, no underline.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "ChartAxes": {
           "enum": [
@@ -11382,6 +11465,15 @@
             "iso"
           ],
           "type": "string"
+        },
+        "Looks": {
+          "items": {
+            "items": {
+              "$ref": "#/definitions/CellLook"
+            },
+            "type": "array"
+          },
+          "type": "array"
         },
         "MagischesQuadratBlock": {
           "properties": {
@@ -14949,6 +15041,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "looks": {
+                  "$ref": "#/definitions/Looks",
+                  "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
+                },
                 "marks": {
                   "$ref": "#/definitions/LetterMarks",
                   "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
@@ -17982,6 +18078,39 @@
           ],
           "type": "string"
         },
+        "CellLook": {
+          "anyOf": [
+            {
+              "properties": {
+                "bold": {
+                  "description": "True makes this cell's text bold, false makes it plain, also in a Kopfzeile. Left out, the table's setting.",
+                  "type": "boolean"
+                },
+                "font": {
+                  "$ref": "#/definitions/Font",
+                  "description": "Font of this cell's text. Left out, the table's font."
+                },
+                "italic": {
+                  "description": "True makes this cell's text italic. Left out, upright.",
+                  "type": "boolean"
+                },
+                "size": {
+                  "description": "Font size of this cell's text, in pt. Left out, the table's size.",
+                  "minimum": 1,
+                  "type": "number"
+                },
+                "underline": {
+                  "description": "True underlines this cell's text. Left out, no underline.",
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "ChartAxes": {
           "enum": [
             "keine",
@@ -19667,6 +19796,15 @@
             "iso"
           ],
           "type": "string"
+        },
+        "Looks": {
+          "items": {
+            "items": {
+              "$ref": "#/definitions/CellLook"
+            },
+            "type": "array"
+          },
+          "type": "array"
         },
         "MagischesQuadratBlock": {
           "properties": {
@@ -23107,6 +23245,10 @@
                   "minimum": 0.25,
                   "type": "number"
                 },
+                "looks": {
+                  "$ref": "#/definitions/Looks",
+                  "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
+                },
                 "marks": {
                   "$ref": "#/definitions/LetterMarks",
                   "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
@@ -25811,6 +25953,10 @@
                   "maximum": 3,
                   "minimum": 0.25,
                   "type": "number"
+                },
+                "looks": {
+                  "$ref": "#/definitions/Looks",
+                  "description": "The look of single cells, as looks[row][column] like cells: each null or an object with font, size, bold, italic and underline, whose keys win over the table's font, size and Kopfzeile. Left out, every cell takes the table's look."
                 },
                 "marks": {
                   "$ref": "#/definitions/LetterMarks",

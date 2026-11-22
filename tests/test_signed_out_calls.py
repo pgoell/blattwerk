@@ -198,7 +198,7 @@ def test_what_was_entered_when_the_session_ran_out_waits_for_its_teacher_and_nob
     login(page, server, client if who == "same" else user())
     if call == "feedback":
         click("Feedback")(page)
-    form = page.locator("dialog.feedback" if call == "feedback" else "main form")
+    form = page.locator("dialog.feedback" if call == "feedback" else "main")
 
     def holds(text, pictures):
         expect(form.locator("textarea")).to_have_value(text)
@@ -213,6 +213,10 @@ def test_what_was_entered_when_the_session_ran_out_waits_for_its_teacher_and_nob
         click("Abschicken")(page)
     assert got.value.ok
     expect(form.get_by_role("status")).to_contain_text("Danke! Ist angekommen.")
+    # The thanks stand in the form's place (#1155); the form after them is empty.
+    page.locator(".thanks button").click()
+    if call == "feedback":
+        click("Feedback")(page)
     holds("", 0)
 
 
