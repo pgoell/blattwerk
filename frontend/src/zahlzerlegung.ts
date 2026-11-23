@@ -15,10 +15,14 @@
 //     never shows how many zeros there are.
 //   - "join" Zusammensetzen: "400 + 30 + 5 = __", the parts in place order; the key n.
 //   - "shuffled" Durcheinander: "8 + 400 + 50 = __", the parts in an order that is not the place order; the key n.
+//   A typed number with a 0 place (#1134) shows that place as the part 0 in "join", "shuffled" and "gap", as "split"
+//   writes it in the key: 300 + 0 + 6 = __, 6 + 300 + 0 = __, 300 + 0 + __ = 306. Every place shows, so a line has
+//   the same k parts and the same width whatever the number, and the pupil sees the empty place.
 //   - "places" Stellenwerte: "3 H 7 Z 2 E = __"; a place whose digit is 0 is left out ("4 H 8 Z" for 480); tasks with
 //     an even index (0, 2, ...) in place order, those with an odd index out of order ("8 Z 4 H") when two or more
 //     places show; the key n.
-//   - "gap" Lücke: "600 + __ + 4 = 674", the parts in place order, one of them a gap; the key that part.
+//   - "gap" Lücke: "600 + __ + 4 = 674", the parts in place order, one of them a gap; the key that part. The gap
+//     is never a 0 part: the key of a gap is a part above 0.
 //   - "zero" Stellen mit 0: "506 = __ H __ Z __ E", one gap per place, each for one digit; the key 5, 0, 6. Every gap
 //     shows whatever the digit, so the gaps never give away how many zeros there are.
 //   - "bundle" Bündeln (★★★): "4 H 12 Z 3 E = __", the counts c per place in place order, every place shown (zeros
@@ -31,7 +35,7 @@
 //
 // The rule every task keeps, drawn or typed (a "part" is a number d·10^j with d 1 to 9: a single place value):
 // - "split", "join", "shuffled", "gap": n has k digits and no digit 0; its parts are its k place values, all > 0.
-//   A typed "split" number needs k digits only; a 0 place gives the part 0.
+//   A typed number of these types needs k digits only; a 0 place gives the part 0.
 // - "places": n has k digits; the places shown are those with d > 0, each with its digit 1 to 9 as count.
 // - "zero": n has k digits and at least one digit 0 in a place that is not the first (506, 840, 70).
 // - "bundle": counts c, one per place: the first 1 to 9, exactly one other place 10 to 19, the rest 0 to 9, and
@@ -45,9 +49,13 @@
 // 1. up to 20 tries, each one draw P[floor(next() · |P|)]; a try whose n equals an earlier task's drawn n is dropped,
 //    and after 20 tries the last one stays (a repeated number keeps every rule);
 // 2. one draw r = next() for the order: with m parts shown, the m! orders in lexicographic order of the place indices
-//    (index 0 the place order); "shuffled", and "places" at an odd index, take order 1 + floor(r · (m! − 1)) when
-//    m ≥ 2, else the place order; every other type takes the place order;
-// 3. one draw g = next() for the gap: "gap" takes the part at floor(g · m) in the shown order as the gap.
+//    (index 0 the place order); "places" at an odd index takes order 1 + floor(r · (m! − 1)) when m ≥ 2, else the
+//    place order; "shuffled" takes order floor(r · |O|) of O, the orders whose parts read unlike the place order's
+//    (with no 0 part O is every order but the first, so 1 + floor(r · (m! − 1)); a typed 300 leaves out the order
+//    that only swaps its two 0 parts; the first digit is never 0, so O is never empty); every other type takes the
+//    place order;
+// 3. one draw g = next() for the gap: "gap" takes as the gap the part at floor(g · a) of the a parts above 0, in
+//    place order (with no 0 part that is floor(g · m)).
 //
 // Typed numbers win over the seed. A task with a typed entry v is the teacher's own and keeps its drawn order and gap
 // draws. For every type but "bundle" it fits when v keeps the rule above; for "bundle" its counts are the drawn

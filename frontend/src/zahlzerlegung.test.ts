@@ -75,7 +75,6 @@ function sideValue(side: string): number {
   return sum;
 }
 
-const isDesc = (xs: number[]) => xs.every((x, j) => j === 0 || xs[j - 1] > x);
 const isAsc = (xs: number[]) => xs.every((x, j) => j === 0 || xs[j - 1] < x);
 
 // The problems with a drawn (non-wrong) task: its line as the key reads it, and the rule of its type.
@@ -107,10 +106,13 @@ function checkLine(max: number, type: string, i: number, t: Task, its: Item[]): 
   const letterTexts = its.filter((it) => it.kind === "letter").map((it) => it.text);
   const eq = its.findIndex((it) => it.kind === "sign" && it.text === "=");
   const before = its.slice(0, eq).filter((it) => it.kind === "given" || it.kind === "gap");
-  // A part is a single place value d·10^j with d 1 to 9; the parts must each take their own place.
+  // A part is a single place value d·10^j with d 1 to 9, or 0 for a 0 place of a typed number (300 + 0 + 6): the
+  // parts are, in some order, the number's own place values, one per place.
+  const own = d.map((x, j) => x * vs[j]);
   const checkParts = (parts: string[]) => {
-    const pw = parts.map((s) => (/^[1-9]0*$/.test(s) ? s.length - 1 : -1));
-    if (pw.some((x) => x < 0 || x >= k) || new Set(pw).size !== parts.length || parts.length !== k)
+    if (parts.some((s) => !/^(0|[1-9]0*)$/.test(s))) errs.push(`a part of ${parts.join(",")} is no place value`);
+    const byValue = (a: number, b: number) => b - a;
+    if (parts.length !== k || parts.map(Number).sort(byValue).join() !== [...own].sort(byValue).join())
       errs.push(`parts ${parts.join(",")} are not one per place`);
   };
 
@@ -127,21 +129,22 @@ function checkLine(max: number, type: string, i: number, t: Task, its: Item[]): 
       const parts = givens.map((g) => g.text);
       if (givens.length !== k || gaps.length !== 1) errs.push("join: shape");
       checkParts(parts);
-      if (!isDesc(parts.map(Number))) errs.push("join: parts not in place order");
+      if (parts.map(Number).join() !== own.join()) errs.push("join: parts not in place order");
       break;
     }
     case "shuffled": {
       const parts = givens.map((g) => g.text);
       if (givens.length !== k || gaps.length !== 1) errs.push("shuffled: shape");
       checkParts(parts);
-      if (isDesc(parts.map(Number))) errs.push("shuffled: parts in place order");
+      if (parts.map(Number).join() === own.join()) errs.push("shuffled: parts read as the place order");
       break;
     }
     case "gap": {
       const parts = before.map((it) => it.text);
       if (givens.length !== k || gaps.length !== 1) errs.push("gap: shape");
       checkParts(parts);
-      if (!isDesc(parts.map(Number))) errs.push("gap: parts not in place order");
+      if (parts.map(Number).join() !== own.join()) errs.push("gap: parts not in place order");
+      if (gaps[0] && !/^[1-9]0*$/.test(gaps[0].text)) errs.push(`gap: the gap is ${gaps[0].text}, not a part above 0`);
       break;
     }
     case "places": {
@@ -232,9 +235,10 @@ describe("typed numbers", () => {
     for (const max of MAXES)
       for (const type of TYPE_NAMES) {
         const k = PV[max].length;
-        // A typed "split" number fits with any k digits, a 0 place too; the drawn ones never have a 0.
-        const set = type === "split" ? new Set<number>() : oracleSet(max, type);
-        if (type === "split") for (let n = 10 ** (k - 1); n < max; n++) set.add(n);
+        // A typed number of a part type fits with any k digits, a 0 place too; the drawn ones never have a 0.
+        const parts = ["split", "join", "shuffled", "gap"].includes(type);
+        const set = parts ? new Set<number>() : oracleSet(max, type);
+        if (parts) for (let n = 10 ** (k - 1); n < max; n++) set.add(n);
         for (let r = 0; r < 300; r++) {
           const i = Math.floor(rnd() * 12);
           // Half of them in the Zahlenraum's k digits, so that bis 100 gets its share of numbers that fit.
@@ -276,6 +280,56 @@ describe("a typed split number with a 0 place", () => {
     const [t, w] = made(p).tasks;
     expect(items(p, t).filter((it) => it.kind === "gap").map((it) => it.text)).toEqual(["300", "0", "6"]);
     expect(w.wrong).toBe(true);
+  });
+});
+
+describe("a typed number with a 0 place in the other part types (#1134)", () => {
+  const line = (p: ZahlzerlegungProps, t: Task) =>
+    items(p, t)
+      .map((it) => (it.kind === "gap" ? `[${it.text}]` : it.text))
+      .join(" ");
+
+  it("join shows every place: 300 + 0 + 6 = [306], 450 as 400 + 50 + 0, 40 bis 100 as 40 + 0", () => {
+    const p: ZahlzerlegungProps = { count: 2, columns: 2, max: 1000, task: "join", seed: 3, typed: [[0, 306], [1, 450]] };
+    expect(made(p).tasks.map((t) => line(p, t))).toEqual(["300 + 0 + 6 = [306]", "400 + 50 + 0 = [450]"]);
+    const q: ZahlzerlegungProps = { count: 1, columns: 1, max: 100, task: "join", seed: 3, typed: [[0, 40]] };
+    expect(line(q, made(q).tasks[0])).toBe("40 + 0 = [40]");
+  });
+
+  it("every k-digit number with a 0, every type and seed: it fits and its line keeps the type's rule", () => {
+    const bad: string[] = [];
+    let seen = 0;
+    for (const max of [100, 1000])
+      for (const type of ["join", "shuffled", "gap"] as const)
+        for (let v = max / 10; v < max; v++) {
+          if (!String(v).includes("0")) continue;
+          for (const seed of [1, 2, 3])
+            for (const i of [0, 5]) {
+              const p: ZahlzerlegungProps = { count: 6, columns: 2, max, task: type, seed, typed: [[i, v]] };
+              const t = made(p).tasks[i];
+              seen++;
+              if (t.wrong || t.n !== v) bad.push(`${max} ${type} ${v}: n ${t.n}`);
+              else bad.push(...checkLine(max, type, i, t, items(p, t)).map((e) => `${max} ${type} ${v} seed ${seed}: ${e}`));
+            }
+        }
+    expect(seen).toBeGreaterThan(1000);
+    expect(bad.slice(0, 5)).toEqual([]);
+  });
+
+  it("300, whatever the seed: the gap is the 300, and Durcheinander never shows 300 + 0 + 0", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const p: ZahlzerlegungProps = { count: 1, columns: 1, max: 1000, task: "gap", seed, typed: [[0, 300]] };
+      expect(line(p, made(p).tasks[0])).toBe("[300] + 0 + 0 = 300");
+      const s: ZahlzerlegungProps = { ...p, task: "shuffled" };
+      expect(["0 + 300 + 0 = [300]", "0 + 0 + 300 = [300]"]).toContain(line(s, made(s).tasks[0]));
+    }
+  });
+
+  it("four digits bis 1000 and one digit still do not fit", () => {
+    for (const task of ["join", "shuffled", "gap"] as const) {
+      const p: ZahlzerlegungProps = { count: 2, columns: 2, max: 1000, task, seed: 3, typed: [[0, 3065], [1, 6]] };
+      expect(made(p).tasks.map((t) => t.wrong)).toEqual([true, true]);
+    }
   });
 });
 

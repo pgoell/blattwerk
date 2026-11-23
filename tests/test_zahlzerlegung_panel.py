@@ -11,7 +11,7 @@ from test_feed_print import sheet_id
 from test_gaps import panel, step
 from test_suchsel_print import key_print
 from test_words import redo, undo
-from test_zahlzerlegung import ZZ, drawn, fit, props_of, zz
+from test_zahlzerlegung import ZZ, answers, drawn, filled, fit, holds, props_of, zz
 from ui import box, doc, pick, user
 
 NOTE_WRONG = "Aufgabe 1: Die Zahl passt nicht zu den Einstellungen."
@@ -83,6 +83,43 @@ def test_a_typed_split_number_with_a_0_place_keeps_every_gap_and_the_key_writes_
     expect(paper.locator(".zahlzerlegung g.task[data-task='0'] text.answer")).to_have_text(
         ["300", "0", "6"]
     )
+    paper.context.close()
+
+
+@pytest.mark.parametrize(
+    "task, given, answer",
+    [
+        ("join", [["300", "0", "6"]], "306"),
+        (
+            "shuffled",
+            [
+                ["0", "300", "6"],
+                ["0", "6", "300"],
+                ["300", "6", "0"],
+                ["6", "300", "0"],
+                ["6", "0", "300"],
+            ],
+            "306",
+        ),
+        ("gap", [["300", "0", "306"], ["0", "6", "306"]], None),
+    ],
+)
+def test_a_typed_number_with_a_0_place_shows_the_0_in_the_other_part_types(
+    editor, browser, server, task, given, answer
+):
+    """Eigene Zahlen (#1134): 306 fits "Zusammensetzen", "Durcheinander" and "Lücke" too: no hint, the 0 place
+    shows as the part 0, the gap of "Lücke" is never the 0, and the key's line holds."""
+    page = editor(zz({"count": 1, "task": task, "typed": [[0, 306]]}))
+    pick(page, "k")
+    expect(hint(page)).to_have_count(0)
+    task_ = drawn(page).locator("g.task[data-task='0']")
+    expect(task_).not_to_have_class(re.compile(r"\bwrong\b"))
+    expect(task_.locator("rect.gap")).to_have_count(1)
+    assert task_.locator("text.given").all_text_contents() in given
+    paper = key_print(browser, server, sheet_id(page))
+    [written] = answers(paper, 0)
+    assert written == answer if answer else written in ("300", "6"), written
+    assert holds(filled(paper, 0)), filled(paper, 0)
     paper.context.close()
 
 
