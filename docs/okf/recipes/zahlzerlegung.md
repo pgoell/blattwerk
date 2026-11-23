@@ -4,7 +4,7 @@ title: "Zahlzerlegung"
 description: A heading, a name line, and six Zahlzerlegung tasks bis 1000 where the pupil splits each number into its Hunderter, Zehner and Einer (348 = 300 + 40 + 8).
 tags: [zahlzerlegung, stellenwert, zahlen, klasse-2]
 covers: [text, name, zahlzerlegung]
-generated: { by: "human:pgoell", at: 2026-11-06T18:30:00Z }
+generated: { by: "human:pgoell", at: 2026-11-23T07:30:00Z }
 ---
 
 # Zahlzerlegung

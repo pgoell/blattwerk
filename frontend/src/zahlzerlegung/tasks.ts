@@ -75,15 +75,21 @@ function build(p: ZahlzerlegungProps, vs: number[], n: number, counts: number[],
   for (let j = 0; j < vs.length; j++) if (p.task !== "places" || digits[j] > 0) shown.push(j);
   let order = shown;
   if ((p.task === "shuffled" || (p.task === "places" && i % 2 === 1)) && shown.length >= 2) {
+    // The orders that read unlike the place order: all but the first, and with "shuffled" not one that only swaps
+    // 0 parts of a typed number (300 + 0 + 0 again). The first digit is never 0, so one always stays.
+    const reads = (o: number[]) => o.map((j) => digits[shown[j]] * vs[shown[j]]).join();
     const all = perms(shown.length);
-    order = all[1 + Math.floor(r * (all.length - 1))].map((j) => shown[j]);
+    const other = p.task === "shuffled" ? all.filter((o) => reads(o) !== reads(all[0])) : all.slice(1);
+    order = other[Math.floor(r * other.length)].map((j) => shown[j]);
   }
+  // The gap of "gap" never takes a 0 part of a typed number: it is one of the parts above 0.
+  const above = shown.filter((j) => digits[j] > 0);
   return {
     n,
     digits,
     counts: p.task === "bundle" ? counts : digits,
     order,
-    gap: p.task === "gap" ? Math.floor(g * vs.length) : -1,
+    gap: p.task === "gap" ? above[Math.floor(g * above.length)] : -1,
     wrong: false,
   };
 }
@@ -92,6 +98,9 @@ function wrongTask(k: number): Task {
   const zeros = new Array<number>(k).fill(0);
   return { n: 0, digits: zeros, counts: zeros, order: zeros.map((_, j) => j), gap: -1, wrong: true };
 }
+
+// The types whose line shows a number's parts: a typed number needs k digits only.
+const PARTS: ZahlzerlegungProps["task"][] = ["split", "join", "shuffled", "gap"];
 
 const madeMemo = new Map<string, Made>();
 
@@ -135,8 +144,8 @@ export function made(props: ZahlzerlegungProps): Made {
         counts = hit;
         n = v;
       }
-    } else if (p.task === "split" ? v >= 10 ** (vs.length - 1) && v < p.max : (P as number[]).includes(v)) {
-      // A typed "split" number may have a 0 place (306): its gap stays and the key writes 0 in it.
+    } else if (PARTS.includes(p.task) ? v >= 10 ** (vs.length - 1) && v < p.max : (P as number[]).includes(v)) {
+      // A typed number of a part type may have a 0 place (306): the place stays and its part is 0.
       fits = true;
       n = v;
     }

@@ -4,7 +4,7 @@ title: What the teacher does herself
 description: What the teacher does herself, such as printing, PDFs, PowerPoint and Word files, the answer key, variants and locked blocks.
 tags: [editor, print, pdf, answers, variants, locked]
 covers: [text, selbstkontrolle, stellenwertbild, stellenwerttafel, zahlzerlegung]
-generated: { by: "human:pgoell", at: 2026-11-15T18:10:00Z }
+generated: { by: "human:pgoell", at: 2026-11-23T07:30:00Z }
 ---
 
 # What the teacher does herself
