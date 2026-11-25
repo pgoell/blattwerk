@@ -1,11 +1,11 @@
 // What can be inserted, and the commands the bar folds under Mehr.
-import { useState } from "react";
-import { Calculator, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { useState, type MouseEvent } from "react";
+import { Calculator, Files, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
 import type { Command } from "./useMenus";
-import { Tool } from "./Tool";
+import { Named, Tool } from "./Tool";
 import { MORE_SHAPES, SHAPES, TYPES, span } from "./palette";
 import { useMenus } from "./useMenus";
 
@@ -18,6 +18,10 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const mathMenu = session.mathMenu;
   const setMathMenu = session.setMathMenu;
   const [shapeMenu, setShapeMenu] = useState<{ x: number; y: number }>();
+  // The list a group of the tablet's rail opens beside itself.
+  const [railMenu, setRailMenu] = useState<{ x: number; y: number; items: Item[] }>();
+  const left = session.left;
+  const showLeft = session.showLeft;
   const setLens = session.setLens;
   const leaf = session.leaf;
   const bar = session.bar;
@@ -149,5 +153,80 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       />
     </>
   );
-    return Object.assign(session, { folding, more, inBar, moreShapes, shapeMenu, setShapeMenu, tools });
+  // The tablet held upright has a rail at its left instead: a group to a button, each with its name under its icon.
+  // A group of several tools opens their list beside it, Mathe the library, and Seiten the drawer of pages.
+  const lists = (items: Item[]) => (e: MouseEvent<HTMLButtonElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    setRailMenu({ x: box.right + 6, y: box.top, items });
+  };
+  const rail = (
+    <>
+      <Named icon={SquareDashedMousePointer} label="Mehrere" data-tour="multi" className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)} />
+      <Named
+        icon={Type}
+        label="Text"
+        data-tour="text"
+        aria-haspopup="menu"
+        onClick={lists([
+          { label: "Text", icon: Type, run: () => addInsert(INSERTS.text()) },
+          { label: "Überschrift", icon: Heading, run: () => addInsert(INSERTS.heading()) },
+        ])}
+      />
+      <Named
+        icon={ImagePlus}
+        label="Bild"
+        aria-haspopup="menu"
+        onClick={lists([
+          { label: "Bild", icon: ImagePlus, run: () => picker.current!.click() },
+          { label: "Symbol", icon: Smile, run: () => addInsert(INSERTS.symbol()) },
+        ])}
+      />
+      <input
+        ref={picker}
+        type="file"
+        accept={TYPES.join()}
+        hidden
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      <Named
+        icon={Rows3}
+        label="Schreiben"
+        aria-haspopup="menu"
+        onClick={lists([
+          { label: "Lineatur", icon: Rows3, run: () => addInsert(INSERTS.ruling()) },
+          { label: "Namenszeile", icon: UserPen, run: () => addInsert(INSERTS.name()) },
+          { label: "Punkte", icon: SquareSlash, run: () => addInsert(INSERTS.points()) },
+          { label: "Suchsel", icon: Grid3x3, run: () => addInsert(INSERTS.suchsel(newSeed())) },
+        ])}
+      />
+      <Named
+        icon={Sigma}
+        label="Mathe"
+        data-tour="maths"
+        aria-haspopup="dialog"
+        aria-expanded={!!mathMenu}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          setMathMenu({ x: box.right + 8, y: Math.min(box.top, 120) });
+        }}
+      />
+      <Named icon={Table} label="Tabelle" onClick={() => addInsert(INSERTS.table())} />
+      <Named
+        icon={Shapes}
+        label="Formen"
+        aria-haspopup="menu"
+        onClick={lists([...SHAPES, ...MORE_SHAPES].map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) })))}
+      />
+      <Named icon={Files} label="Seiten" aria-pressed={left} className={left ? "on" : ""} onClick={() => showLeft(!left)} />
+    </>
+  );
+  // What the library shows before its cards there: the two maths tools that are no cards of it.
+  const mathLead: Exclude<Item, "sep">[] = [
+    { label: "Rechnen", icon: Calculator, run: () => void addMaths() },
+    { label: "Strecke", icon: Ruler, run: () => addInsert(INSERTS.strecke()) },
+  ];
+    return Object.assign(session, { folding, more, inBar, moreShapes, shapeMenu, setShapeMenu, tools, rail, railMenu, setRailMenu, mathLead });
 }

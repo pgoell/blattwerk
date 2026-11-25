@@ -61,9 +61,10 @@ def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(edito
 
 
 @THEMES
-@pytest.mark.parametrize("window", [(1400, 1000), (900, 1200)], ids=["wide", "upright"])
+@pytest.mark.parametrize("window", [(1400, 1000), (700, 1200)], ids=["wide", "narrow"])
 def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme, window):
-    """I8, #270. Upright the dock scrolled for a mouse too since #267."""
+    """I8, #270. A narrow dock scrolled for a mouse too since #267. The upright tablet has a rail
+    with each name drawn (#1187): tests/test_tablet.py."""
     page = editor(text("a", 1), theme=theme)
     page.set_viewport_size({"width": window[0], "height": window[1]})
     tool = page.locator(".dock .ib").first

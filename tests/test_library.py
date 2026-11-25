@@ -137,10 +137,10 @@ def test_enter_adds_the_first_block_the_search_found(editor):
 
 
 def test_the_same_library_opens_on_the_tablet(editor):
-    """On the iPad held upright the library opens over its button, inside the window, and a tap adds."""
+    """On the iPad held upright the library opens beside the rail, inside the window, and a tap adds."""
     client = user()
     page = editor(client=client, touch=True)
-    page.locator(".dock, .insert").get_by_label("Mathe-Blöcke", exact=True).tap()
+    page.locator(".rail").get_by_label("Mathe", exact=True).tap()
     field = page.locator("dialog.library")
     expect(field.locator(".card")).to_have_count(26)
     box = field.bounding_box()

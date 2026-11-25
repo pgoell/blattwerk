@@ -83,6 +83,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
   const rank = session.rank;
   const reach = session.reach;
   const right = session.right;
+  const drawers = session.drawers;
+  const showRight = session.showRight;
   const rulers = session.rulers;
   const same = session.same;
   const seek = session.seek;
@@ -123,6 +125,15 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
     <>
       {right && (
         <aside className="panel" ref={panes.root} data-open={panes.open}>
+          {/* On the tablet held upright the panel comes up from below: "Fertig" or a swipe down by its grip shuts it. */}
+          {drawers && (
+            <div className="grab">
+              <i aria-hidden />
+              <button className="done" onClick={() => showRight(false)}>
+                Fertig
+              </button>
+            </div>
+          )}
           {!leaf && (
             <div className="tabs" role="tablist">
               {TABS.map((t) => (

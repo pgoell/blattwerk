@@ -28,3 +28,13 @@ export function Tool({ icon: Icon, label, className = "", ...rest }: { icon: Luc
     </button>
   );
 }
+
+// A button of the tablet's rail: its icon with its name under it.
+export function Named({ icon: Icon, label, className = "", ...rest }: { icon: LucideIcon; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button aria-label={label} {...rest} className={`rb ${className}`}>
+      <Icon size={20} aria-hidden />
+      <span aria-hidden>{label}</span>
+    </button>
+  );
+}

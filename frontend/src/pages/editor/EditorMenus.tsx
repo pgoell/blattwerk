@@ -22,6 +22,10 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const lens = session.lens;
   const addInsert = session.addInsert;
   const mathMenu = session.mathMenu;
+  const mathLead = session.mathLead;
+  const railMenu = session.railMenu;
+  const setRailMenu = session.setRailMenu;
+  const drawers = session.drawers;
   const moreShapes = session.moreShapes;
   const shapeMenu = session.shapeMenu;
   const menu = session.menu;
@@ -76,8 +80,9 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
         />
       )}
       {mathMenu && (
-        <Library x={mathMenu.x} y={mathMenu.y} up={mathMenu.up} onPick={(make) => addInsert(make(newSeed()))} onClose={() => setMathMenu(undefined)} />
+        <Library x={mathMenu.x} y={mathMenu.y} up={mathMenu.up} lead={drawers ? mathLead : undefined} onPick={(make) => addInsert(make(newSeed()))} onClose={() => setMathMenu(undefined)} />
       )}
+      {railMenu && <Menu x={railMenu.x} y={railMenu.y} items={railMenu.items} onClose={() => setRailMenu(undefined)} onElsewhere={() => setRailMenu(undefined)} />}
       {shapeMenu && (
         <Menu
           x={shapeMenu.x}

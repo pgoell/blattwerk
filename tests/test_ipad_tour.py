@@ -48,14 +48,17 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
     on("Format")
     expect_ringed(page.locator("aside.panel"))
     expect_lit(bar(page, "right"), "true")
-    # The next step's tool stands in the dock, which lies over the open drawer.
+    # The next step's tool stands in the rail, beside the open panel: Mathe, then Rechnen.
     on("Rechenaufgaben")
-    page.locator(".dock").get_by_label("Rechnen", exact=True).tap()
+    expect(step.locator("..")).to_contain_text("Tippe links auf Mathe und dann auf Rechnen.")
+    page.locator(".rail").get_by_label("Mathe", exact=True).tap()
+    page.locator("dialog.library .lead").get_by_role("button", name="Rechnen").tap()
     expect(step).to_have_text("Aufgaben einstellen")
     expect(page.locator(".panel .what")).to_contain_text("Rechnen")
     on("Seiten und Vorlagen")
     expect_ringed(page.locator("aside.left"))
-    expect(page.locator("aside.panel")).to_have_count(0)
+    # The panel under the picked block stays: it is none of the drawers (#1187).
+    expect(page.locator("aside.panel")).to_be_visible()
     # The bar has no room for the tour's own button: the last step is about "Mehr", which holds it.
     on("Das war's")
     expect(page.locator("header").get_by_label("Rundgang", exact=True)).to_have_count(0)

@@ -61,12 +61,20 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
   const style = session.style;
   const table = session.table;
   const tools = session.tools;
+  const rail = session.rail;
+  const drawers = session.drawers;
   const touch = session.touch;
   const widest = session.widest;
   const written = session.written;
   const zoomer = session.zoomer;
   return (
     <>
+      {/* The tablet held upright: the tools stand at the left as on the computer, a group to a button. */}
+      {drawers && (
+        <div className="rail" role="toolbar" aria-label="Einfügen" aria-orientation="vertical">
+          {rail}
+        </div>
+      )}
       {/* The release may land on the hand, beside the desk: the click is the stage's, not the desk's. */}
       <div
         className="stage"
@@ -233,7 +241,7 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
           />
         )}
         {/* What can go on the page floats over the desk's lower edge. */}
-        {leaf ? (
+        {drawers ? null : leaf ? (
           <>
             <div className="dock">{zoomer}</div>
             {pages.length > 1 && (
