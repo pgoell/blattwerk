@@ -110,7 +110,8 @@ def test_the_panel_shows_the_new_own_size_after_a_handle_drag(editor):
     enter(page, "Drehung", "0")
     expect(field(page, "Drehung")).to_have_value("0")
     rect = by_id(saved(page, client))["a"]
-    assert shown == (pytest.approx(rect["w"], abs=0.1), pytest.approx(rect["h"], abs=0.1))
+    # A length finer than a tenth shows as whole mm (#1189).
+    assert shown == (pytest.approx(rect["w"], abs=0.5), pytest.approx(rect["h"], abs=0.5))
 
 
 def test_the_opposite_corner_stays_where_it_was_on_the_screen(editor):

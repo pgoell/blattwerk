@@ -110,14 +110,14 @@ export function Place({
   return (
       <div className="geo">
         <h2>Position und Größe in mm</h2>
-        <label>
+        {/* The whole width: half of it cuts "Ecke oben links" short. */}
+        <label className="wide">
           von
           <select aria-label="von" value={from} onChange={(e) => setFrom(e.target.value as "corner" | "centre")}>
             <option value="corner">Ecke oben links</option>
             <option value="centre">Mitte</option>
           </select>
         </label>
-        <span />
         {/* In Mitte the place counts from the page's centre: a block at 15 mm shows -90 in a page 210 mm wide. */}
         <Num label="X" units value={shownAt("x", whole ? box.x : shared((b) => b.x))} disabled={fixed} onCommit={(n) => move("x", n + offset("x"))} />
         <Num label="Y" units value={shownAt("y", whole ? box.y : shared((b) => b.y))} disabled={fixed} onCommit={(n) => move("y", n + offset("y"))} />

@@ -4,6 +4,7 @@ import { far, isLine, reachOf, sum, tailReach, type Page, type TextProps } from 
 import { paint as paintGround } from "../../ground";
 import { adjustable, drawn } from "../Format";
 import { Crop } from "./Crop";
+import { bounds, outline } from "../../arrange";
 import { turnedAt, SIDES, CENTRE, FRAME } from "./palette";
 import { useTools } from "./useTools";
 
@@ -79,6 +80,16 @@ export default function PageChrome({ s: session, p, n }: { s: ReturnType<typeof 
   const whole = session.whole;
   const widen = session.widen;
   const wrote = session.wrote;
+  // The handle that turns stands above the frame, 48 px from the blocks. Where another block lies there, a press on the
+  // handle is not a press on that block: it stands below then, if nothing lies there. A turned selection keeps it on top.
+  const turnAt = (() => {
+    if (!sel.length || sel.some((b) => b.angle)) return "top";
+    const box = bounds(sel);
+    const others = p.blocks.filter((b) => !sel.some((own) => own.id === b.id)).map(outline);
+    const [mid, half, tall] = [box.x + box.w / 2, 14 / k, 62 / k];
+    const taken = (from: number) => others.some((o) => o.x < mid + half && o.x + o.w > mid - half && o.y < from + tall && o.y + o.h > from);
+    return taken(box.y - tall) && !taken(box.y + box.h) ? "bottom" : "top";
+  })();
   return (
     <>
               {n === page && (
@@ -263,7 +274,7 @@ export default function PageChrome({ s: session, p, n }: { s: ReturnType<typeof 
                     onResizeGroupStart={(e) => begin(e.targets)}
                     // A table stays level, and a line turns by its ends.
                     rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some((b) => isLine(b) && thing(b) === b.id)}
-                    rotationPosition="top"
+                    rotationPosition={turnAt}
                     onRotateStart={(e) => {
                       spot.current = [e.clientX, e.clientY];
                       begin([e.target]);

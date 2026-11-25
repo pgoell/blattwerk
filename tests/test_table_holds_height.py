@@ -71,7 +71,8 @@ def test_a_table_goes_back_when_its_long_text_is_deleted(editor):
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - H) <= 0.05
     pick(page, "t")
-    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - H) <= 0.05
+    # The field shows whole mm for a height that is no tenth (#1189).
+    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - H) <= 0.5
     for n, was in zip((0, 3, 6), rows_before, strict=True):
         assert abs(mm_height(page, cell(page, "t", n)) - was) <= 0.05
 

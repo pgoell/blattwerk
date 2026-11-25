@@ -31,7 +31,7 @@ WOBBLES = [(0, 0), (1, 1), (-2, 1)]
 
 
 def under(editor, kind, *above):
-    """The editor on a block of the kind, "a", picked, and the blocks `above`.
+    """The editor on a block of the kind, "a", picked, the blocks `above` and then one below it.
 
     A group is "a" and "b".
     """
@@ -55,7 +55,9 @@ def under(editor, kind, *above):
             "points": {"max": 10},
         }
         blocks = [box("a", kind, props[kind], **PLACE)]
-    page = editor(*blocks, *above, client=client)
+    # With a block above alone the handle would go below (#1189): one under "a" too keeps it on top.
+    floor = [box("floor", "text", TEXT, x=15, y=104, w=180, h=20)] if above else []
+    page = editor(*blocks, *above, *floor, client=client)
     at(page, "a").click()
     expect_picked(page, *names(kind))
     return page
@@ -87,7 +89,7 @@ def expect_no_step(page):
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
 
 
-def test_a_click_on_a_heading_under_the_handle_picks_it(editor):
+def test_a_click_on_a_heading_above_a_picked_text_picks_it(editor):
     page = editor()
     page.set_viewport_size({"width": 1280, "height": 1024})
     bar = page.get_by_role("toolbar", name="Einfügen")
@@ -109,9 +111,10 @@ def test_a_click_on_a_heading_under_the_handle_picks_it(editor):
     expect_picked(page)
     text.click()
     expect(text).to_have_class("block sel")
-    # The handle of the text stands on the middle of the heading, and takes the press.
+    # The handle of the text would stand on the middle of the heading: it stands below the text (#1189).
     x, y = centre(top)
-    assert page.evaluate(f"document.elementFromPoint({x}, {y}).matches('{HANDLE}')")
+    assert not page.evaluate(f"document.elementFromPoint({x}, {y}).matches('{HANDLE}')")
+    assert centre(page.locator(HANDLE))[1] > centre(text)[1]
     page.mouse.click(x, y)
     expect(top).to_have_class("block sel")
     expect(text).to_have_class("block")
