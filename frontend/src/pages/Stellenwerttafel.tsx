@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { StellenwerttafelBlock } from "../sheet";
 import { draw } from "../bank";
 import { TASKS, made, sane, type StellenwerttafelProps, type StellenwerttafelTyped } from "../stellenwerttafel";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -123,10 +124,7 @@ export default function Stellenwerttafel({ block, apply }: { block: Stellenwertt
         () => apply({ dots: p.dots - 1 }, "dots"),
         () => apply({ dots: p.dots + 1 }, "dots"),
       )}
-      <label>
-        <input type="checkbox" aria-label="Leere Stellen" checked={p.zero} onChange={(e) => apply({ zero: e.target.checked }, "zero")} />
-        Leere Stellen
-      </label>
+      <Switch label="Leere Stellen" on={p.zero} onChange={(on) => apply({ zero: on }, "zero")} />
       {p.count >= 2 && (
         <label>
           Aufgabe

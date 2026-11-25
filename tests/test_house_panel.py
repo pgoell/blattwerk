@@ -14,11 +14,11 @@ HIDDEN = ["l4", "lines", "k5"]
 
 
 def house(page):
-    return page.locator(".panel").get_by_role("button", name="Häuschen", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Häuschen", exact=True)
 
 
 def band(page):
-    return page.locator(".panel").get_by_role("button", name="Mittelband einfärben", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Mittelband einfärben", exact=True)
 
 
 def tint(page):

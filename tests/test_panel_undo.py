@@ -70,7 +70,7 @@ def test_ctrl_z_from_a_selbstkontrolle_link_checkbox_undoes(editor):
     client = user()
     page = editor(*linked(client), client=client)
     pick(page, "s")
-    link = page.locator(".panel input[type=checkbox]").first
+    link = page.locator(".panel [role=switch]").first
     step(page, lambda: link.click())
     expect(link).not_to_be_checked()
     step(page, lambda: page.keyboard.press("Control+z"))

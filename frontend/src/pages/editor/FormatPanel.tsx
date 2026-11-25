@@ -13,6 +13,7 @@ import { FormenFields } from "./FormenFields";
 import { FRAMES, DASHES, LABELS, ALIGNS, pickName, TABS, lines, step } from "./palette";
 import { useTools } from "./useTools";
 import PanelRest from "./PanelRest";
+import { Switch } from "../../components/Switch";
 
 export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   // The button that asked for the text help: its dialog gives the focus back to it.
@@ -248,9 +249,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                     const off = (free[0] as NameBlock).props.hidden ?? [];
                     const shown = !off.includes(i);
                     return (
-                      <label key={i} className="tick">
-                        <input type="checkbox" checked={shown} disabled={shown && free.some((b) => onlyShown(b as NameBlock, i))} onChange={(e) => showField(i, e.target.checked)} /> {word}
-                      </label>
+                      <Switch key={i} label={word} on={shown} disabled={shown && free.some((b) => onlyShown(b as NameBlock, i))} onChange={(on) => showField(i, on)} />
                     );
                   })}
                 </>
@@ -328,9 +327,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   <FormenFields boxes={boxes} look={look} />
                   {/* A circle, triangle or star keeps its text in a share of its outline, and a linked text grows on. */}
                   {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
-                    <label className="tick">
-                      <input type="checkbox" checked={boxes[0].props.fit === true} onChange={(e) => look({ fit: e.target.checked || undefined })} /> An Text anpassen
-                    </label>
+                    <Switch label="An Text anpassen" on={boxes[0].props.fit === true} onChange={(on) => look({ fit: on || undefined })} />
                   )}
                 </>
               )}
@@ -348,17 +345,11 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                       onChange={(e) => +e.target.value > 0 && extend(+e.target.value * 10)}
                     />
                   </label>
-                  <button className={rulers[0].props.ruler ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.ruler} onClick={() => style("shape", { ruler: !rulers[0].props.ruler })}>
-                    Lineal
-                  </button>
+                  <Switch label="Lineal" on={!!rulers[0].props.ruler} onChange={() => style("shape", { ruler: !rulers[0].props.ruler })} />
                   {rulers[0].props.ruler && (
-                    <button className={rulers[0].props.mm ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.mm} onClick={() => style("shape", { mm: !rulers[0].props.mm })}>
-                      Millimeter
-                    </button>
+                    <Switch label="Millimeter" on={!!rulers[0].props.mm} onChange={() => style("shape", { mm: !rulers[0].props.mm })} />
                   )}
-                  <button className={rulers[0].props.ticks ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.ticks} onClick={() => style("shape", { ticks: !rulers[0].props.ticks })}>
-                    Striche an den Enden
-                  </button>
+                  <Switch label="Striche an den Enden" on={!!rulers[0].props.ticks} onChange={() => style("shape", { ticks: !rulers[0].props.ticks })} />
                   <h2>Länge anschreiben</h2>
                   <div className="seg">
                     {LABELS.map(([label, name]) => (

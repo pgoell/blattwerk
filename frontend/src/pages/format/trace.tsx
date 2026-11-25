@@ -1,5 +1,6 @@
 // The trace text of a text, a shape, a table or a Lineatur: Aus, Grau, Umriss or Gepunktet.
 import { dottedFamily, fadeOf, traceOf, type Fade, type Font } from "../../sheet";
+import { Switch } from "../../components/Switch";
 
 // The trace text of a text, a shape, a table or a Lineatur: Aus, Grau, Umriss or Gepunktet. Gepunktet needs the font's
 // dotted cut. Fading makes the trace lighter along the row or from row to row. Aus takes the fading along; the other
@@ -26,9 +27,7 @@ export function TraceControls({ props, font, onChange }: { props: { trace?: unkn
       </select>
       {!dotted && <p className="hint">Gepunktet gibt es nur in der Grundschrift (Urff).</p>}
       {trace !== "off" && (
-        <button className={fade ? "on" : ""} aria-pressed={!!fade} onClick={() => onChange({ fade: fade ? undefined : "row" })}>
-          Ausblenden
-        </button>
+        <Switch label="Ausblenden" on={!!fade} onChange={() => onChange({ fade: fade ? undefined : "row" })} />
       )}
       {fade && (
         <div className="seg">

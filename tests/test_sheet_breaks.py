@@ -17,7 +17,7 @@ ROLL = "Das Skateboard rollt."
 
 
 def bows_on(page):
-    page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True).click()
+    page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True).click()
 
 
 def mend_skateboard(page):

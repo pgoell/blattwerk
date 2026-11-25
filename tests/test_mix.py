@@ -130,8 +130,8 @@ def test_neu_schutteln_changes_nothing_else(editor):
     assert {name: value for name, value in now.items() if name != "mix"} == {
         name: value for name, value in before.items() if name != "mix"
     }
-    expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-pressed", "true")
-    expect(panel(page, "Großbuchstaben")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-checked", "true")
+    expect(panel(page, "Großbuchstaben")).to_have_attribute("aria-checked", "true")
     expect(panel(page, "Linie darunter")).to_have_attribute("aria-pressed", "true")
 
 
@@ -281,11 +281,11 @@ def test_tab_reaches_the_mix_controls_and_space_and_enter_press_them(editor):
     page.keyboard.press("Tab")
     expect(panel(page, "Schüttelwörter")).to_be_focused()
     page.keyboard.press("Space")
-    expect(panel(page, "Schüttelwörter")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Schüttelwörter")).to_have_attribute("aria-checked", "true")
     page.keyboard.press("Tab")
     expect(panel(page, "Erster Buchstabe bleibt")).to_be_focused()
     page.keyboard.press("Enter")
-    expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-checked", "true")
     assert held(page, client)["a"]["mixFirst"] is True
 
 
@@ -361,4 +361,4 @@ def test_a_sheet_without_mix_saves_back_as_it_was(editor):
 def test_a_stored_mix_that_is_no_number_shows_the_switch_off(editor, stored):
     page = editor(box("a", "text", {**TEXT, "mix": stored}))
     pick(page, "a")
-    expect(panel(page, "Schüttelwörter")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Schüttelwörter")).to_have_attribute("aria-checked", "false")

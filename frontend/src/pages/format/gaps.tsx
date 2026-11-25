@@ -6,6 +6,7 @@ import { K, boxed, parasOf, type Block } from "../../sheet";
 import type { Picked } from "../Field";
 import { Num } from "./num";
 import { both, seedOf, solutions, worded } from "./words";
+import { Switch } from "../../components/Switch";
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
 // have, the box of solution words, and every n-th word. Each switch is on unless all have it, as bold. With a table
@@ -30,13 +31,9 @@ export function Gaps({ sel, part, cell, look, style, gap, every }: { sel: Block[
   return (
     <>
       {!linked && (
-        <button className={lit ? "on" : ""} aria-pressed={lit} onClick={() => gap(!lit)}>
-          Lücke
-        </button>
+        <Switch label="Lücke" on={lit} onChange={() => gap(!lit)} />
       )}
-      <button className={same ? "on" : ""} aria-pressed={same} onClick={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")}>
-        Lücken gleich breit
-      </button>
+      <Switch label="Lücken gleich breit" on={same} onChange={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")} />
       {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
       {!linked && (
         <div className="seg">
@@ -46,9 +43,7 @@ export function Gaps({ sel, part, cell, look, style, gap, every }: { sel: Block[
         </div>
       )}
       {!linked && (
-        <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
-          Lösungswörter
-        </button>
+        <Switch label="Lösungswörter" on={bank} onChange={() => set({ bank: bank ? undefined : draw() }, "bank")} />
       )}
       {!linked && bank && (
         <button

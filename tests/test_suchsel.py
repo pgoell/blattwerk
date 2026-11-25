@@ -220,7 +220,7 @@ def test_umlauts_stay_or_become_two_letters(editor):
     expect(at(page, "s").locator("rect.ring")).to_have_count(3)
     assert spellings(page, "s") == sorted(["KÄSE", "STRAßE", "MÜHLE"])
     panel(page, "Umlaute und ß behalten").click()
-    expect(panel(page, "Umlaute und ß behalten")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Umlaute und ß behalten")).to_have_attribute("aria-checked", "false")
     assert spellings(page, "s") == sorted(["KAESE", "STRASSE", "MUEHLE"])
 
 

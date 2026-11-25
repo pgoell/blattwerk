@@ -117,8 +117,8 @@
 //
 // The panel (pages/Selbstkontrolle.tsx), top to bottom: the heading, then the line "Die Kinder prüfen ihre Ergebnisse
 // selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst." (`p.hint`, panel only, not on the
-// sheet), then the heading "Blöcke" with the choice: a lost link as a ticked checkbox "Gelöschter Block" that unlinks
-// it, then a checkbox per maths block of the sheet, in sheet order, labelled by `labelOf` (and " (Seite <n>)" when the
+// sheet), then the heading "Blöcke" with the choice: a lost link as a ticked switch "Gelöschter Block" that unlinks
+// it, then a switch per maths block of the sheet, in sheet order, labelled by `labelOf` (and " (Seite <n>)" when the
 // sheet has more than one page): ticked when linked; a block not `worded` shows "(nicht im Lösungswort)" beside it with
 // "word". With no maths block and no lost link, the line "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst
 // einen Aufgabenblock ein." (`p.hint`). Then, by

@@ -60,8 +60,15 @@ button.plain { background: none; border-color: transparent; color: var(--muted);
 .seg button { min-height: calc(var(--ctl) - 4px); padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--muted); }
 .seg button.on { background: var(--raise); color: var(--ink); box-shadow: 0 0 0 1px var(--edge); }
 .seg output { flex-grow: 4; align-self: center; text-align: center; font: 12px var(--mono); }
-/* A switch is one long label on a row of its own: the label wraps and the button takes the panel's width. */
-.seg.switch > button { flex: 1 1 100%; white-space: normal; min-height: var(--ctl); padding: 6px 8px; line-height: 1.25; }
+/* On or off: the name on the left, the slider on the right, and the whole row is the button. */
+.sw { display: flex; justify-content: space-between; gap: 10px; width: 100%; min-height: var(--ctl); padding: 3px 0; border: 0; border-radius: 6px; background: none; text-align: left; font-weight: 400; white-space: normal; line-height: 1.25; }
+.sw:active { transform: none; }
+.sw > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.sw > i { flex: none; position: relative; width: 32px; height: 18px; border-radius: 9px; background: color-mix(in srgb, var(--ink) 28%, var(--field)); transition: background-color 150ms ease; }
+.sw > i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); transition: transform 150ms var(--ease-out); }
+.sw[aria-checked=true] > i { background: var(--accent); }
+.sw[aria-checked=true] > i::after { transform: translateX(14px); }
+@media (pointer: coarse) { .sw { min-height: 44px; } .sw > i { width: 40px; height: 24px; border-radius: 12px; } .sw > i::after { width: 20px; height: 20px; } .sw[aria-checked=true] > i::after { transform: translateX(16px); } }
 
 ul.clips, ul.rows { list-style: none; padding: 0; margin: 12px 0 0; }
 ul.clips:empty { display: none; }

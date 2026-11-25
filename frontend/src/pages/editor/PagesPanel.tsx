@@ -7,6 +7,7 @@ import { next } from "../../cells";
 import { holdName, Tool } from "./Tool";
 import { span, Thumb } from "./palette";
 import { useTools } from "./useTools";
+import { Switch } from "../../components/Switch";
 
 export default function PagesPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   const addPage = session.addPage;
@@ -179,9 +180,7 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
               Neue Seite
             </button>
           </div>
-          <label className="tick numbers">
-            <input type="checkbox" checked={folio.on} onChange={(e) => numbering({}, e.target.checked)} /> Seitenzahlen
-          </label>
+          <Switch label="Seitenzahlen" on={folio.on} onChange={(on) => numbering({}, on)} />
           <div className="ground-box">
             <h2>Hintergrund</h2>
             <p className="hint">{GROUND_HINT}</p>

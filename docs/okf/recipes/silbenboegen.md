@@ -13,7 +13,7 @@ When a teacher asks for: "Ein Text mit Silbenbögen, die Silben in Blau und Rot.
 
 * `syllables: true` draws a bow under each syllable of each word.
 * `tints` holds two hex colours. The syllables take them in turn, the first and then the second. `tintsAcross: true` carries the turn on from word to word. Without it, each word starts again with the first colour.
-* In the editor the teacher sets the same on a text with the checkboxes "Silbenbögen" and "Silbenfarbe" in the format panel of the button "Text".
+* In the editor the teacher sets the same on a text with the switches "Silbenbögen" and "Silbenfarbe" in the format panel of the button "Text".
 * `breaks` sets a word's syllables by hand when the program splits it wrong. Leave it out otherwise.
 * See [text](../blocks/text.md) for the other props.
 

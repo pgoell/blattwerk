@@ -20,7 +20,11 @@ KINDS = {"nn": (False, False), "tn": (True, False), "tt": (True, True)}
 
 def ctl(page, label):
     """A button or a field of the panel, by its name."""
-    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=label, exact=True)
+        .or_(page.locator(".panel").get_by_role("switch", name=label, exact=True))
+    )
 
 
 def text_of(side):

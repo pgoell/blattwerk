@@ -136,5 +136,5 @@ def test_the_panel_sets_a_pattern_and_refuses_a_third_fixed_number(editor):
     )
     expect(result).to_have_value("")
     expect(
-        panel.get_by_role("button", name="Die Null darf bei + und \N{MINUS SIGN} vorkommen")
+        panel.get_by_role("switch", name="Die Null darf bei + und \N{MINUS SIGN} vorkommen")
     ).to_have_attribute("aria-pressed", "true")

@@ -42,7 +42,7 @@ def test_avoiding_a_zero_rest_and_allowing_one(editor):
     made = maths(client, ops=["/"], max=20, count=20, seed=1, rest=True, b=[[2, 4]])
     page = editor(box("m", "maths", made), client=client)
     pick(page, "m")
-    expect(ctl(page, "Rest 0 vermeiden")).to_have_attribute("aria-pressed", "true")
+    expect(ctl(page, "Rest 0 vermeiden")).to_have_attribute("aria-checked", "true")
     assert all(e["rest"] > 0 for e in made["exercises"])
     props = changed(page, client, lambda: ctl(page, "Rest 0 vermeiden").click())
     assert props["avoid0"] is False

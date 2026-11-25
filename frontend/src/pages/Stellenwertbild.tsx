@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { StellenwertbildBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, type StellenwertbildProps, type StellenwertbildTyped } from "../stellenwertbild";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -119,19 +120,10 @@ export default function Stellenwertbild({ block, apply }: { block: Stellenwertbi
         </select>
       </label>
       {p.task === "read" && (
-        <label>
-          <input type="checkbox" aria-label="Stellenwerttafel" checked={p.table} onChange={(e) => apply({ table: e.target.checked }, "table")} />
-          Stellenwerttafel
-        </label>
+        <Switch label="Stellenwerttafel" on={p.table} onChange={(on) => apply({ table: on }, "table")} />
       )}
-      <label>
-        <input type="checkbox" aria-label="Stellen mit 0" checked={p.zero} onChange={(e) => apply({ zero: e.target.checked }, "zero")} />
-        Stellen mit 0
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Bündeln (mehr als 9)" checked={p.bundle} onChange={(e) => apply({ bundle: e.target.checked }, "bundle")} />
-        Bündeln (mehr als 9)
-      </label>
+      <Switch label="Stellen mit 0" on={p.zero} onChange={(on) => apply({ zero: on }, "zero")} />
+      <Switch label="Bündeln (mehr als 9)" on={p.bundle} onChange={(on) => apply({ bundle: on }, "bundle")} />
       {p.count >= 2 && (
         <label>
           Aufgabe

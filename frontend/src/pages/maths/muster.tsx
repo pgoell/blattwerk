@@ -1,6 +1,7 @@
 // Patterns for the two numbers and the result, and the zero switch of each operation family.
 import { useState } from "react";
 import { SIGNS, type Limits, type MathsProps } from "../../sheet";
+import { Switch } from "../../components/Switch";
 
 const fixed = (pattern: string) => pattern.length > 0 && !pattern.includes("X");
 const textOf = (raw: string) => raw.toUpperCase().replace(/[^0-9X]/g, "").slice(0, 7);
@@ -55,16 +56,7 @@ export default function Muster({
   function zero(family: "strich" | "punkt", name: string, label: string) {
     const on = p.nil?.[family] !== false;
     return (
-      <button
-        key={family}
-        aria-label={name}
-        className={on ? "on" : ""}
-        aria-pressed={on}
-        disabled={decimals}
-        onClick={() => limit({ nil: { ...p.nil, [family]: !on } })}
-      >
-        {label}
-      </button>
+      <Switch key={family} label={label} name={name} on={on} disabled={decimals} onChange={(to) => limit({ nil: { ...p.nil, [family]: to } })} />
     );
   }
 
@@ -81,10 +73,8 @@ export default function Muster({
       {(plus || times) && (
         <>
           <h2>Die Null darf vorkommen</h2>
-          <div className="seg switch">
-            {plus && zero("strich", `Die Null darf bei + und ${SIGNS["-"]} vorkommen`, `+ und ${SIGNS["-"]}`)}
-            {times && zero("punkt", "Die Null darf bei · und : vorkommen", "· und :")}
-          </div>
+          {plus && zero("strich", `Die Null darf bei + und ${SIGNS["-"]} vorkommen`, `+ und ${SIGNS["-"]}`)}
+          {times && zero("punkt", "Die Null darf bei · und : vorkommen", "· und :")}
         </>
       )}
     </>

@@ -8,6 +8,7 @@ import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselB
 import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
 import { useBackdrop } from "./useBackdrop";
+import { Switch } from "./Switch";
 
 const LETTERS = ["A", "B", "C", "D"];
 // A page is about 60 mm wide on the screen, until the preview has measured its room.
@@ -244,10 +245,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
           </label>
         ))}
       </fieldset>
-      <label>
-        <input type="checkbox" checked={letters} onChange={(e) => setLetters(e.target.checked)} />
-        Buchstabe auf jedem Blatt
-      </label>
+      <Switch label="Buchstabe auf jedem Blatt" on={letters} onChange={(on) => setLetters(on)} />
       <p className="lead">Die Lösungen tragen den Buchstaben immer.</p>
       <fieldset>
         <legend>Vorschau</legend>

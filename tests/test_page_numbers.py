@@ -21,7 +21,7 @@ def folio(page, n):
 
 def switch(page, name):
     """The button Aus or An of the numbers: the Raster has an Aus of its own."""
-    return page.get_by_role("group", name="Seitenzahlen").get_by_role("button", name=name)
+    return page.get_by_role("group", name="Seitenzahlen").get_by_role("switch", name=name)
 
 
 def click_on(page, n):

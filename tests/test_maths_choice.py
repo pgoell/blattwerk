@@ -38,7 +38,11 @@ SHOWN = """(block) => [...block.querySelectorAll('.maths > div')].map((div) => {
 
 
 def control(page, name):
-    return page.locator(".panel").get_by_role("button", name=name, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=name, exact=True)
+        .or_(page.locator(".panel").get_by_role("switch", name=name, exact=True))
+    )
 
 
 def props(page, client, after=False):

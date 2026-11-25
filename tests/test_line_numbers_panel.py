@@ -7,7 +7,11 @@ from ui import RECT, RULING, TABLE, TEXT, box, doc, pick, user
 
 def button(page, name):
     """A button of the format panel, by its text."""
-    return page.locator(".panel").get_by_role("button", name=name, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=name, exact=True)
+        .or_(page.locator(".panel").get_by_role("switch", name=name, exact=True))
+    )
 
 
 def props(page, client):
@@ -106,7 +110,7 @@ def test_with_a_text_and_a_shape_picked_only_the_text_gets_lines(editor):
     )
     pick(page, "a", "b")
     button(page, "Zeilennummern").click()
-    expect(button(page, "Zeilennummern")).to_have_attribute("aria-pressed", "true")
+    expect(button(page, "Zeilennummern")).to_have_attribute("aria-checked", "true")
     saved = props(page, client)
     assert saved["a"]["lines"] == 5
     assert "lines" not in saved["b"]
@@ -166,7 +170,7 @@ def test_several_numbered_texts_are_switched_off_in_one_step(editor):
 def test_a_stored_value_that_is_no_step_shows_the_switch_off(editor, stored):
     page = editor(box("a", "text", {**TEXT, "lines": stored}))
     pick(page, "a")
-    expect(button(page, "Zeilennummern")).to_have_attribute("aria-pressed", "false")
+    expect(button(page, "Zeilennummern")).to_have_attribute("aria-checked", "false")
 
 
 # Asked #63, A6 and A11: the switch and the numbers drawn, together

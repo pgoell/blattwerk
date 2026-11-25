@@ -104,7 +104,7 @@ def test_the_panel_marks_vowels_and_a_group_at_the_start_of_a_word(editor):
     page = editor(box("a", "text", {**TEXT, "text": "Schule!"}), client=client)
     pick(page, "a")
     panel = page.locator(".panel")
-    vowels = panel.get_by_role("button", name="Vokale", exact=True)
+    vowels = panel.get_by_role("switch", name="Vokale", exact=True)
     vowels.click()
     expect(vowels).to_have_attribute("aria-pressed", "true")
     assert inks(page, "a") == [("u", RED), ("e", RED)]

@@ -73,7 +73,7 @@
 // ("3 nebeneinander"); select "Rechenart" ("Plus", "Minus"; a change drops `typed` in the same undo step); select
 // "Zahlenraum" ("bis 20", "bis 100", "bis 1000"; a change that changes u, so from or to bis 1000 with "hunderter"
 // stored, drops `typed` in the same undo step); with bis 1000 select "Übergang" ("Zehner", "Hunderter"; a change
-// drops `typed` in the same undo step); checkbox "Zweite Zahl mehrstellig"; select "Aufgabentyp" ("Nur die Aufgabe",
+// drops `typed` in the same undo step); switch "Zweite Zahl mehrstellig"; select "Aufgabentyp" ("Nur die Aufgabe",
 // "Aufgabe und Zerlegung", "Erste Zahl und Ergebnis"); select "Aufgabe für eigene Zahlen" (with 2 or more tasks,
 // "Aufgabe 1" ...); number fields "Erste Zahl", "Zweite Zahl", "Ergebnis", "Zerlegung links", "Zerlegung rechts",
 // "Zwischenergebnis" showing the given numbers (typed or drawn), the other fields empty; each field is one undo step

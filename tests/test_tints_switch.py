@@ -138,7 +138,7 @@ def test_garbage_in_the_colours_shows_the_text_and_breaks_nothing(editor, value)
     pick(page, "a")
     expect(page.locator(".panel h2").first).to_be_visible()
     expect(
-        page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True)
+        page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True)
     ).to_be_visible()
     assert not faults
 

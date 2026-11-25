@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UhrBlock } from "../sheet";
 import { parsed, sane, timesOf, type UhrProps } from "../uhr";
 import { newSeed } from "./Maths";
+import { Switch } from "../components/Switch";
 
 // Returns false when the change is refused. `back` is the height the block had when a number was stored before: that
 // number and height come back, and no check refuses them.
@@ -96,18 +97,9 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
         <option value="quarters">12, 3, 6, 9</option>
         <option value="none">Keine</option>
       </select>
-      <label>
-        <input type="checkbox" aria-label="Minutenstriche" checked={p.minutes} onChange={() => apply({ minutes: !p.minutes })} />
-        Minutenstriche
-      </label>
-      <label>
-        <input type="checkbox" aria-label="13 bis 24" checked={p.ring} disabled={p.numbers === "none"} onChange={() => apply({ ring: !p.ring })} />
-        13 bis 24
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Zeiger färben" checked={p.colours} onChange={() => apply({ colours: !p.colours })} />
-        Zeiger färben
-      </label>
+      <Switch label="Minutenstriche" on={p.minutes} onChange={() => apply({ minutes: !p.minutes })} />
+      <Switch label="13 bis 24" on={p.ring} disabled={p.numbers === "none"} onChange={() => apply({ ring: !p.ring })} />
+      <Switch label="Zeiger färben" on={p.colours} onChange={() => apply({ colours: !p.colours })} />
       <select aria-label="Aufgabe" value={p.task} onChange={(e) => apply({ task: e.target.value as UhrProps["task"] })}>
         <option value="read">Uhrzeit ablesen</option>
         <option value="draw">Zeiger einzeichnen</option>

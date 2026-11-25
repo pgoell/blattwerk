@@ -47,7 +47,7 @@ def test_tab_reaches_the_new_controls_and_keys_press_them(editor):
         page.keyboard.press("Tab")
     expect(panel(page, "Lückenwörter")).to_be_focused()
     page.keyboard.press("Enter")
-    expect(panel(page, "Lückenwörter")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Lückenwörter")).to_have_attribute("aria-checked", "true")
     stored = held(page, client)["a"]
     assert stored["listCols"] == 3
     assert stored["holes"] == "one"

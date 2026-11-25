@@ -1,5 +1,6 @@
 // The written format: how many numbers a plus stacks, where the signs sit, which minus is drawn, and the place letters.
 import type { Limits, MathsProps } from "../../sheet";
+import { Switch } from "../../components/Switch";
 
 const METHODS = [
   ["fill", "Ergänzen", "Ergänzungsverfahren"],
@@ -51,10 +52,7 @@ export default function Schriftlich({ p, limit, plus }: { p: MathsProps; limit: 
         </>
       )}
       {plus && (
-        <label>
-          <input type="checkbox" aria-label="Stellenwerte zeigen" checked={!!p.stellen} onChange={(e) => limit({ stellen: e.target.checked })} />
-          Stellenwerte zeigen
-        </label>
+        <Switch label="Stellenwerte zeigen" on={!!p.stellen} onChange={(on) => limit({ stellen: on })} />
       )}
     </>
   );

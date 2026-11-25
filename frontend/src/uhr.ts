@@ -70,10 +70,10 @@
 // it never shrinks by itself, and the teacher resizes the block.
 //
 // The panel (pages/Uhr.tsx), by aria-label: "Zahlen" (select: "all" 1 bis 12, "quarters" 12, 3, 6, 9, "none"
-// Keine), "Minutenstriche" (checkbox), "13 bis 24" (checkbox, disabled with "none"), "Aufgabe" (select: "read"
+// Keine), "Minutenstriche" (switch), "13 bis 24" (switch, disabled with "none"), "Aufgabe" (select: "read"
 // Uhrzeit ablesen, "draw" Zeiger einzeichnen), for "read" "Antwort" (select: "box" __:__ Uhr, "line" Linie),
 // "Schreibweise" (select: "12" 3:30 Uhr, "24" 15:30 Uhr, "both" 3:30 und 15:30, "words" In Worten), "Zeiger färben"
-// (checkbox), for "words" "Form" (select: "nach" viertel nach drei, "viertel" viertel vier), "Uhren" and "Spalten"
+// (switch), for "words" "Form" (select: "nach" viertel nach drei, "viertel" viertel vier), "Uhren" and "Spalten"
 // (number inputs), "Zeiten" (select: "random"
 // Zufällig, "free" Selbst wählen), for "random" "Schritte" (select: "60" Volle Stunden, "30" Halbe Stunden, "15"
 // Viertelstunden, "5" 5 Minuten, "1" 1 Minute) and "Neu würfeln"; for "free" a text input per clock, "Uhr <i>" from

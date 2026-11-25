@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { ZahlenmauerBlock, ZahlenmauerProps } from "../sheet";
 import { draw } from "../bank";
 import { at, fixes, made, sane, stones } from "../zahlenmauer";
+import { Switch } from "../components/Switch";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const GIVEN = { base: "Grundreihe (leicht)", mix: "Gemischt (mittel)", free: "Freie Wahl" } as const;
@@ -113,9 +114,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           {!fixes(p.base, free) && <p className="hint" role="status">Die gegebenen Steine legen die Mauer nicht fest.</p>}
         </>
       )}
-      <button className={p.empty ? "on" : ""} aria-pressed={p.empty} onClick={() => apply({ empty: !p.empty })}>
-        Leer
-      </button>
+      <Switch label="Leer" on={p.empty} onChange={() => apply({ empty: !p.empty })} />
       <label>
         Eigene Zahlen
         <select aria-label="Mauer für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>

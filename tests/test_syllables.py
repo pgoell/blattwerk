@@ -43,7 +43,7 @@ WORDY = {
 
 
 def switch(page):
-    return page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True)
 
 
 def expect_switch(page, on):

@@ -53,7 +53,7 @@ def border(page, label):
 
 
 def schneidelinien(page):
-    return page.get_by_role("button", name="Schneidelinien", exact=True)
+    return page.get_by_role("switch", name="Schneidelinien", exact=True)
 
 
 def test_a1_a2_style_goes_to_the_whole_table(editor):

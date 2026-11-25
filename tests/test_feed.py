@@ -301,7 +301,7 @@ def test_a_switch_is_on_only_when_all_have_it(editor):
         words=WORDS,
     )
     pick(page, "a", "b")
-    expect(panel(page, "Lückenwörter")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Lückenwörter")).to_have_attribute("aria-checked", "false")
     unpick(page)
     pick(page, "a", "c")
     expect(page.get_by_label(CHOICE)).to_have_value("own")

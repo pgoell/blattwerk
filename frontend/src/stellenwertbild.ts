@@ -91,7 +91,7 @@
 // "Eine Aufgabe mehr" ("4 Aufgaben", "1 Aufgabe"), "Weniger Aufgaben nebeneinander" / "Mehr Aufgaben nebeneinander"
 // ("2 nebeneinander"); select "Zahlenraum" ("bis 100", "bis 1000"; a change drops `typed` in the same undo step);
 // select "Aufgabentyp" ("read" "Bild gegeben, Zahl schreiben", "draw" "Zahl gegeben, Bild zeichnen"); with "read"
-// checkbox "Stellenwerttafel"; checkbox "Stellen mit 0"; checkbox "Bündeln (mehr als 9)"; with 2 or more tasks select
+// switch "Stellenwerttafel"; switch "Stellen mit 0"; switch "Bündeln (mehr als 9)"; with 2 or more tasks select
 // "Aufgabe" ("Aufgabe 1" ...), the task the field below sets; number field "Zahl" showing the task's n (empty for a
 // wrong or empty task), up to 4 digits; it is one undo step per task (key `typed:i`), its text kept as a draft while
 // it has focus; emptying it removes the task's entry. Hints (p.hint, role=status): with `none` "Mit diesen

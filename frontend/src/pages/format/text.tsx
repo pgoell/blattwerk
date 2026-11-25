@@ -15,6 +15,7 @@ import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
 import { syllabled, worded } from "./words";
+import { Switch } from "../../components/Switch";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
@@ -112,9 +113,7 @@ export function TextPanel({
           {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
           {texts.length > 0 && (
             <>
-              <button className={numbered ? "on" : ""} aria-pressed={numbered} onClick={() => style("text", { lines: numbered ? undefined : 5 }, "lines")}>
-                Zeilennummern
-              </button>
+              <Switch label="Zeilennummern" on={numbered} onChange={() => style("text", { lines: numbered ? undefined : 5 }, "lines")} />
               {numbered && (
                 <div className="seg">
                   <button className={stepOf(texts[0].props.lines) === 1 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 1} onClick={() => style("text", { lines: 1 }, "lines")}>

@@ -4,6 +4,7 @@ import type { HunderterfeldBlock } from "../sheet";
 import { sane, MUSTER_NAMES, type HunderterfeldProps, type MusterName } from "../hunderterfeld";
 import { cutOf } from "../hunderterfeld-shape";
 import { newSeed } from "./Maths";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<HunderterfeldProps>, key?: string) => void;
 type Mode = "hide" | "tint" | "cut" | "fill";
@@ -183,10 +184,7 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
               <option value="2">Blau</option>
             </select>
           )}
-          <label>
-            <input type="checkbox" aria-label="Ausschnitt" checked={p.cut} onChange={() => apply({ cut: !p.cut })} />
-            Ausschnitt
-          </label>
+          <Switch label="Ausschnitt" on={p.cut} onChange={() => apply({ cut: !p.cut })} />
           {p.cut && (
             <select aria-label="Zuschnitt" value={p.form ?? "cells"} onChange={(e) => apply({ form: e.target.value as HunderterfeldProps["form"] })}>
               <option value="cells">Selbst</option>

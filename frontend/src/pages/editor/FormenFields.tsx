@@ -2,6 +2,7 @@
 
 import { bulgeOf, cornersOf, filledOf, partsOf, spikesOf } from "../../sheet/formen";
 import type { TextProps } from "../../sheet";
+import { Switch } from "../../components/Switch";
 
 const line = (kind?: string) => kind === "line" || kind === "arrow" || kind === "double";
 
@@ -43,9 +44,7 @@ export function FormenFields({ boxes, look }: { boxes: Boxed[]; look: (props: ob
         </>
       )}
       {same && kind === "circle" && (
-        <label className="tick">
-          <input type="checkbox" checked={props.hub === true} onChange={(e) => look({ hub: e.target.checked || undefined }, "hub")} /> Mittelpunkt
-        </label>
+        <Switch label="Mittelpunkt" on={props.hub === true} onChange={(on) => look({ hub: on || undefined }, "hub")} />
       )}
       {same && (kind === "arc" || kind === "bow") && (
         <label>

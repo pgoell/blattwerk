@@ -9,6 +9,7 @@ import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
 import { syllabled } from "./words";
+import { Switch } from "../../components/Switch";
 
 export function RulingPanel({
   sel, style, place, words, lineaturen, list, toList, part, look, mendWord, doc, traced, W, H,
@@ -94,7 +95,7 @@ export function RulingPanel({
           {/* The house and the band: only the kinds with zones have them. A press is one undo step, and a drag over the colour is one. */}
           {RULINGS[kindOf(rulings[0].props.kind)].zones && (
             <>
-              <button className={houseOf(rulings[0]) ? "on" : ""} aria-pressed={houseOf(rulings[0])} onClick={() => style("ruling", { house: !houseOf(rulings[0]) })}>Häuschen</button>
+              <Switch label="Häuschen" on={houseOf(rulings[0])} onChange={() => style("ruling", { house: !houseOf(rulings[0]) })} />
               {houseOf(rulings[0]) && (
                 <select aria-label="Häuschen einfärben" value={houseTintOf(rulings[0]) ?? "none"} onChange={(e) => style("ruling", { houseTint: e.target.value === "none" ? undefined : e.target.value })}>
                   <option value="none">Nicht eingefärbt</option>
@@ -102,7 +103,7 @@ export function RulingPanel({
                   <option value="all">Dach, Zimmer und Keller eingefärbt</option>
                 </select>
               )}
-              <button className={bandOf(rulings[0]) ? "on" : ""} aria-pressed={bandOf(rulings[0])} onClick={() => style("ruling", { band: !bandOf(rulings[0]) })}>Mittelband einfärben</button>
+              <Switch label="Mittelband einfärben" on={bandOf(rulings[0])} onChange={() => style("ruling", { band: !bandOf(rulings[0]) })} />
               {bandOf(rulings[0]) && (
                 <label>
                   Farbe des Mittelbands

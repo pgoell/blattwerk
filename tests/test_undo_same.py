@@ -258,7 +258,7 @@ def test_the_view_set_as_it_is_adds_no_undo_step(editor, own):
         for name in ("Alle Seiten", "Hoch"):
             panel.get_by_role("button", name=name, exact=True).click()
         panel.get_by_role("button", name="Aus", exact=True).first.click()
-        panel.get_by_role("group", name="Seitenzahlen").get_by_role("button", name="Aus").click()
+        panel.get_by_role("group", name="Seitenzahlen").get_by_role("switch", name="Aus").click()
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
 

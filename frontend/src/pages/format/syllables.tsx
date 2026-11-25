@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { GREYS, TINTS, listOf, pairOf, useSplitter, type Block, type Doc } from "../../sheet";
 import type { Picked } from "../Field";
 import { both, syllabled } from "./words";
+import { Switch } from "../../components/Switch";
 
 // The switches for the bows under the syllables and for their colours, for every selected block that holds words: on
 // unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
@@ -45,12 +46,8 @@ export function Syllables({ sel, part, look, style, mendWord, doc, words }: { se
   return (
     <>
       {/* Off is no entry, as on a sheet that never had bows. */}
-      <button className={bowsOn ? "on" : ""} aria-pressed={bowsOn} onClick={() => set({ syllables: bowsOn ? undefined : true }, "syllables")}>
-        Silbenbögen
-      </button>
-      <button className={tintsOn ? "on" : ""} aria-pressed={tintsOn} onClick={() => set(tintsOn ? { tints: undefined, tintsAcross: undefined } : { tints: TINTS }, "tints")}>
-        Silbenfarbe
-      </button>
+      <Switch label="Silbenbögen" on={bowsOn} onChange={() => set({ syllables: bowsOn ? undefined : true }, "syllables")} />
+      <Switch label="Silbenfarbe" on={tintsOn} onChange={() => set(tintsOn ? { tints: undefined, tintsAcross: undefined } : { tints: TINTS }, "tints")} />
       {tintsOn && (
         <>
           <label>
@@ -61,12 +58,8 @@ export function Syllables({ sel, part, look, style, mendWord, doc, words }: { se
             Zweite Silbe
             <input type="color" value={pair[1]} onChange={(e) => set({ tints: [pair[0], e.target.value] }, "tint1")} />
           </label>
-          <button className={greys ? "on" : ""} aria-pressed={greys} onClick={() => set({ tints: greys ? TINTS : GREYS }, "tints")}>
-            Schwarz/Grau
-          </button>
-          <button className={across ? "on" : ""} aria-pressed={across} onClick={() => set({ tintsAcross: across ? undefined : true })}>
-            Über Wortgrenzen
-          </button>
+          <Switch label="Schwarz/Grau" on={greys} onChange={() => set({ tints: greys ? TINTS : GREYS }, "tints")} />
+          <Switch label="Über Wortgrenzen" on={across} onChange={() => set({ tintsAcross: across ? undefined : true })} />
         </>
       )}
       {one && all.length > 0 && (

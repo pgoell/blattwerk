@@ -34,7 +34,11 @@ GAPPED = {**TEXT, "rich": [{"runs": [{"text": "Hallo", "gap": True}]}], "gapWidt
 
 
 def panel(page, label):
-    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=label, exact=True)
+        .or_(page.locator(".panel").get_by_role("switch", name=label, exact=True))
+    )
 
 
 def gapped(rich):
@@ -67,9 +71,9 @@ def test_lucke_on_a_gap_turns_it_back_into_text(editor):
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
     step(page, lambda: panel(page, "Lücke").click())
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-checked", "true")
     step(page, lambda: panel(page, "Lücke").click())
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-checked", "false")
     assert "rich" not in held(page, client)["a"]
 
 
@@ -95,14 +99,14 @@ def test_lucken_gleich_breit_stores_a_width_that_the_field_changes_and_off_remov
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
     panel(page, "Lücken gleich breit").click()
-    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-checked", "true")
     assert held(page, client)["a"]["gapWidth"] == 30
     width = page.locator(".panel").get_by_label("Breite der Lücken", exact=True)
     width.fill("12")
     width.press("Enter")
     assert held(page, client)["a"]["gapWidth"] == 12
     panel(page, "Lücken gleich breit").click()
-    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-checked", "false")
     assert "gapWidth" not in held(page, client)["a"]
 
 
@@ -257,9 +261,9 @@ def test_the_lucke_button_shows_pressed_in_a_gap_and_keeps_the_field_focused(edi
     # At the very start a gap is no mark of the caret; one step in, the caret is inside it.
     page.keyboard.press("Home")
     page.keyboard.press("ArrowRight")
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-checked", "true")
     panel(page, "Lücke").click()
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "false")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-checked", "false")
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")
     expect(page.locator(FIELD)).to_have_text("Hxallo")

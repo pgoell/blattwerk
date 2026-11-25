@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { TextaufgabeBlock } from "../sheet";
 import { newSeed } from "./Maths";
 import { OPS, THEMES, made, sane, type TextOp, type TextaufgabeProps, type TextaufgabeWritten, type Theme } from "../textaufgabe";
+import { Switch } from "../components/Switch";
 
 const THEME: Record<Theme, string> = { kurz: "Kurze Texte", sach: "Sachaufgaben", raetsel: "Rätsel", zeit: "Zeit", geld: "Geld" };
 const OP: Record<TextOp, string> = { "+": "+", "-": "−", "*": "·", ":": ":" };
@@ -61,10 +62,7 @@ export default function Textaufgabe({ block, apply }: { block: TextaufgabeBlock;
         <button aria-label="Eine Aufgabe mehr" disabled={p.count === 4} onClick={() => apply({ count: p.count + 1 }, "count")}>＋</button>
       </div>
       {THEMES.map((theme) => (
-        <label key={theme}>
-          <input type="checkbox" aria-label={THEME[theme]} checked={p.themes.includes(theme)} onChange={() => toggleTheme(theme)} />
-          {THEME[theme]}
-        </label>
+        <Switch key={theme} label={THEME[theme]} on={p.themes.includes(theme)} onChange={() => toggleTheme(theme)} />
       ))}
       {p.themes.includes("zeit") && (
         <select aria-label="Zeit" value={p.zeit} onChange={(e) => apply({ zeit: e.target.value as TextaufgabeProps["zeit"] }, "zeit")}>
@@ -94,15 +92,15 @@ export default function Textaufgabe({ block, apply }: { block: TextaufgabeBlock;
         <option value="yes">mit Übergang</option>
         <option value="no">ohne Übergang</option>
       </select>
-      <label><input type="checkbox" aria-label="Frage zeigen" checked={p.frage} onChange={() => apply({ frage: !p.frage }, "frage")} />Frage zeigen</label>
-      <label><input type="checkbox" aria-label="Rechnung zeigen" checked={p.rechnung} onChange={() => apply({ rechnung: !p.rechnung }, "rechnung")} />Rechnung zeigen</label>
-      <label><input type="checkbox" aria-label="Antwort zeigen" checked={p.antwort} onChange={() => apply({ antwort: !p.antwort }, "antwort")} />Antwort zeigen</label>
-      <label><input type="checkbox" aria-label="Zeichenfeld" checked={p.sketch} onChange={() => apply({ sketch: !p.sketch }, "sketch")} />Zeichenfeld</label>
+      <Switch label="Frage zeigen" on={p.frage} onChange={() => apply({ frage: !p.frage }, "frage")} />
+      <Switch label="Rechnung zeigen" on={p.rechnung} onChange={() => apply({ rechnung: !p.rechnung }, "rechnung")} />
+      <Switch label="Antwort zeigen" on={p.antwort} onChange={() => apply({ antwort: !p.antwort }, "antwort")} />
+      <Switch label="Zeichenfeld" on={p.sketch} onChange={() => apply({ sketch: !p.sketch }, "sketch")} />
       <select aria-label="Rechenzeilen" value={String(p.rows)} onChange={(e) => apply({ rows: e.target.value === "auto" ? "auto" : Number(e.target.value) }, "rows")}>
         <option value="auto">Rechenzeilen automatisch</option>
         {Array.from({ length: 8 }, (_, n) => n + 1).map((n) => <option key={n} value={n}>{n === 1 ? "1 Rechenzeile" : `${n} Rechenzeilen`}</option>)}
       </select>
-      <label><input type="checkbox" aria-label="Eigene Texte" checked={p.manual} onChange={() => own(!p.manual)} />Eigene Texte</label>
+      <Switch label="Eigene Texte" on={p.manual} onChange={() => own(!p.manual)} />
       {p.manual && tasks.length > 1 && (
         <select aria-label="Aufgabe für eigene Texte" value={at} onChange={(e) => setWhich(Number(e.target.value))}>
           {tasks.map((_, i) => <option key={i} value={i}>Aufgabe {i + 1}</option>)}

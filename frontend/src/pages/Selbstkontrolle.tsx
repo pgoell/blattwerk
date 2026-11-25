@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Block, Doc, SelbstkontrolleBlock } from "../sheet";
 import { checked, labelOf, ordered, sane, tasksOf, worded, type MixLook, type SelbstkontrolleProps } from "../selbstkontrolle";
 import { newSeed } from "./Maths";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<SelbstkontrolleProps>, key?: string) => void;
 
@@ -69,18 +70,22 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
       <p className="hint">Die Kinder prüfen ihre Ergebnisse selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst.</p>
       <h2>Blöcke</h2>
       {lost.map((id) => (
-        <label key={id}>
-          <input type="checkbox" checked onChange={() => toggle(id)} />
-          Gelöschter Block
-        </label>
+        <Switch key={id} label="Gelöschter Block" on onChange={() => toggle(id)} />
       ))}
       {maths.map((b) => (
-        <label key={b.id}>
-          <input type="checkbox" checked={p.links.includes(b.id)} onChange={() => toggle(b.id)} />
+        <Switch
+          key={b.id}
+          label={
+            <>
           {labelOf(b, doc)}
           {paged && ` (Seite ${pageOf(b)})`}
           {p.form === "word" && !worded(b) && <span className="hint"> (nicht im Lösungswort)</span>}
-        </label>
+            </>
+          }
+          name={`${labelOf(b, doc)}${paged ? ` (Seite ${pageOf(b)})` : ""}`}
+          on={p.links.includes(b.id)}
+          onChange={() => toggle(b.id)}
+        />
       ))}
       {maths.length === 0 && lost.length === 0 && (
         <p className="hint">

@@ -20,7 +20,7 @@ LINES = """(block) => [...block.querySelectorAll('svg.ruling line')].map(
 
 
 def bows_switch(page):
-    return page.get_by_role("button", name="Silbenbögen", exact=True)
+    return page.get_by_role("switch", name="Silbenbögen", exact=True)
 
 
 @pytest.mark.parametrize("kind", ["l1", "l2", "l3", "l4", "lines"])

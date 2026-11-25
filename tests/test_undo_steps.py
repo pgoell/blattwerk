@@ -266,7 +266,11 @@ STORED = [
 
 
 def panel(page, label):
-    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=label, exact=True)
+        .or_(page.locator(".panel").get_by_role("switch", name=label, exact=True))
+    )
 
 
 def step(page, action):

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { RechendreieckBlock } from "../sheet";
 import { draw } from "../bank";
 import { fixes, made, NAMES, sane, ZAHLENRAUM, type RechendreieckProps } from "../rechendreieck";
+import { Switch } from "../components/Switch";
 
 const GIVEN = { inner: "Innen (leicht)", mix: "Gemischt (mittel)", outer: "Außen (schwer)", free: "Freie Wahl" } as const;
 // The fields as the drawing has them: the inner ones at the corners, the outer ones beside the sides.
@@ -99,9 +100,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           {!fixes(p.free ?? []) && <p className="hint" role="status">Die gegebenen Felder legen das Dreieck nicht fest.</p>}
         </>
       )}
-      <button className={p.empty ? "on" : ""} aria-pressed={p.empty} onClick={() => apply({ empty: !p.empty })}>
-        Leer
-      </button>
+      <Switch label="Leer" on={p.empty} onChange={() => apply({ empty: !p.empty })} />
       <select aria-label="Dreieck für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>
         {m.triangles.map((_, i) => (
           <option key={i} value={i}>

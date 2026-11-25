@@ -147,7 +147,7 @@ def test_the_panel_grows_analogieaufgaben_and_hides_the_last_number(editor):
     expect(fam.locator("option")).to_have_text(
         ["Keine", "Tauschaufgaben", "Umkehraufgaben", "Nachbaraufgaben", "Analogieaufgaben"]
     )
-    whole = panel.get_by_role("button", name="Vollständig anzeigen", exact=True)
+    whole = panel.get_by_role("switch", name="Vollständig anzeigen", exact=True)
     expect(whole).to_have_count(0)
     pick_family(page, "Analogieaufgaben")
     expect(at(page, "m").locator(FAMILY_ROW)).to_have_count(4)

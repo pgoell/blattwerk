@@ -2,6 +2,7 @@
 import { draw } from "../bank";
 import type { SuchselBlock, SuchselProps, Ways } from "../sheet";
 import { laid, sane, type Loosen } from "../suchsel";
+import { Switch } from "../components/Switch";
 
 const WAYS: [Ways, string][] = [
   ["across", "Nur waagerecht"],
@@ -55,12 +56,8 @@ export default function Suchsel({ block, words, apply }: { block: SuchselBlock; 
           </option>
         ))}
       </select>
-      <button className={p.caps ? "on" : ""} aria-pressed={p.caps} onClick={() => apply({ caps: !p.caps })}>
-        Nur Großbuchstaben
-      </button>
-      <button className={p.umlauts ? "on" : ""} aria-pressed={p.umlauts} onClick={() => apply({ umlauts: !p.umlauts })}>
-        Umlaute und ß behalten
-      </button>
+      <Switch label="Nur Großbuchstaben" on={p.caps} onChange={() => apply({ caps: !p.caps })} />
+      <Switch label="Umlaute und ß behalten" on={p.umlauts} onChange={() => apply({ umlauts: !p.umlauts })} />
       <div className="seg">
         <button className={p.show === "words" ? "on" : ""} aria-pressed={p.show === "words"} onClick={() => apply({ show: "words" })}>
           Wörterliste

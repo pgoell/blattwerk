@@ -189,7 +189,7 @@ const mergeKey = useRef("");
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
-  // The words of the picked name lines, when only name lines are picked: the panel shows a checkbox for each.
+  // The words of the picked name lines, when only name lines are picked: the panel shows a switch for each.
   const nameFields = free.length > 0 && free.every((b) => b.type === "name") ? ((free[0] as NameBlock).props.fields ?? FIELDS) : [];
   const stroke = boxes[0]?.props.stroke ?? "none";
   // The block the brush picks its look up from: the first with more of a look than a numbering, or else the first.

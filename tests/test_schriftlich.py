@@ -162,6 +162,6 @@ def test_the_place_letters_and_the_method_are_on_the_sheet(editor):
     at(page, "m").click()
     panel = page.locator(".panel")
     expect(panel.get_by_role("button", name="Entbündelungsverfahren")).to_have_class("on")
-    expect(panel.get_by_role("checkbox", name="Stellenwerte zeigen")).to_be_checked()
+    expect(panel.get_by_role("switch", name="Stellenwerte zeigen")).to_be_checked()
     expect(panel.get_by_role("button", name="Ergänzungsverfahren")).to_be_visible()
     expect(panel.get_by_role("button", name="Abziehverfahren mit Erweitern")).to_be_visible()

@@ -14,6 +14,7 @@
 .panel > .hint { margin-top: 14px; }
 .panel > .warn { color: var(--rec); }
 .panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
+.panel .sw { margin: 0 0 4px; }
 .panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
 /* The font menus' own list, under its select, each name in its face. */
 .fontsel { position: relative; }

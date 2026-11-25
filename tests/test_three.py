@@ -110,7 +110,7 @@ def test_punkt_vor_strich_is_free_with_three_numbers_and_both_kinds_only(editor)
     expect(ctl(page, "Punkt vor Strich")).to_be_enabled()
     changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     expect(ctl(page, "Punkt vor Strich")).to_be_disabled()
-    expect(ctl(page, "Punkt vor Strich")).to_have_attribute("aria-pressed", "false")
+    expect(ctl(page, "Punkt vor Strich")).to_have_attribute("aria-checked", "false")
     changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     expect(ctl(page, "Punkt vor Strich")).to_be_enabled()
 
@@ -351,7 +351,7 @@ def test_a_switch_that_is_not_free_is_greyed_and_counts_for_nothing(editor):
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     expect(ctl(page, "Punkt vor Strich")).to_be_disabled()
-    expect(ctl(page, "Punkt vor Strich")).to_have_attribute("aria-pressed", "false")
+    expect(ctl(page, "Punkt vor Strich")).to_have_attribute("aria-checked", "false")
     assert props["pvs"] is True
     assert all(e["op"] == "+" and e["op2"] == "+" for e in props["exercises"])
 

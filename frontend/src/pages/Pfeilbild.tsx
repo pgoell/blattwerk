@@ -3,6 +3,7 @@ import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { PfeilbildBlock } from "../sheet";
 import { draw } from "../bank";
 import { fitColumns, made, opLabel, sane, type PfeilbildProps } from "../pfeilbild";
+import { Switch } from "../components/Switch";
 
 type Op = PfeilbildProps["ops"][number];
 
@@ -140,15 +141,7 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
       {RECHENART.map(([op, label]) => {
         const on = p.ops.includes(op);
         return (
-          <label key={op} className="check">
-            <input
-              type="checkbox"
-              checked={on}
-              disabled={(op === "*" || op === ":") && p.max < 20 ? true : on && p.ops.length === 1}
-              onChange={(e) => toggleOp(op, e.target.checked)}
-            />
-            {label}
-          </label>
+          <Switch key={op} label={label} on={on} disabled={(op === "*" || op === ":") && p.max < 20 ? true : on && p.ops.length === 1} onChange={(to) => toggleOp(op, to)} />
         );
       })}
       <label>
@@ -171,10 +164,7 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
           ))}
         </select>
       </label>
-      <label className="check">
-        <input type="checkbox" checked={p.drawOps} onChange={(e) => apply({ drawOps: e.target.checked })} />
-        Operatoren zeichnen
-      </label>
+      <Switch label="Operatoren zeichnen" on={p.drawOps} onChange={(drawOps) => apply({ drawOps })} />
       <label>
         Eigene Zahlen
         <select aria-label="Pfeilbild für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>

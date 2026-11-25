@@ -88,15 +88,15 @@ IN_PAPER = """() => {
 
 
 def tint_switch(page):
-    return page.locator(".panel").get_by_role("button", name="Silbenfarbe", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Silbenfarbe", exact=True)
 
 
 def greys(page):
-    return page.locator(".panel").get_by_role("button", name="Schwarz/Grau", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Schwarz/Grau", exact=True)
 
 
 def across(page):
-    return page.locator(".panel").get_by_role("button", name="Über Wortgrenzen", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Über Wortgrenzen", exact=True)
 
 
 def expect_tint_switch(page, on):

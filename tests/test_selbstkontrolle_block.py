@@ -51,8 +51,8 @@ def stored(page, client):
 
 
 def panel_tick(page, label):
-    """The panel's checkbox for the maths block that the label names."""
-    return page.locator(".panel label", has_text=label).locator("input[type=checkbox]")
+    """The panel's switch for the maths block that the label names."""
+    return page.locator(".panel [role=switch]", has_text=label)
 
 
 def test_ticking_a_block_grows_the_selbstkontrolle_and_one_undo_takes_both_back(editor):

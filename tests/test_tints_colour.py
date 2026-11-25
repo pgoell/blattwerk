@@ -170,7 +170,7 @@ def test_a_break_set_by_hand_moves_the_colour_and_the_bow(editor):
     gap(page, "Ma|us").click()
     tinted(page, "a").to_have_text([("Ma", BLUE), ("us", RED)])
     assert held(page, client)["a"]["breaks"] == {"maus": [2]}
-    page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True).click()
+    page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True).click()
     assert syls(page, "a") == ["Ma", "us"]
 
 
