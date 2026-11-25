@@ -4,9 +4,10 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackdrop } from "./useBackdrop";
 
-type Props = { title: string; yes: string; children?: ReactNode; onYes: () => void; onClose: () => void };
+// `danger` marks a step that cannot be taken back.
+type Props = { title: string; yes: string; danger?: boolean; children?: ReactNode; onYes: () => void; onClose: () => void };
 
-export default function Confirm({ title, yes, children, onYes, onClose }: Props) {
+export default function Confirm({ title, yes, danger, children, onYes, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   // What had the focus gets it back, as after a menu.
@@ -28,7 +29,7 @@ export default function Confirm({ title, yes, children, onYes, onClose }: Props)
         </button>
         <button
           type="button"
-          className="primary"
+          className={danger ? "danger" : "primary"}
           onClick={() => {
             ref.current?.close();
             onYes();

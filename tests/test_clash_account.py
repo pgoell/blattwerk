@@ -56,6 +56,7 @@ from ui import (
     reload,
     user,
 )
+from ui_new import delete_sheet
 
 
 @pytest.mark.parametrize("choice", CHOICES)
@@ -222,8 +223,7 @@ def test_another_accounts_record_survives_a_start_a_sheet_opened_and_a_delete_on
     # The delete on the list.
     page.go_back()
     expect(page.locator(".sheets li strong")).to_have_text(["d"])
-    page.on("dialog", lambda dialog: dialog.accept())
-    page.get_by_role("button", name="d löschen").click()
+    delete_sheet(page, "d")
     expect(page.locator(".sheets li")).to_have_count(0)
     untouched()
     assert asked == ["GET", "DELETE"]

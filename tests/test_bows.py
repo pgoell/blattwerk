@@ -95,9 +95,10 @@ def expect_under(found):
         assert one["base"] < top < bottom < one["base"] + 0.4 * em, one
 
 
-def painted(page, where, room=0):
+def painted(page, where, room=0, least=64):
     """The box of the pixels that the bows alone paint, in a picture of `where` with `room` px
-    more below it. None where they paint nothing."""
+    more below it. None where they paint nothing. `least` is how much darker a bow makes a pixel:
+    less in a picture as small as a row of the sheet list."""
     area = where.bounding_box()
     clip = {**area, "height": area["height"] + room}
     shots = []
@@ -105,7 +106,7 @@ def painted(page, where, room=0):
         page.add_style_tag(content=f".bows {{ visibility: {look} !important }}")
         shots.append(Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("L"))
     page.add_style_tag(content=".bows { visibility: visible !important }")
-    return ImageChops.difference(*shots).point(lambda v: 255 if v > 64 else 0).getbbox()
+    return ImageChops.difference(*shots).point(lambda v: 255 if v > least else 0).getbbox()
 
 
 def test_each_syllable_of_each_word_has_a_bow_and_a_number_has_none(editor):
@@ -274,7 +275,7 @@ def test_the_sheet_lists_thumbnail_shows_the_bows(editor, server):
     paper = page.locator(".sheets li .paper")
     expect(paper.locator(".syl")).to_have_count(5)
     expect(paper.locator(".unsplit")).to_have_count(0)
-    assert painted(page, paper)
+    assert painted(page, paper, least=8)
 
 
 CHUNK = "**/assets/syllables-*.js"

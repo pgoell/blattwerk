@@ -19,6 +19,7 @@ from test_admin import admin, admin_page  # noqa: F401
 from test_loading import window  # noqa: F401
 from test_stale import TURNS
 from ui import TEXT, box, sheet, user
+from ui_new import delete_sheet, more
 
 AGAIN = "Erneut versuchen"
 WHY = {
@@ -30,15 +31,20 @@ GONE = "Dieses Blatt wurde auf einem anderen Gerät gelöscht."
 # The button of each action on the sheet "a", and what its line names.
 ACTIONS = {
     "create": ("Neues Blatt", "Das neue Blatt konnte nicht angelegt werden."),
-    "rename": ("a umbenennen", "Das Blatt konnte nicht umbenannt werden."),
+    "rename": ("Umbenennen", "Das Blatt konnte nicht umbenannt werden."),
     "duplicate": ("a duplizieren", "Das Blatt konnte nicht dupliziert werden."),
-    "remove": ("a löschen", "Das Blatt konnte nicht gelöscht werden."),
+    "remove": ("Löschen", "Das Blatt konnte nicht gelöscht werden."),
 }
 API = "**/api/**"
 
 
-def press(page, action):
-    """Presses the action's button. A new sheet is the chooser's empty one."""
+def press(page, action, title="a"):
+    """Does the action on the sheet of that title. A new sheet is the chooser's empty one, a new
+    name and a delete are in the row's menu, and the delete says yes to the app's question."""
+    if action == "remove":
+        return delete_sheet(page, title)
+    if action == "rename":
+        return more(page, title, ACTIONS[action][0])
     page.get_by_role("button", name=ACTIONS[action][0]).click()
     if action == "create":
         page.locator("dialog.chooser").get_by_role("button", name="Leeres Blatt").click()
@@ -143,7 +149,7 @@ def test_a_button_on_a_sheet_deleted_elsewhere_says_so_and_takes_the_row_away(
     there = listed(page, server, client, "b")
     page.on("dialog", lambda d: d.accept("Neu" if d.type == "prompt" else None))
     assert client.delete(f"/api/sheets/{there}").status_code == 200
-    page.get_by_role("button", name=ACTIONS[action][0]).click()
+    press(page, action)
     line = page.get_by_role("alert")
     expect(line).to_contain_text(GONE)
     expect(line.get_by_role("button", name=AGAIN)).to_have_count(0)
@@ -169,7 +175,7 @@ def test_a_button_pressed_under_another_accounts_session_calls_no_sheet_deleted(
     cookie = {"name": "session", "value": other.cookies["session"], "url": server}
     page.context.add_cookies([cookie])
     page.evaluate(SEEN)
-    page.get_by_role("button", name=ACTIONS[action][0]).click()
+    press(page, action)
     expect(page.locator(".sheets li strong")).to_have_text(["theirs"])
     assert not page.evaluate("window.said")
     expect(page.get_by_role("alert")).to_have_count(0)
@@ -187,7 +193,7 @@ def test_a_failure_that_comes_when_the_teacher_has_gone_on_still_says_so_with_no
     held = []
     page.route("**/api/sheets/*", lambda route: held.append(route))
     with page.expect_request(lambda request: request.method == "DELETE"):
-        page.get_by_role("button", name=ACTIONS["remove"][0]).click()
+        press(page, "remove")
     page.get_by_role("link", name="Konto").click()
     expect(page.get_by_role("heading", name="Konto")).to_be_visible()
     held[0].fulfill(status=500)

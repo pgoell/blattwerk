@@ -225,7 +225,7 @@ function Layout({ user }: { user: User }) {
       <nav>
         <NavLink to="/" className="brand"><Logo /></NavLink>
         <Feedback>Feedback</Feedback>
-        <NavLink to="/feedback/fotos">Fotos</NavLink>
+        <NavLink to="/feedback/fotos">Foto-Feedback</NavLink>
         {user.admin && <NavLink to="/admin">Admin</NavLink>}
         <NavLink to="/konto">Konto</NavLink>
       </nav>

@@ -77,10 +77,15 @@ def test_box_refuses_what_is_no_answer_in_plain_words(folder, server, words):
 
 @pytest.mark.native
 def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, server):
-    # The app's delete asks `Blatt „Probe“ löschen?`: the plain click says no, `box yes` says yes.
+    # A template's delete asks `Vorlage „Probe“ löschen?` in a box of the browser: the plain click
+    # says no, `box yes` says yes. A sheet's delete asks in the app's own dialog (#1185).
     email = f"{uuid4().hex}@example.com"
     client = user(email)
-    made = sheet(client, [box("a", "text", ONE)], title="Probe")
+    made = sheet(client, [box("a", "text", ONE)], title="Probeblatt")
+    kept = client.post("/api/templates", json={"name": "Probe", "doc": made["doc"]}).json()
+
+    def own():
+        return [t["id"] for t in client.get("/api/templates").json() if t["id"] > 0]
 
     def ok(*words):
         done = run(folder, server, *words)
@@ -95,12 +100,15 @@ def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, serv
         ok("type", PASSWORD)
         ok("key", "Enter")
         ok("where", "Neues Blatt")
-        said = ok("click", "Probe löschen")
-        assert 'A box asked: "Blatt „Probe“ löschen?" (confirm). Answered no.' in said
-        assert client.get(f"/api/sheets/{made['id']}").status_code == 200
-        said = ok("box", "yes", "click", "Probe löschen")
+        ok("click", "Probeblatt")
+        ok("click", "Beenden")
+        ok("click", "Vorlagen")
+        said = ok("click", "Vorlage Probe löschen")
+        assert 'A box asked: "Vorlage „Probe“ löschen?" (confirm). Answered no.' in said
+        assert own() == [kept["id"]]
+        said = ok("box", "yes", "click", "Vorlage Probe löschen")
         assert "Answered yes." in said
-        assert client.get(f"/api/sheets/{made['id']}").status_code == 404
+        assert own() == []
     finally:
         run(folder, server, "stop")
 

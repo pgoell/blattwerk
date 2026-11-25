@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from ui import PASSWORD, TEXT, box, picture, png, sheet, upload
+from ui_new import more
 
 from blattwerk import auth, db
 from blattwerk.app import app
@@ -353,7 +354,7 @@ def test_the_folder_tab_puts_a_copy_in_and_takes_one_out(window, server):
     page.goto(server)
     expect(page.get_by_role("tab", name="Schulordner")).to_be_visible()
     page.once("dialog", lambda dialog: dialog.accept("Klasse 2"))
-    page.get_by_role("button", name="Plusaufgaben in den Schulordner").click()
+    more(page, "Plusaufgaben", "In den Schulordner")
     expect(page.get_by_role("heading", name="Schulordner")).to_be_visible()
     expect(page.get_by_text("Klasse 2")).to_be_visible()
     expect(page.get_by_text(me["email"].split("@")[0])).to_be_visible()

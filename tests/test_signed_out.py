@@ -21,6 +21,7 @@ from test_loading import READY, window  # noqa: F401
 from test_saves import LEFT, NOTICE, answer, nudge, record, run, start, unsaved, x_of  # noqa: F401
 from test_stale import FRAMES, GO, TURNS
 from ui import PASSWORD, TEXT, at, box, png, sheet
+from ui_new import delete_sheet, more
 
 # Notes a failure page from here on, also one that stands for no longer than a turn.
 WATCH = """() => {
@@ -138,9 +139,9 @@ def gone(run, change=True):
 
 ACTIONS = {
     "create": "Neues Blatt",
-    "rename": "a umbenennen",
+    "rename": "Umbenennen",
     "duplicate": "a duplizieren",
-    "remove": "a löschen",
+    "remove": "Löschen",
 }
 
 
@@ -158,7 +159,12 @@ def test_a_button_of_the_list_that_finds_the_session_gone_brings_the_login(windo
         expect(page.locator("dialog.chooser .tile")).not_to_have_count(1)
     page.context.clear_cookies()
     with page.expect_response(re.compile(r"/api/sheets")) as got:
-        press.click()
+        if action == "remove":
+            delete_sheet(page, "a")
+        elif action == "rename":
+            more(page, "a", "Umbenennen")
+        else:
+            press.click()
     assert got.value.status == 401
     assert got.value.request.method != "GET"
     expect_login(page, f"{server}/")
