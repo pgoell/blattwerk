@@ -17,8 +17,12 @@ def hangs(page):
     """The line stands above the fields, "Position und Größe" first, and shows without scrolling."""
     line = page.locator(f".panel {LINE_OVER}")
     expect(line).to_be_visible()
+    # The fields follow in their tab's wrapper, which lays nothing out of its own.
     above = "() => document.querySelector('.panel [data-foot=\"over\"]').nextElementSibling"
-    assert page.evaluate(f"{above}.classList.contains('geo')"), "the line is not above the fields"
+    first = f"(el => el.classList.contains('pane') ? el.firstElementChild : el)(({above})())"
+    assert page.evaluate(f"() => {first}.classList.contains('geo')"), (
+        "the line is not above the fields"
+    )
     box_ = line.bounding_box()
     assert box_["y"] >= 0 and box_["y"] + box_["height"] <= page.viewport_size["height"], box_
     assert page.locator(".panel").evaluate("el => el.scrollTop") == 0

@@ -16,6 +16,7 @@ import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
 import { syllabled, worded } from "./words";
 import { Switch } from "../../components/Switch";
+import { Pane } from "./pane";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
@@ -53,6 +54,7 @@ export function TextPanel({
   const start = starts.every((s) => s === starts[0]) ? starts[0] : undefined;
   return (
     <>
+      <Pane tab="Aussehen">
           {onHelp && (
             <button type="button" onClick={onHelp}>
               Text anpassen
@@ -104,6 +106,8 @@ export function TextPanel({
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
           <Tracking value={text.tracking} warn={sel.some((b) => cursive(boxed(b)?.font))} onChange={(n) => look({ tracking: n }, "tracking")} />
+      </Pane>
+      <Pane tab="Aufgaben">
           <TraceControls props={text} font={text.font} onChange={traced} />
           <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />
           <Letters sel={sel} look={look} style={style} />
@@ -129,6 +133,7 @@ export function TextPanel({
               )}
             </>
           )}
+      </Pane>
     </>
   );
 }

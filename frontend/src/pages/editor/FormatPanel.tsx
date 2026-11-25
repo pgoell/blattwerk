@@ -14,6 +14,7 @@ import { FRAMES, DASHES, LABELS, ALIGNS, pickName, TABS, lines, step } from "./p
 import { useTools } from "./useTools";
 import PanelRest from "./PanelRest";
 import { Switch } from "../../components/Switch";
+import { Pane, PaneTabs, usePanes } from "../format/pane";
 
 export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   // The button that asked for the text help: its dialog gives the focus back to it.
@@ -117,10 +118,11 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
   const unmerge = session.unmerge;
   const update = session.update;
   const words = session.words;
+  const panes = usePanes(tab === "Format" ? sel : []);
   return (
     <>
       {right && (
-        <aside className="panel">
+        <aside className="panel" ref={panes.root} data-open={panes.open}>
           {!leaf && (
             <div className="tabs" role="tablist">
               {TABS.map((t) => (
@@ -139,6 +141,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
               <p className="what">
                 {pickName(sel, blocks)}
               </p>
+              <PaneTabs has={panes.has} open={panes.open} pick={panes.pick} />
               <Format
                 owe={(entry) => owe(file.id, entry)}
                 // A block of a group with a locked one is as fixed there as the locked one.
@@ -225,6 +228,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   }}
                 />
               )}
+              <Pane tab="Aussehen">
               {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
                   <h2>Bild</h2>
@@ -241,6 +245,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   </label>
                 </>
               )}
+              </Pane>
+              <Pane tab="Aufgaben">
               {nameFields.length > 0 && (
                 <>
                   <h2>Namenszeile</h2>
@@ -254,6 +260,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   })}
                 </>
               )}
+              </Pane>
+              <Pane tab="Aussehen">
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
@@ -360,6 +368,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   </div>
                 </>
               )}
+              </Pane>
+              <Pane tab="Lage">
               <h2>Ausrichten</h2>
               {/* What the blocks line up with. One block has only the page. */}
               <div className="seg">
@@ -390,6 +400,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 <button disabled={!stacked(true, true)} onClick={(e) => layer(e, true, true)}>Eine nach vorn</button>
                 <button disabled={!stacked(false, true)} onClick={(e) => layer(e, false, true)}>Eine nach hinten</button>
               </div>
+              <Switch label="Gesperrt" on={locked} onChange={() => session.lockIt.run()} />
+              </Pane>
             </>
           )}
           <PanelRest s={session} />

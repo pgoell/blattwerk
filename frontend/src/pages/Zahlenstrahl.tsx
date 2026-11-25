@@ -4,6 +4,7 @@ import type { ZahlenstrahlBlock } from "../sheet";
 import { draw } from "../bank";
 import { count, crowded, made, MAX, sane, type Task, type ZahlenstrahlProps } from "../zahlenstrahl";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 const LABELS = { all: "Bei jedem Strich", major: "Bei langen Strichen", ends: "Anfang und Ende", none: "Keine" } as const;
 
@@ -80,7 +81,9 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
           </option>
         ))}
       </select>
+      <Pane tab="Aussehen">
       <Whole label="Schriftgröße" name="size" value={p.size} ok={takes("size")} apply={apply} />
+      </Pane>
       <Switch label="Bruchstelle" on={p.cut} disabled={p.start === 0} onChange={() => apply({ cut: !p.cut })} />
       <Switch label="Pfeil am Ende" on={p.point} onChange={() => apply({ point: !p.point })} />
       <Switch label="Striche durchgehend" on={p.under} onChange={() => apply({ under: !p.under })} />

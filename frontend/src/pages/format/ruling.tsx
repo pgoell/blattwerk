@@ -10,6 +10,7 @@ import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
 import { syllabled } from "./words";
 import { Switch } from "../../components/Switch";
+import { Pane } from "./pane";
 
 export function RulingPanel({
   sel, style, place, words, lineaturen, list, toList, part, look, mendWord, doc, traced, W, H,
@@ -75,6 +76,7 @@ export function RulingPanel({
   };
   return (
     <>
+      <Pane tab="Aussehen">
           <h2>Lineatur</h2>
           <select aria-label="Art der Lineatur" value={kindOf(rulings[0].props.kind)} onChange={(e) => rule(e.target.value as Ruling)}>
             {Object.entries(RULINGS).map(([kind, { name }]) => (
@@ -116,6 +118,8 @@ export function RulingPanel({
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, filled(b, W, H)]))}>Bis Seitenende</button>
           </div>
+      </Pane>
+      <Pane tab="Aufgaben">
           {/* The text of a Lineatur: its own, or the sheet's Lernwörter in one of three modes. A mode shows only when
               every picked Lineatur has it. */}
           <select aria-label="Text der Lineatur" value={mode ?? "own"} onChange={(e) => list(e.target.value === "own" ? undefined : (e.target.value as ListMode))}>
@@ -141,17 +145,22 @@ export function RulingPanel({
           )}
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
+      </Pane>
+      <Pane tab="Aussehen">
           {RULINGS[kindOf(rulings[0].props.kind)].at && (
             <>
               <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} unknown={unknownFont(rulings.map((b) => b.props.font))} onChange={(font) => style("ruling", { font })} />
               <Tracking value={rulings[0].props.tracking} warn={rulings.some((b) => RULINGS[kindOf(b.props.kind)].at && cursive(b.props.font))} onChange={(n) => style("ruling", { tracking: n }, "tracking", rulings.filter((b) => RULINGS[kindOf(b.props.kind)].at).map((b) => b.id))} />
             </>
           )}
+      </Pane>
+      <Pane tab="Aufgaben">
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
           {!text && !tables.length && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
           {!text && !tables.length && <Letters sel={sel} look={look} style={style} />}
+      </Pane>
     </>
   );
 }

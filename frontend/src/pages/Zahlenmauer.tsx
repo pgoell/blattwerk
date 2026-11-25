@@ -4,6 +4,7 @@ import type { ZahlenmauerBlock, ZahlenmauerProps } from "../sheet";
 import { draw } from "../bank";
 import { at, fixes, made, sane, stones } from "../zahlenmauer";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const GIVEN = { base: "Grundreihe (leicht)", mix: "Gemischt (mittel)", free: "Freie Wahl" } as const;
@@ -54,6 +55,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -63,6 +65,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           ＋
         </button>
       </div>
+      </Pane>
       <label>
         Zahlenraum
         <select aria-label="Zahlenraum" value={p.max} onChange={(e) => apply({ max: Number(e.target.value) as ZahlenmauerProps["max"] })}>

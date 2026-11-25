@@ -4,6 +4,7 @@ import type { ZahlenketteBlock } from "../sheet";
 import { draw } from "../bank";
 import { fitColumns, made, sane, startFlags, type ZahlenketteProps } from "../zahlenkette";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const RECHENART = { "+": "Plus", "-": "Minus", "*": "Mal" } as const;
@@ -81,6 +82,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -90,6 +92,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
           ＋
         </button>
       </div>
+      </Pane>
       <label>
         Zahlenraum
         <select

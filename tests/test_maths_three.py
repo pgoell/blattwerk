@@ -52,6 +52,8 @@ def steps_of(e):
     return [inner, (o2, apply(*inner), c)]
 
 
+# 300 sheets take 45 s on a quiet machine: the suite's 60 s ended the worker on a busy runner.
+@pytest.mark.timeout(240)
 @given(threes)
 @settings(max_examples=300, deadline=None)
 def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(s):

@@ -4,6 +4,7 @@ import type { RechendreieckBlock } from "../sheet";
 import { draw } from "../bank";
 import { fixes, made, NAMES, sane, ZAHLENRAUM, type RechendreieckProps } from "../rechendreieck";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 const GIVEN = { inner: "Innen (leicht)", mix: "Gemischt (mittel)", outer: "Außen (schwer)", free: "Freie Wahl" } as const;
 // The fields as the drawing has them: the inner ones at the corners, the outer ones beside the sides.
@@ -45,6 +46,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -54,6 +56,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           ＋
         </button>
       </div>
+      </Pane>
       <select aria-label="Zahlenraum" value={p.max} onChange={(e) => apply({ max: Number(e.target.value) })}>
         {ZAHLENRAUM.map((n) => (
           <option key={n} value={n}>

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { ZahlenhausBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, sideFlags, type ZahlenhausProps } from "../zahlenhaus";
+import { Pane } from "./format/pane";
 
 const ZAHLENRAUM = [10, 20, 100];
 const GIVEN = { side: "Dach und eine Seite", roof: "Nur Dach", mix: "Gemischt", free: "Freie Wahl" } as const;
@@ -85,6 +86,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -94,6 +96,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ＋
         </button>
       </div>
+      </Pane>
       <label>
         Zahlenraum
         <select

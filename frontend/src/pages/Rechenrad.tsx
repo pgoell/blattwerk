@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { RechenradBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, type Op, type RechenradProps, type RechenradTyped } from "../rechenrad";
+import { Pane } from "./format/pane";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const RECHENART = [
@@ -80,6 +81,7 @@ export default function Rechenrad({ block, apply }: { block: RechenradBlock; app
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -89,6 +91,7 @@ export default function Rechenrad({ block, apply }: { block: RechenradBlock; app
           ＋
         </button>
       </div>
+      </Pane>
       <div className="seg">
         <button aria-label="Ein Ring weniger" disabled={p.rings === 2} onClick={() => apply(p.task === "middle" ? { rings: 2, task: "outer" } : { rings: 2 })}>
           −

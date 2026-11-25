@@ -17,6 +17,7 @@ import { TraceControls } from "./trace";
 import { syllabled, worded } from "./words";
 import type { Doc } from "../../sheet";
 import { Switch } from "../../components/Switch";
+import { Pane } from "./pane";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 
@@ -138,6 +139,7 @@ export function TablePanel({
   };
   return (
     <>
+      <Pane tab="Aufgaben">
           <h2>Tabelle</h2>
           {tables.length === 1 && cell !== undefined && <FormulaInsert onInsert={putFormula} />}
           {/* More or fewer rows and columns, for one table: each has cells of its own. They come and go at the end,
@@ -194,6 +196,8 @@ export function TablePanel({
               <button onClick={() => cellLook.line("col")}>Ganze Spalte</button>
             </div>
           )}
+      </Pane>
+      <Pane tab="Aussehen">
           <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => cellLook.tables({ font })} />
           {open && <FontSelect label="Schriftart der Zellen" value={fontOf(shown.font ?? tables[0].props.font)} onChange={(font) => cellLook.cells({ font: fontOf(font) })} />}
           <div className="seg">
@@ -286,11 +290,14 @@ export function TablePanel({
             onChange={cutting}
           />
           <Switch label="Kopfzeile" on={!!tables[0].props.head} onChange={(head) => style("table", { head })} />
+      </Pane>
+      <Pane tab="Aufgaben">
           <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
           {!text && <Letters sel={sel} look={look} style={style} />}
           {!text && <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
+      </Pane>
     </>
   );
 }

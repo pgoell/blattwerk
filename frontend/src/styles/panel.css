@@ -174,3 +174,11 @@
 .bows, .inks { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }
 /* The number field a double click opens on a Zahlenmauer stone: as big as the stone, its number in the middle. */
 .stone-field { position: absolute; box-sizing: border-box; margin: 0; padding: 0; border: 1px solid #2563eb; background: #fff; color: #222; font: inherit; text-align: center; outline: none; }
+/* The three tabs of a block's settings stand under its name, and stay there while the settings scroll. What stands
+   in a pane of another tab is hidden; a pane lays out nothing itself. */
+.tabs.panes { top: 38px; gap: 0; }
+.tabs.panes button { flex: 1; }
+.pane { display: contents; }
+.panel[data-open=Aufgaben] .pane:not([data-pane=Aufgaben]) > :not(.pane),
+.panel[data-open=Aussehen] .pane:not([data-pane=Aussehen]) > :not(.pane),
+.panel[data-open=Lage] .pane:not([data-pane=Lage]) > :not(.pane) { display: none; }

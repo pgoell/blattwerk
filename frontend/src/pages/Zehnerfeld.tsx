@@ -5,6 +5,7 @@ import type { ZehnerfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { MAXES, acts, colorsOf, made, sane, type Cross, type Field, type ZehnerfeldProps, type ZehnerfeldTyped } from "../zehnerfeld";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -201,6 +202,7 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
           </select>
         </label>
       )}
+      <Pane tab="Aussehen">
       <Switch label="Trennlinien" on={p.lines} onChange={(on) => apply({ lines: on }, "lines")} />
       <label>
         Farben
@@ -224,6 +226,7 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
           </label>
         </>
       )}
+      </Pane>
       <Switch label="Punkte selbst setzen" on={p.manual} onChange={(on) => apply({ manual: on }, "manual")} />
       {p.count >= 2 && (
         <label>

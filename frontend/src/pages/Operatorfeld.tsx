@@ -4,6 +4,7 @@ import type { OperatorfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, type OperatorfeldProps } from "../operatorfeld";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 type Op = OperatorfeldProps["ops"][number];
 
@@ -69,6 +70,7 @@ export default function Operatorfeld({ block, apply }: { block: OperatorfeldBloc
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -78,6 +80,7 @@ export default function Operatorfeld({ block, apply }: { block: OperatorfeldBloc
           ＋
         </button>
       </div>
+      </Pane>
       <div className="seg">
         <button aria-label="Ein Kästchen weniger" disabled={p.boxes === 3} onClick={() => apply({ boxes: p.boxes - 1 })}>
           −
