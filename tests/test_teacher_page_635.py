@@ -68,7 +68,7 @@ def test_635_click_ganze_seite_in_the_open_list_fits_the_page(editor):
 def test_635_a_folded_zoom_is_read_after_mehr(editor):
     # resize keeps the size in the test's folder. /tmp/teacher-run is not there on a fresh worker.
     page = editor(box("a", "text", TEXT))
-    for wide, high in (("820", "1180"), ("1000", "800")):
+    for wide, high in (("820", "1180"), ("900", "800")):
         tool.resize(page, wide, high)
         assert (tool.STATE / "size.json").is_file()
         assert str(tool.STATE) != "/tmp/teacher-run"
