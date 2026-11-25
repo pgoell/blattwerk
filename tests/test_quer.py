@@ -11,7 +11,7 @@ import pytest
 from playwright.sync_api import expect
 from test_lock import KINDS, undo
 from test_lock_format import OTHER, every, named, redo
-from ui import TEXT, box, doc, thumb, user
+from ui import TEXT, box, doc, expect_lit, thumb, user
 
 QUER, HOCH = (297, 210), (210, 297)
 # Every kind of block by itself: the test puts each into a group.
@@ -138,9 +138,7 @@ def test_a_group_larger_than_the_page_lands_at_its_left_and_top_edge(editor):
     expect(undo(page)).to_be_enabled()
     assert places(named(doc(page, client)), "ab") == [(10, 0), (10, 250)]
     fmt(page, "Hoch")
-    expect(page.locator(".panel").get_by_role("button", name="Hoch", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(page.locator(".panel").get_by_role("button", name="Hoch", exact=True), "true")
     assert places(named(doc(page, client), 1), "ab") == [(0, 20), (70, 50)]
 
 
@@ -185,9 +183,7 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
     page.get_by_role("tab", name="Ansicht").click()
     panel = page.locator(".panel")
     panel.get_by_role("button", name="Nur diese Seite").click()
-    expect(panel.get_by_role("button", name="Quer", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(panel.get_by_role("button", name="Quer", exact=True), "true")
     # The first: the grid below has a "Wie Blatt" too.
     panel.get_by_role("button", name=to, exact=True).first.click()
     expect(undo(page)).to_be_enabled()
@@ -244,9 +240,7 @@ def test_quer_and_hoch_bring_every_kind_back_alone_turned_and_in_a_group(editor,
     # Every page follows the sheet, and the second is as wide as it was.
     assert quer["pages"][1]["blocks"] == before["pages"][1]["blocks"]
     fmt(page, "Hoch")
-    expect(page.locator(".panel").get_by_role("button", name="Hoch", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(page.locator(".panel").get_by_role("button", name="Hoch", exact=True), "true")
     hoch = doc(page, client)
     assert laid(quer["pages"][1]["blocks"], hoch["pages"][1]["blocks"], HOCH) == moved
     # What Quer brought back lies on the upright page too.

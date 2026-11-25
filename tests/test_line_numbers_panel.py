@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from ui import RECT, RULING, TABLE, TEXT, box, doc, pick, user
+from ui import RECT, RULING, TABLE, TEXT, box, doc, expect_lit, knob, pick, user
 
 
 def button(page, name):
@@ -10,7 +10,7 @@ def button(page, name):
     return (
         page.locator(".panel")
         .get_by_role("button", name=name, exact=True)
-        .or_(page.locator(".panel").get_by_role("switch", name=name, exact=True))
+        .or_(knob(page.locator(".panel"), name))
     )
 
 
@@ -27,13 +27,13 @@ def test_the_switch_numbers_a_text(editor):
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
     switch = button(page, "Zeilennummern")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     # A new switch starts with every fifth line.
     assert props(page, client)["a"]["lines"] == 5
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     assert "lines" not in props(page, client)["a"]
 
 
@@ -47,13 +47,13 @@ def test_the_step_is_every_line_or_every_fifth(editor):
     button(page, "Zeilennummern").click()
     every_line = button(page, "Jede Zeile")
     every_fifth = button(page, "Jede 5. Zeile")
-    expect(every_fifth).to_have_attribute("aria-pressed", "true")
+    expect_lit(every_fifth, "true")
     every_line.click()
-    expect(every_line).to_have_attribute("aria-pressed", "true")
-    expect(every_fifth).to_have_attribute("aria-pressed", "false")
+    expect_lit(every_line, "true")
+    expect_lit(every_fifth, "false")
     assert props(page, client)["a"]["lines"] == 1
     every_fifth.click()
-    expect(every_fifth).to_have_attribute("aria-pressed", "true")
+    expect_lit(every_fifth, "true")
     assert props(page, client)["a"]["lines"] == 5
 
 
@@ -68,19 +68,19 @@ def test_undo_and_redo_walk_the_switch_and_the_step_one_press_at_a_time(editor):
     switch.click()
     every_line = button(page, "Jede Zeile")
     every_line.click()
-    expect(every_line).to_have_attribute("aria-pressed", "true")
+    expect_lit(every_line, "true")
     assert props(page, client)["a"]["lines"] == 1
     # Back to the step of 5, then off, one press each.
     page.keyboard.press("Control+z")
-    expect(button(page, "Jede 5. Zeile")).to_have_attribute("aria-pressed", "true")
+    expect_lit(button(page, "Jede 5. Zeile"), "true")
     assert props(page, client)["a"]["lines"] == 5
     page.keyboard.press("Control+z")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     assert "lines" not in props(page, client)["a"]
     page.keyboard.press("Control+y")
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     page.keyboard.press("Control+y")
-    expect(every_line).to_have_attribute("aria-pressed", "true")
+    expect_lit(every_line, "true")
     assert props(page, client)["a"]["lines"] == 1
 
 
@@ -128,14 +128,14 @@ def test_several_texts_get_one_step_and_one_undo(editor):
     )
     pick(page, "a", "b")
     switch = button(page, "Zeilennummern")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     saved = props(page, client)
     assert saved["a"]["lines"] == 5
     assert saved["b"]["lines"] == 5
     page.keyboard.press("Control+z")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     saved = props(page, client)
     assert saved["a"]["lines"] == 1
     assert "lines" not in saved["b"]
@@ -150,14 +150,14 @@ def test_several_numbered_texts_are_switched_off_in_one_step(editor):
     )
     pick(page, "a", "b")
     switch = button(page, "Zeilennummern")
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     saved = props(page, client)
     assert "lines" not in saved["a"]
     assert "lines" not in saved["b"]
     page.keyboard.press("Control+z")
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     saved = props(page, client)
     assert saved["a"]["lines"] == 1
     assert saved["b"]["lines"] == 5
@@ -329,7 +329,7 @@ def test_a_stored_start_that_is_no_number_draws_from_one(editor, stored):
 def numbered_text(page):
     """A text with every line numbered, its right panel open on it."""
     pick(page, "a")
-    expect(button(page, "Jede Zeile")).to_have_attribute("aria-pressed", "true")
+    expect_lit(button(page, "Jede Zeile"), "true")
 
 
 def start_row(page):

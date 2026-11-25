@@ -10,7 +10,7 @@ from playwright.sync_api import expect
 from test_lock import FRAMES
 from test_painter import held
 from test_zoom import wheel
-from ui import FIELD, RECT, TABLE, TEXT, at, box, caret, pick, user
+from ui import FIELD, RECT, TABLE, TEXT, at, box, caret, knob, pick, user
 
 WORDS = "eins zwei drei vier fünf sechs sieben acht neun zehn"
 WORDY = {**TEXT, "text": WORDS}
@@ -37,7 +37,7 @@ def panel(page, label):
     return (
         page.locator(".panel")
         .get_by_role("button", name=label, exact=True)
-        .or_(page.locator(".panel").get_by_role("switch", name=label, exact=True))
+        .or_(knob(page.locator(".panel"), label))
     )
 
 

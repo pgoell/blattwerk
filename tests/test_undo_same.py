@@ -11,6 +11,7 @@ from ui import (
     at,
     box,
     expect_picked,
+    knob,
     maths,
     pick,
     picture,
@@ -190,9 +191,9 @@ def work(page, how, label, nth=0):
             control.evaluate(SAME)
     else:
         scope = page.locator("header, .dock" if how == "bar" else ".panel")
-        scope.get_by_role("button", name=label, exact=True).nth(nth).click()
+        knob(scope, label).nth(nth).click()
         if how == "twice":
-            scope.get_by_role("button", name="Fertig", exact=True).click()
+            knob(scope, "Fertig").click()
 
 
 def steps(page):
@@ -254,11 +255,10 @@ def test_the_view_set_as_it_is_adds_no_undo_step(editor, own):
         for nth in (0, 1):
             panel.get_by_role("button", name="Wie Blatt").nth(nth).click()
     else:
-        # Two buttons read Aus: the Raster's and the Seitenzahlen' (#88). Both are set as they are.
+        # The Raster is set as it is. The Seitenzahlen are a switch, which has no press that changes nothing.
         for name in ("Alle Seiten", "Hoch"):
-            panel.get_by_role("button", name=name, exact=True).click()
-        panel.get_by_role("button", name="Aus", exact=True).first.click()
-        panel.get_by_role("group", name="Seitenzahlen").get_by_role("switch", name="Aus").click()
+            knob(panel, name).click()
+        knob(panel, "Aus").click()
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
 
@@ -306,7 +306,7 @@ def put(page, label, to):
     """Sets a control of the panel, each time with a press of its own. Gives what it then shows."""
     if label is None:
         name, nth = to
-        button = page.locator(".panel").get_by_role("button", name=name, exact=True).nth(nth)
+        button = knob(page.locator(".panel"), name).nth(nth)
         button.click()
         expect(button).to_have_class("on")
         return None

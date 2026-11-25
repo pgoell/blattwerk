@@ -23,6 +23,7 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
     pick,
     syls,
@@ -102,7 +103,7 @@ def test_a_break_set_by_hand_holds_for_the_word_with_a_soft_hyphen_and_for_the_p
     bows(page, "a").to_have_text(["Fe", "nster", "Fe", "nster"])
     pick(page, "a")
     word(page, "Fe·nster").click()
-    expect(gap(page, "Fe|nster")).to_have_attribute("aria-pressed", "true")
+    expect_lit(gap(page, "Fe|nster"), "true")
     gap(page, "Fens|ter").click()
     bows(page, "a").to_have_text(["Fe", "ns", "ter", "Fe", "ns", "ter"])
     assert held(page, client)["a"]["breaks"] == {"fenster": [2, 4]}

@@ -5,7 +5,7 @@ import math
 import pytest
 from playwright.sync_api import expect
 from test_zoom import wheel
-from ui import BROWSER, at, bar, box, centre, doc, finger, user
+from ui import BROWSER, at, bar, box, centre, doc, expect_lit, finger, user
 
 TABLE = {"cells": [["H", "Z"], ["3", "7"]], "cols": [1, 1], "size": 14, "align": "center"}
 GRID = {
@@ -46,7 +46,7 @@ def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(e
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
     # On the iPad held upright the format panel is a drawer: its button keeps the cells picked.
     bar(page, "right").tap()
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    expect_lit(bar(page, "right"), "true")
     page.get_by_role("button", name="Zellen verbinden", exact=True).tap()
     expect(cell(page, "t", 0)).to_have_attribute("data-span", "2x2")
 

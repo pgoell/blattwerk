@@ -11,6 +11,7 @@ from ui import (
     TEXT,
     at,
     box,
+    expect_lit,
     maths,
     pick,
     picture,
@@ -174,7 +175,7 @@ def test_a_lock_keeps_the_ratio_for_a_typed_unit(editor):
     page = editor(box("a", "shape", RECT, **ROOM), client=client)
     pick(page, "a")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     # The block is 80 by 40 mm. 20 mm wide makes it 10 mm high, and 2 cm is 20 mm.
     enter(page, "Breite", "2 cm")
     expect(field(page, "Breite")).to_have_value("20")

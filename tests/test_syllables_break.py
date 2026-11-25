@@ -24,6 +24,7 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
     pick,
     saved,
@@ -47,16 +48,16 @@ def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(edi
     expect(page.locator(".panel .words button")).to_have_text(["Fens·ter", "Maus"])
     expect(page.locator(".panel .gaps")).to_have_count(0)
     word(page, "Maus").click()
-    expect(word(page, "Maus")).to_have_attribute("aria-pressed", "true")
-    expect(word(page, "Fens·ter")).to_have_attribute("aria-pressed", "false")
+    expect_lit(word(page, "Maus"), "true")
+    expect_lit(word(page, "Fens·ter"), "false")
     expect(page.locator(".panel .gaps button")).to_have_count(3)
     for name in ("M|aus", "Ma|us", "Mau|s"):
-        expect(gap(page, name)).to_have_attribute("aria-pressed", "false")
+        expect_lit(gap(page, name), "false")
     expect(reset(page)).to_have_count(0)
     gap(page, "Ma|us").click()
     # The fix holds for the word wherever it stands in the block, in capitals or not.
     bows(page, "a").to_have_text(["Fens", "ter", "Ma", "us", "ma", "us"])
-    expect(gap(page, "Ma|us")).to_have_attribute("aria-pressed", "true")
+    expect_lit(gap(page, "Ma|us"), "true")
     # The word says that it is split by hand.
     expect(word(page, "Ma·us")).to_have_attribute("title", "von Hand getrennt")
     expect(word(page, "Ma·us")).to_have_class("on own")
@@ -71,7 +72,7 @@ def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(edi
     assert "breaks" not in held(page, client)["a"]
     # A break of the module's own goes the same way, and "Zurücksetzen" brings it back.
     word(page, "Fens·ter").click()
-    expect(gap(page, "Fens|ter")).to_have_attribute("aria-pressed", "true")
+    expect_lit(gap(page, "Fens|ter"), "true")
     gap(page, "Fens|ter").click()
     bows(page, "a").to_have_text(["Fenster", "Maus", "maus"])
     assert held(page, client)["a"]["breaks"] == {"fenster": []}
@@ -134,7 +135,7 @@ def test_the_switch_and_each_break_undo_and_redo_one_step_each(editor):
         bows(page, "a").to_have_text(steps[step])
         expect_switch(page, True)
     expect(redo(page)).to_be_disabled()
-    expect(gap(page, "M|aus")).to_have_attribute("aria-pressed", "true")
+    expect_lit(gap(page, "M|aus"), "true")
 
 
 def test_the_brush_carries_the_bows_and_leaves_the_words_split_by_hand(editor):

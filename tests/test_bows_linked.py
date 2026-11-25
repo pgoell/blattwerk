@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_words import list_tab, rulings, undo
-from ui import RULING, at, box, doc, pick, sheet, user
+from ui import RULING, at, box, doc, expect_lit, pick, sheet, user
 
 from blattwerk import pdf
 
@@ -46,7 +46,7 @@ def test_a_list_mode_lineatur_has_the_colour_button_and_it_sets_the_colours(edit
     colours = page.get_by_role("switch", name="Silbenfarbe")
     expect(colours).to_be_visible()
     colours.click()
-    expect(colours).to_have_attribute("aria-pressed", "true")
+    expect_lit(colours, "true")
     assert rulings(doc(page, client))[0]["props"]["tints"] is not None
 
 

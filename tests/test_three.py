@@ -15,7 +15,7 @@ from test_feed_print import pdf_text, printed, sheet_id
 from test_fix_mix import key
 from test_gaps import step
 from test_words import redo, undo
-from ui import at, box, maths, pick, saved, tool, user
+from ui import at, box, expect_lit, maths, pick, saved, tool, user
 
 from blattwerk.maths.carry import keeps as place_keeps
 
@@ -251,7 +251,7 @@ def test_a_block_of_two_numbers_loads_and_prints_as_before(editor, browser, serv
     assert not {"numbers", "c", "pvs", "brackets"} & props.keys()
     page = editor(box("m", "maths", props), client=client)
     pick(page, "m")
-    expect(ctl(page, "2 Zahlen")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "2 Zahlen"), "true")
     texts = shown(at(page, "m"))
     assert texts == [f"{e['a']} {SIGNS[e['op']]} {e['b']} =" for e in props["exercises"]]
     paper = printed(browser, server, sheet_id(page))
@@ -369,7 +369,7 @@ def test_schriftlich_keeps_two_numbers_and_zeile_brings_three_back(editor):
     expect(ctl(page, "2 Zahlen")).to_have_count(0)
     props = changed(page, client, lambda: ctl(page, "Zeile").click())
     assert all("op2" in e for e in props["exercises"])
-    expect(ctl(page, "3 Zahlen")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "3 Zahlen"), "true")
 
 
 def test_columns_size_and_numbering_work_with_three_numbers(editor):

@@ -14,6 +14,7 @@ from ui import (
     centre,
     drag,
     drawer,
+    expect_lit,
     expect_picked,
     grow,
     pick,
@@ -112,11 +113,11 @@ def test_width_and_height_show_and_set_the_size(editor):
 def test_the_lock_keeps_the_ratio(editor):
     page = editor(box("a", "shape", RECT, **ROOM))
     pick(page, "a")
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     enter(page, "Breite", "100")
     expect(field(page, "Höhe")).to_have_value("40")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     enter(page, "Breite", "50")
     expect(field(page, "Höhe")).to_have_value("20")
     enter(page, "Höhe", "40")
@@ -274,7 +275,7 @@ def test_several_blocks_share_a_field(editor):
     assert [blocks[name]["y"] for name in "ab"] == [100, 100]
     # With the lock each block keeps its own ratio.
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     enter(page, "Breite", "40")
     expect(field(page, "Breite")).to_have_value("40")
     blocks = by_id(saved(page, client))
@@ -361,7 +362,7 @@ def test_fields_that_cannot_change_are_off(editor):
         expect(field(page, label)).to_be_enabled()
     # A picture always keeps its ratio.
     pick(page, "bild")
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     expect(lock(page)).to_be_disabled()
     expect(field(page, "Breite")).to_be_enabled()
     expect(field(page, "Breite")).to_have_value("60")

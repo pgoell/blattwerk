@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, insert, pick, user
+from ui import box, doc, expect_lit, insert, pick, user
 
 DREIECK = {
     "count": 4,
@@ -119,10 +119,10 @@ def test_a_free_field_flips_and_the_warning_comes_and_goes(editor):
     pick(page, "d")
     expect(hint(page)).to_have_count(0)
     field_top = panel(page, "Feld innen oben")
-    expect(field_top).to_have_attribute("aria-pressed", "true")
+    expect_lit(field_top, "true")
     step(page, field_top.click)
     assert props_of(doc(page, client))["free"][0] is False
-    expect(field_top).to_have_attribute("aria-pressed", "false")
+    expect_lit(field_top, "false")
     expect(hint(page)).to_have_text("Die gegebenen Felder legen das Dreieck nicht fest.")
     step(page, field_top.click)
     assert props_of(doc(page, client))["free"][0] is True

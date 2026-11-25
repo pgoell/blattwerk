@@ -35,6 +35,8 @@ from ui import (
     TEXT,
     at,
     box,
+    expect_lit,
+    knob,
     pick,
     syls,
     tints,
@@ -90,13 +92,13 @@ def test_the_colours_run_on_across_word_borders_when_asked(editor):
         [("O", BLUE), ("ma", RED), ("hat", BLUE), ("O", BLUE), ("pa", RED)]
     )
     across(page).click()
-    expect(across(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(across(page), "true")
     tinted(page, "a").to_have_text(
         [("O", BLUE), ("ma", RED), ("hat", BLUE), ("O", RED), ("pa", BLUE)]
     )
     assert held(page, client)["a"]["tintsAcross"] is True
     across(page).click()
-    expect(across(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(across(page), "false")
     tinted(page, "a").to_have_text(
         [("O", BLUE), ("ma", RED), ("hat", BLUE), ("O", BLUE), ("pa", RED)]
     )
@@ -146,7 +148,7 @@ def test_black_and_grey_stay_readable_on_a_black_and_white_print(editor):
     pick(page, "a")
     tint_switch(page).click()
     greys(page).click()
-    expect(greys(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(greys(page), "true")
     found = tints(page, "a")
     assert found == [("Fens", GREYS[0]), ("ter", GREYS[1]), ("Maus", GREYS[0])]
     assert held(page, client)["a"]["tints"] == GREYS
@@ -154,7 +156,7 @@ def test_black_and_grey_stay_readable_on_a_black_and_white_print(editor):
     assert contrast(grey, "#ffffff") >= 4.5
     assert contrast(grey, black) >= 3
     greys(page).click()
-    expect(greys(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(greys(page), "false")
     tinted(page, "a").to_have_text([("Fens", BLUE), ("ter", RED), ("Maus", BLUE)])
     assert held(page, client)["a"]["tints"] == PAIR
 
@@ -170,7 +172,7 @@ def test_a_break_set_by_hand_moves_the_colour_and_the_bow(editor):
     gap(page, "Ma|us").click()
     tinted(page, "a").to_have_text([("Ma", BLUE), ("us", RED)])
     assert held(page, client)["a"]["breaks"] == {"maus": [2]}
-    page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True).click()
+    knob(page.locator(".panel"), "Silbenbögen").click()
     assert syls(page, "a") == ["Ma", "us"]
 
 

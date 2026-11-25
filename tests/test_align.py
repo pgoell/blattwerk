@@ -7,6 +7,7 @@ from ui import (
     at,
     box,
     drawer,
+    expect_lit,
     expect_picked,
     pick,
     picture,
@@ -53,7 +54,7 @@ def expect_box(page, name, **mm):
 def expect_switch(page, name, enabled=True):
     """Waits until the switch under Ausrichten shows this one of its two sides."""
     for side in ("Auswahl", "Seite"):
-        expect(switch(page, side)).to_have_attribute("aria-pressed", str(side == name).lower())
+        expect_lit(switch(page, side), str(side == name).lower())
         expect(switch(page, side)).to_be_enabled(enabled=enabled)
 
 

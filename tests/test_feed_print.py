@@ -15,7 +15,7 @@ from pypdf import PdfReader
 from test_gaps import panel, step
 from test_lock import FRAMES
 from test_painter import held
-from ui import RECT, TEXT, at, box, pick, user
+from ui import RECT, TEXT, at, box, expect_lit, pick, user
 
 from blattwerk import pdf
 
@@ -84,7 +84,7 @@ def test_a_linked_block_with_mix_shows_each_word_scrambled_with_a_line(editor):
             assert shown != source
     expect(at(page, "a").locator(".mix .gap.line")).to_have_count(len(WORDS))
     expect(panel(page, "Keine Linie")).to_have_count(0)
-    expect(panel(page, "Linie dahinter")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "Linie dahinter"), "true")
 
 
 @pytest.mark.parametrize("mode", ["one", "second", "vowels"])

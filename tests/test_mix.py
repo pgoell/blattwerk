@@ -10,7 +10,7 @@ from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_lock import FRAMES, fest
 from test_painter import held, paint
-from ui import RECT, TABLE, TEXT, at, box, pick, user
+from ui import RECT, TABLE, TEXT, at, box, expect_lit, pick, user
 
 SCHUTTEL = {**TEXT, "text": "Hund Katze Vogel Schule"}
 MIX_PROPS = ("mix", "mixFirst", "mixCaps", "mixLine")
@@ -39,9 +39,9 @@ def test_the_switch_stores_a_seed_and_off_removes_it(editor, kind, props):
     page = editor(box("a", kind, props), client=client)
     pick(page, "a")
     switch = panel(page, "Schüttelwörter")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     seed = held(page, client)["a"]["mix"]
     assert type(seed) is int and 1 <= seed <= 2147483647
     # "Hallo" has five letters: every one of its words shows in another order.
@@ -50,7 +50,7 @@ def test_the_switch_stores_a_seed_and_off_removes_it(editor, kind, props):
         if sum(c.isalpha() for c in source) >= 3:
             assert now != source
     switch.click()
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     assert "mix" not in held(page, client)["a"]
 
 
@@ -60,21 +60,21 @@ def test_first_letter_and_capitals_are_stored_and_removed_by_a_second_press(edit
     pick(page, "a")
     panel(page, "Schüttelwörter").click()
     first = panel(page, "Erster Buchstabe bleibt")
-    expect(first).to_have_attribute("aria-pressed", "false")
+    expect_lit(first, "false")
     first.click()
-    expect(first).to_have_attribute("aria-pressed", "true")
+    expect_lit(first, "true")
     assert held(page, client)["a"]["mixFirst"] is True
     first.click()
-    expect(first).to_have_attribute("aria-pressed", "false")
+    expect_lit(first, "false")
     assert "mixFirst" not in held(page, client)["a"]
     caps = panel(page, "Großbuchstaben")
     caps.click()
-    expect(caps).to_have_attribute("aria-pressed", "true")
+    expect_lit(caps, "true")
     assert held(page, client)["a"]["mixCaps"] is True
     for now in mixed(page, "a").all_text_contents():
         assert now == now.upper()
     caps.click()
-    expect(caps).to_have_attribute("aria-pressed", "false")
+    expect_lit(caps, "false")
     assert "mixCaps" not in held(page, client)["a"]
 
 
@@ -132,7 +132,7 @@ def test_neu_schutteln_changes_nothing_else(editor):
     }
     expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-checked", "true")
     expect(panel(page, "Großbuchstaben")).to_have_attribute("aria-checked", "true")
-    expect(panel(page, "Linie darunter")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "Linie darunter"), "true")
 
 
 def test_neu_schutteln_never_shows_a_word_as_typed_in_capitals(editor):
@@ -168,18 +168,18 @@ def test_the_line_is_none_after_or_under(editor):
     none = panel(page, "Keine Linie")
     after = panel(page, "Linie dahinter")
     under = panel(page, "Linie darunter")
-    expect(none).to_have_attribute("aria-pressed", "true")
+    expect_lit(none, "true")
     assert "mixLine" not in held(page, client)["a"]
     after.click()
-    expect(after).to_have_attribute("aria-pressed", "true")
-    expect(none).to_have_attribute("aria-pressed", "false")
+    expect_lit(after, "true")
+    expect_lit(none, "false")
     assert held(page, client)["a"]["mixLine"] == "after"
     under.click()
-    expect(under).to_have_attribute("aria-pressed", "true")
-    expect(after).to_have_attribute("aria-pressed", "false")
+    expect_lit(under, "true")
+    expect_lit(after, "false")
     assert held(page, client)["a"]["mixLine"] == "under"
     none.click()
-    expect(none).to_have_attribute("aria-pressed", "true")
+    expect_lit(none, "true")
     assert "mixLine" not in held(page, client)["a"]
 
 
@@ -217,14 +217,14 @@ def test_several_blocks_get_one_step_and_one_undo(editor):
     )
     pick(page, "a", "b")
     switch = panel(page, "Schüttelwörter")
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     step(page, lambda: switch.click())
-    expect(switch).to_have_attribute("aria-pressed", "true")
+    expect_lit(switch, "true")
     saved = held(page, client)
     assert saved["a"]["mix"] == saved["b"]["mix"]
     assert 1 <= saved["a"]["mix"] <= 2147483647
     step(page, lambda: page.keyboard.press("Control+z"))
-    expect(switch).to_have_attribute("aria-pressed", "false")
+    expect_lit(switch, "false")
     saved = held(page, client)
     assert saved["a"]["mix"] == 5
     assert "mix" not in saved["b"]

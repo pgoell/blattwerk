@@ -16,6 +16,7 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
     pick,
     picked,
@@ -79,14 +80,14 @@ def test_ctrl_b_with_the_caret_in_a_word_sets_the_word(editor, word, offset):
     caret(page, word, offset)
     page.keyboard.press("Control+b")
     expect(bold).to_have_text(word)
-    expect(page.locator(".panel button.bold")).to_have_attribute("aria-pressed", "true")
+    expect_lit(page.locator(".panel button.bold"), "true")
     # The caret stayed where it was, and what is typed there is bold with its word.
     page.keyboard.type("x")
     expect(bold).to_have_text(f"{word[:offset]}x{word[offset:]}")
     # The same key takes it from the word again.
     page.keyboard.press("Control+b")
     expect(bold).to_have_count(0)
-    expect(page.locator(".panel button.bold")).to_have_attribute("aria-pressed", "false")
+    expect_lit(page.locator(".panel button.bold"), "false")
     expect(page.locator(FIELD)).to_be_focused()
 
 
@@ -115,11 +116,11 @@ def test_ctrl_b_beside_a_word_is_for_what_is_typed_next(editor):
     caret(page, "du", 2)
     page.keyboard.press("Control+b")
     expect(bold).to_have_count(0)
-    expect(button).to_have_attribute("aria-pressed", "true")
+    expect_lit(button, "true")
     page.keyboard.type("x")
     expect(bold).to_have_text("x")
     page.keyboard.press("Control+b")
-    expect(button).to_have_attribute("aria-pressed", "false")
+    expect_lit(button, "false")
     page.keyboard.type("y")
     expect(bold).to_have_text("x")
     expect(page.locator(FIELD)).to_have_text("Hallo duxy")
@@ -241,11 +242,11 @@ def test_ctrl_b_on_several_blocks_does_what_the_panels_button_does(editor, names
     # as pressed only when all have it.
     every = "off" not in names
     for press in (lambda: page.keyboard.press("Control+b"), button.click):
-        expect(button).to_have_attribute("aria-pressed", str(every).lower())
+        expect_lit(button, str(every).lower())
         press()
         for frame in frames:
             expect(frame).to_have_css("font-weight", "400" if every else "700")
-        expect(button).to_have_attribute("aria-pressed", str(not every).lower())
+        expect_lit(button, str(not every).lower())
         page.keyboard.press("Control+z")
 
 

@@ -17,7 +17,7 @@ from test_fix_mix import key
 from test_gaps import step
 from test_three import SIGNS
 from test_words import redo, undo
-from ui import at, box, maths, pick, saved, tool, user
+from ui import at, box, expect_lit, maths, pick, saved, tool, user
 
 
 def fmt(n, d, money=False):
@@ -56,7 +56,7 @@ def test_nachkommastellen_sets_the_places_for_zeile_luecke_and_schriftlich(edito
     assert props["decimals"] == 1
     props = changed(page, client, lambda: ctl(page, "2 Nachkommastellen").click())
     assert props["decimals"] == 2
-    expect(ctl(page, "2 Nachkommastellen")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "2 Nachkommastellen"), "true")
     texts = shown(at(page, "m"))
     assert any("," in text for text in texts)
     assert all("." not in text for text in texts)
@@ -195,8 +195,8 @@ def test_a_block_without_the_new_keys_loads_and_prints_as_before(editor, browser
     assert not {"decimals", "money", "af", "bf", "cf"} & props.keys()
     page = editor(box("m", "maths", props), client=client)
     pick(page, "m")
-    expect(ctl(page, "0 Nachkommastellen")).to_have_attribute("aria-pressed", "true")
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "false")
+    expect_lit(ctl(page, "0 Nachkommastellen"), "true")
+    expect_lit(ctl(page, "Geld"), "false")
     texts = shown(at(page, "m"))
     assert texts == [f"{e['a']} {SIGNS[e['op']]} {e['b']} =" for e in props["exercises"]]
     paper = printed(browser, server, sheet_id(page))
@@ -285,7 +285,7 @@ def test_a_greyed_nachkommastellen_keeps_its_value(editor):
     props = changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     assert props["decimals"] == 2
     props = changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
-    expect(ctl(page, "2 Nachkommastellen")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "2 Nachkommastellen"), "true")
     expect(ctl(page, "2 Nachkommastellen")).to_be_enabled()
     assert props["decimals"] == 2 and props["ops"] == ["+"]
 
@@ -298,13 +298,13 @@ def test_geld_shows_two_places_and_gives_the_earlier_value_back(editor):
     )
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Geld").click())
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "true")
-    expect(ctl(page, "1 Nachkommastelle")).to_have_attribute("aria-pressed", "false")
+    expect_lit(ctl(page, "Geld"), "true")
+    expect_lit(ctl(page, "1 Nachkommastelle"), "false")
     expect(ctl(page, "1 Nachkommastelle")).to_be_enabled()
     assert all(re.search(r"\d+,\d\d €", text) for text in shown(at(page, "m")))
     props = changed(page, client, lambda: ctl(page, "Geld").click())
     assert props["money"] is False and props["decimals"] == 1
-    expect(ctl(page, "1 Nachkommastelle")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "1 Nachkommastelle"), "true")
 
 
 def test_back_to_zero_the_whole_tasks_of_the_seed_come_back_and_the_digits_stay(editor):

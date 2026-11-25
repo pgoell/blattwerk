@@ -3,9 +3,8 @@ takes Geld off in the same step, and Control+z undoes that step in one go.
 """
 
 import pytest
-from playwright.sync_api import expect
 from test_compare import changed, ctl, shown
-from ui import at, box, maths, pick, user
+from ui import at, box, expect_lit, maths, pick, user
 
 NACH = {0: "0 Nachkommastellen", 1: "1 Nachkommastelle", 2: "2 Nachkommastellen"}
 ROW = [*NACH.values(), "Geld"]
@@ -20,10 +19,10 @@ def test_a_click_on_a_number_turns_geld_off_at_once(editor, n):
         client=client,
     )
     pick(page, "m")
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Geld"), "true")
     props = changed(page, client, lambda: ctl(page, NACH[n]).click())
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "false")
-    expect(ctl(page, NACH[n])).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Geld"), "false")
+    expect_lit(ctl(page, NACH[n]), "true")
     assert props["money"] is False and props["decimals"] == n
     assert all("€" not in text for text in shown(at(page, "m")))
     if n == 0:
@@ -38,7 +37,7 @@ def test_only_one_button_of_the_row_is_lit(editor):
         client=client,
     )
     pick(page, "m")
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Geld"), "true")
     pressed = [ctl(page, name).get_attribute("aria-pressed") for name in ROW]
     assert pressed.count("true") == 1
 
@@ -53,6 +52,6 @@ def test_the_geld_row_undoes_in_one_step(editor):
     pick(page, "m")
     changed(page, client, lambda: ctl(page, NACH[0]).click())
     props = changed(page, client, lambda: page.keyboard.press("Control+z"))
-    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Geld"), "true")
     assert props["money"] is True
     assert all("€" in text for text in shown(at(page, "m")))

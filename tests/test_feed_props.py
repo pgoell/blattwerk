@@ -23,6 +23,7 @@ from ui import (
     TEXT,
     at,
     box,
+    expect_lit,
     pick,
     user,
 )
@@ -40,7 +41,7 @@ def test_tab_reaches_the_new_controls_and_keys_press_them(editor):
         page.keyboard.press("Tab")
     expect(panel(page, "3 Spalten")).to_be_focused()
     page.keyboard.press("Space")
-    expect(panel(page, "3 Spalten")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "3 Spalten"), "true")
     for _ in range(12):
         if panel(page, "Lückenwörter").evaluate("el => el === document.activeElement"):
             break

@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import ready, redo, undo
-from ui import TEXT, at, box, doc, pick, tool, user
+from ui import TEXT, at, box, doc, expect_lit, knob, pick, tool, user
 
 # A Suchsel on the sheet: the thumbnails of the panel Seiten draw every block too, without its id.
 ON_SHEET = ".block[data-id] .suchsel"
@@ -151,7 +151,7 @@ def test_lernwoerter_uebernehmen_copies_the_sheets_words(editor):
     client = user()
     page = editor(sq("s", {**SUCHSEL, "words": []}), client=client, words=LERN)
     pick(page, "s")
-    page.get_by_role("button", name="Lernwörter übernehmen", exact=True).click()
+    knob(page, "Lernwörter übernehmen").click()
     field = page.get_by_label("Wörter des Suchsels")
     expect(field).to_have_value("Reh\nFuchs")
     assert suchsel_props(doc(page, client))["words"] == LERN
@@ -205,10 +205,10 @@ def test_capitals_are_on_at_the_start_and_the_toggle_makes_them_small(editor):
     page = editor(sq("s", SUCHSEL))
     pick(page, "s")
     toggle = panel(page, "Nur Großbuchstaben")
-    expect(toggle).to_have_attribute("aria-pressed", "true")
+    expect_lit(toggle, "true")
     assert not any(c.islower() and c != "ß" for c in "".join(grid(at(page, "s"))))
     toggle.click()
-    expect(toggle).to_have_attribute("aria-pressed", "false")
+    expect_lit(toggle, "false")
     assert not any(c.isupper() for c in "".join(grid(at(page, "s"))))
 
 
@@ -283,7 +283,7 @@ def test_the_switch_shows_the_word_list_or_only_the_count(editor):
     pick(page, "s")
     expect(at(page, "s").locator("ul.found li")).to_have_count(6)
     panel(page, "Nur Anzahl").click()
-    expect(panel(page, "Nur Anzahl")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "Nur Anzahl"), "true")
     expect(at(page, "s").locator("p.found")).to_have_text("Finde 6 Wörter.")
     expect(at(page, "s").locator("ul.found")).to_have_count(0)
     panel(page, "Wörterliste").click()

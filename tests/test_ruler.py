@@ -8,7 +8,7 @@ from pixels import over, screen_and_print
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_fields import enter, field
-from ui import LINE, at, box, pick, saved, user
+from ui import LINE, at, box, expect_lit, knob, pick, saved, user
 
 # How far a tick reaches, in mm: the same lengths as REACH in frontend/src/ruler.ts.
 CM, HALF, MM = 4, 2.5, 1.5
@@ -73,15 +73,15 @@ def test_lineal_length_and_turn_are_typed(editor):
     # 1 mm of height is enough to click. The length is a hair over 5 cm, and 8 cm lands on the stored hundredths.
     page = editor(box("a", "shape", LINE, x=40, y=80, w=50, h=1), client=client)
     pick(page, "a")
-    lineal = page.locator(".panel").get_by_role("switch", name="Lineal", exact=True)
-    expect(lineal).to_have_attribute("aria-pressed", "false")
+    lineal = knob(page.locator(".panel"), "Lineal")
+    expect_lit(lineal, "false")
     lineal.click()
-    expect(lineal).to_have_attribute("aria-pressed", "true")
+    expect_lit(lineal, "true")
     expect(at(page, "a").locator("svg g.ruler text.n")).to_have_count(6)
-    milli = page.locator(".panel").get_by_role("switch", name="Millimeter", exact=True)
-    expect(milli).to_have_attribute("aria-pressed", "false")
+    milli = knob(page.locator(".panel"), "Millimeter")
+    expect_lit(milli, "false")
     milli.click()
-    expect(milli).to_have_attribute("aria-pressed", "true")
+    expect_lit(milli, "true")
     expect(at(page, "a").locator("svg g.ruler line")).to_have_count(51)
     length = page.locator(".panel").get_by_label("Länge in cm", exact=True)
     length.fill("8")

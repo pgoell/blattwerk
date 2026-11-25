@@ -35,6 +35,7 @@ from ui import (
     bar,
     box,
     centre,
+    expect_lit,
     expect_picked,
     saved,
     thumb,
@@ -186,10 +187,10 @@ def test_middle_drag_refuses_two_names_that_are_never_in_the_window_together(edi
 def test_swipe_in_from_the_right_edge_opens_the_format_drawer_in_the_upright_window(editor):
     page = editor(box("a", "text", ONE))
     tool.resize(page, "820", "1180")
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    expect_lit(bar(page, "right"), "false")
     # 817 lies on the upright window's scrollbar (#814). 800 still starts at the edge.
     tool.swipe(page, "800,600", "660,600")
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    expect_lit(bar(page, "right"), "true")
 
 
 def test_drag_holds_at_the_end_so_the_panel_scrolls(editor):

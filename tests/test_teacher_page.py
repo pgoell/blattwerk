@@ -74,8 +74,9 @@ def shape(editor, client=None):
     # Schrift lies in the window, so the wheel turns the panel. Sonderzeichen is 28px under
     # the marks, Zeichenabstand is one row of 40px under Zeilenabstand, and Zeichen is a
     # heading of 33px plus four rows of 28px: 540 left Randstärke short by all of these,
-    # and 753 brings it back in with the room it had.
-    tool.wheel(page, "Schrift", "753")
+    # and 753 brought it back in with the room it had. The switches (#1182) stand one to a
+    # row where the lit buttons shared rows, which is 160px more.
+    tool.wheel(page, "Schrift", "913")
     expect(slider(page)).to_be_in_viewport(ratio=1)
     return page
 

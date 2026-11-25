@@ -16,6 +16,7 @@ from ui import (
     drag,
     drawer,
     drop,
+    expect_lit,
     finger,
     hold_drag,
     jitter,
@@ -59,7 +60,7 @@ def expect_order(page, names):
 def expect_in_use(page, n):
     expect(page.locator(f'.sheet[data-page="{n}"]')).to_have_class(ON)
     expect(page.locator(".sheet.on")).to_have_count(1)
-    expect(thumb(page, n)).to_have_attribute("aria-pressed", "true")
+    expect_lit(thumb(page, n), "true")
     expect(page.locator('.pages [aria-pressed="true"]')).to_have_count(1)
 
 

@@ -9,7 +9,7 @@ from test_native import (
     press,
 )
 from test_suchsel import SUCHSEL
-from ui import RECT, TEXT, at, box, expect_picked, maths, user
+from ui import RECT, TEXT, at, box, expect_lit, expect_picked, maths, user
 
 pytestmark = pytest.mark.native
 
@@ -294,7 +294,7 @@ def test_the_decimal_controls_stand_in_the_tab_order_and_work_from_the_keyboard(
         expect(page.locator(":focus")).to_have_accessible_name(label)
         if label == "1 Nachkommastelle":
             page.keyboard.press("Enter")
-            expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+            expect_lit(page.locator(":focus"), "true")
     expect_picked(page, "a")
 
 
@@ -324,7 +324,7 @@ def test_tab_reaches_the_families_and_the_keyboard_sets_them(editor):
     page.keyboard.press("Tab")
     expect(page.locator(":focus")).to_have_accessible_name("2. Zahl wandert")
     page.keyboard.press("Enter")
-    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_lit(page.locator(":focus"), "true")
     expect_picked(page, "a")
 
 
@@ -355,7 +355,7 @@ def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(e
     page.keyboard.press("Tab")
     expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
     page.keyboard.press("Space")
-    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_lit(page.locator(":focus"), "true")
     expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
     # The gap boxes come after the Format buttons; Tab walks there.
     for _ in range(60):
@@ -368,5 +368,5 @@ def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(e
     page.keyboard.press("Tab")
     expect(page.locator(":focus")).to_have_accessible_name("Lücke: Ergebnis")
     page.keyboard.press("Enter")
-    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_lit(page.locator(":focus"), "true")
     expect_picked(page, "a")

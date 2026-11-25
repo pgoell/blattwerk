@@ -2,7 +2,7 @@
 
 from playwright.sync_api import expect
 from test_pages import expect_order, half, three
-from ui import centre, drag, thumb
+from ui import centre, drag, expect_lit, thumb
 
 
 def choose(page, n, *modifiers):
@@ -18,7 +18,7 @@ def pick_many(page, *ns):
 
 def expect_chosen(page, *ns):
     for n in range(page.locator(".pages [data-thumb]").count()):
-        expect(thumb(page, n)).to_have_attribute("aria-pressed", "true" if n in ns else "false")
+        expect_lit(thumb(page, n), "true" if n in ns else "false")
 
 
 def panel(page, label):

@@ -22,6 +22,7 @@ from ui import (
     at,
     box,
     centre,
+    expect_lit,
     expect_picked,
     finger,
     hold_drag,
@@ -52,11 +53,11 @@ def test_a_jittering_finger_held_on_a_block_starts_selecting_several(editor, kin
     else:
         blocks = [box("a", "shape" if kind == "line" else kind, props(client, kind))]
     page = editor(*blocks, client=client, touch=True)
-    expect(several(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(several(page), "false")
     # The block is selected with the finger still down: a tap would select it on the way up.
     by = ((3, 0), (0, 4), (-6, -7))
     hold_drag(page, at(page, "a"), centre(at(page, "a")), by=by, shows="sel")
-    expect(several(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(several(page), "true")
     expect_picked(page, *("ab" if kind == "group" else "a"))
 
 
@@ -190,7 +191,7 @@ def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
     with finger(page, centre(at(page, "a"))) as touch:
         touch("touchCancel")
         outlast(page)
-        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_lit(several(page), "false")
         expect_picked(page)
         # The finger comes down again, and its lift is a tap. The centre is read now, not before
         # the wait: the desk can take its last size in that time, and the old point then lies on
@@ -220,7 +221,7 @@ def test_a_tap_after_a_hold_the_browser_cancelled_selects_one_more(editor):
     page = editor(*apart(*texts("a", "b")), touch=True)
     start = centre(at(page, "a"))
     with finger(page, start) as touch:
-        expect(several(page)).to_have_attribute("aria-pressed", "true")
+        expect_lit(several(page), "true")
         touch("touchCancel")
         touch("touchStart", centre(at(page, "b")))
     expect_picked(page, "a", "b")
@@ -233,5 +234,5 @@ def test_a_swipe_over_a_block_starts_no_selecting_of_several(editor):
     with finger(page, start):
         jitter(at(page, "a"), start, (14, 0))
         outlast(page)
-        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_lit(several(page), "false")
         expect_picked(page)

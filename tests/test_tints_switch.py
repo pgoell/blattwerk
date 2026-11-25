@@ -33,7 +33,9 @@ from ui import (
     TEXT,
     at,
     box,
+    expect_lit,
     expect_picked,
+    knob,
     pick,
     tints,
     user,
@@ -50,9 +52,9 @@ def test_the_switch_each_colour_the_greys_and_the_setting_undo_and_redo_one_step
     set_colour(page, "Erste Silbe", FIRST)
     set_colour(page, "Zweite Silbe", SECOND)
     greys(page).click()
-    expect(greys(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(greys(page), "true")
     across(page).click()
-    expect(across(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(across(page), "true")
     states = [
         WORDS,
         {**WORDS, "tints": PAIR},
@@ -137,9 +139,7 @@ def test_garbage_in_the_colours_shows_the_text_and_breaks_nothing(editor, value)
     assert tints(page, "a") == []
     pick(page, "a")
     expect(page.locator(".panel h2").first).to_be_visible()
-    expect(
-        page.locator(".panel").get_by_role("switch", name="Silbenbögen", exact=True)
-    ).to_be_visible()
+    expect(knob(page.locator(".panel"), "Silbenbögen")).to_be_visible()
     assert not faults
 
 

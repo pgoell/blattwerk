@@ -10,7 +10,7 @@ from test_compare import changed, ctl
 from test_gaps import step
 from test_malquadrat import MQ, mq
 from test_rechentabelle import RT, rt
-from ui import at, box, doc, maths, pick, user
+from ui import at, box, doc, expect_lit, maths, pick, user
 
 KERN = [1, 2, 5, 10]
 
@@ -60,7 +60,7 @@ def test_the_rest_can_be_the_only_gap(editor):
         client=client,
     )
     pick(page, "m")
-    expect(ctl(page, "Lücke: Rest")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Lücke: Rest"), "true")
     changed(page, client, lambda: ctl(page, "Lücke: 1. Zahl").click())
     props = changed(page, client, lambda: ctl(page, "Lücke: 2. Zahl").click())
     assert props["gaps"] == ["c", "rest"]

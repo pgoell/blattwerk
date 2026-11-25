@@ -22,6 +22,7 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
     pick,
     picture,
@@ -181,7 +182,7 @@ def test_a_kept_brush_on_a_picked_group_paints_it_once_and_keeps_the_group_picke
     expect_picked(page, "a", "b")
     # The group's frame lies over the picked block: the press goes where a hand would put it.
     at(page, "a").click(force=True)
-    expect(brush(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(brush(page), "true")
     expect_picked(page, "a", "b")
     assert held(page, client)["a"].get("bold") and held(page, client)["b"].get("bold")
     page.keyboard.press("Escape")

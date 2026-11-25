@@ -30,6 +30,7 @@ from ui import (
     at,
     box,
     expect_picked,
+    knob,
     user,
 )
 
@@ -196,7 +197,7 @@ def test_497_pdf_with_the_variants_dialog_open_takes_the_dialogs_button(editor):
     # button and the dialog's, and refused. The dialog's is the one a click can hit, and its file
     # holds one page per variant. The bar's file of this sheet would be a single page.
     page = editor(box("a", "text", ONE))
-    panel = page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    panel = knob(page.locator(".panel"), "Varianten drucken")
     if not panel.is_visible():
         page.get_by_role("tab", name="Ansicht").click()
     panel.click()
@@ -215,7 +216,7 @@ def test_617_click_on_the_variants_pdf_saves_the_file_in_the_run_folder(editor, 
     # `click` on the dialog's PDF failed and the file landed in Downloads. `pdf X,Y` saved it.
     # `click "PDF"` and a click at that button's place do what `pdf` does (#617).
     page = editor(box("a", "text", ONE))
-    panel = page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    panel = knob(page.locator(".panel"), "Varianten drucken")
     if not panel.is_visible():
         page.get_by_role("tab", name="Ansicht").click()
     panel.click()
@@ -227,7 +228,7 @@ def test_617_click_on_the_variants_pdf_saves_the_file_in_the_run_folder(editor, 
     assert len(PdfReader(io.BytesIO(plain.read_bytes())).pages) == 2
     expect(dialog).to_be_visible()
     # The same button by its place: `pdf X,Y` saved the file, `click X,Y` did not.
-    place = xy(dialog.get_by_role("button", name="Lösungen", exact=True))
+    place = xy(knob(dialog, "Lösungen"))
     key = Path(tool.click(page, place))
     assert key.parent == folder and key.suffix == ".pdf"
     assert len(PdfReader(io.BytesIO(key.read_bytes())).pages) == 2

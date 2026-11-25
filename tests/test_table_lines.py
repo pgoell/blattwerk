@@ -5,7 +5,7 @@ Each test names the box of #80 it holds (A1 to I8). The lines are read from the 
 
 import pytest
 from playwright.sync_api import expect
-from ui import at, box, doc, pick, user
+from ui import at, box, doc, expect_lit, knob, pick, user
 
 CELLS = [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]]
 GRID = {"cells": CELLS, "cols": [1, 1, 1], "size": 14, "align": "center", "line": "#222222"}
@@ -53,7 +53,7 @@ def border(page, label):
 
 
 def schneidelinien(page):
-    return page.get_by_role("switch", name="Schneidelinien", exact=True)
+    return knob(page, "Schneidelinien")
 
 
 def test_a1_a2_style_goes_to_the_whole_table(editor):
@@ -155,12 +155,12 @@ def test_a5_schneidelinien_on_and_off(editor):
     page = editor(box("t", "table", GRID), client=client)
     pick(page, "t")
     schneidelinien(page).click()
-    expect(schneidelinien(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(schneidelinien(page), "true")
     p = props(page, client)
     assert p["cut"] is True and p["lineStyle"] == "dashed" and p["lineWidth"] == 0.25
     assert "edges" not in p
     schneidelinien(page).click()
-    expect(schneidelinien(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(schneidelinien(page), "false")
     p = props(page, client)
     assert not any(key in p for key in FOUR)
 
@@ -190,12 +190,12 @@ def test_a10_each_change_is_one_undo_step_and_redo_brings_it_back(editor):
     page.keyboard.press("Control+y")
     expect(style(page)).to_have_value("dashed")
     schneidelinien(page).click()
-    expect(schneidelinien(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(schneidelinien(page), "true")
     doc(page, client)
     page.keyboard.press("Control+z")
-    expect(schneidelinien(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(schneidelinien(page), "false")
     page.keyboard.press("Control+y")
-    expect(schneidelinien(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(schneidelinien(page), "true")
 
 
 def test_i1_a_line_between_two_cells_is_one_line_and_the_later_click_wins(editor):

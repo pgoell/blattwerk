@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_painter import paint
 from test_undo_steps import step
-from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, doc, pick, user
+from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, doc, expect_lit, pick, user
 
 CHOICES = ["Aus", "Grau", "Umriss", "Gepunktet"]
 KARO = {"kind": "k5", "color": "#222222"}
@@ -89,9 +89,7 @@ def test_fading_switch_and_direction(editor, kind):
     choose(page, "outline")
     page.get_by_role("switch", name="Ausblenden").click()
     assert fade_of(page, client, "a") == "row"
-    expect(page.get_by_role("button", name="In der Zeile")).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(page.get_by_role("button", name="In der Zeile"), "true")
     page.get_by_role("button", name="Von Zeile zu Zeile").click()
     assert fade_of(page, client, "a") == "rows"
     page.get_by_role("switch", name="Ausblenden").click()
