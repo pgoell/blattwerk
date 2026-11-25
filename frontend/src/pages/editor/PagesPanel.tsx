@@ -2,17 +2,25 @@
 import type { CSSProperties } from "react";
 import { CopyPlus, FilePlus, FileX, Wallpaper, LayoutTemplate, Plus, X } from "lucide-react";
 import { sizeOf } from "../../sheet";
-import { FADES, GROUND_HINT, RIGHTS_PLACEHOLDER } from "../../ground";
+import { FADES, GROUND_HINT } from "../../ground";
 import { next } from "../../cells";
 import { holdName, Tool } from "./Tool";
 import { span, Thumb } from "./palette";
 import { useTools } from "./useTools";
+import Confirm from "../../components/Confirm";
 import { Switch } from "../../components/Switch";
+
+// A count with its noun: 1 Seite, 2 Seiten.
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function PagesPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   const addPage = session.addPage;
   const aim = session.aim;
   const apply = session.apply;
+  const tplAsk = session.tplAsk;
+  const setTplAsk = session.setTplAsk;
+  const holds = session.holds;
+  const replaceSheet = session.replaceSheet;
   const brand = session.brand;
   const builtIn = session.builtIn;
   const chooseGround = session.chooseGround;
@@ -184,7 +192,6 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
           <div className="ground-box">
             <h2>Hintergrund</h2>
             <p className="hint">{GROUND_HINT}</p>
-            <p className="hint" data-placeholder="rights">{RIGHTS_PLACEHOLDER}</p>
             <button onClick={() => groundFile.current?.click()}>
               <Wallpaper size={16} aria-hidden />
               Hintergrund wählen
@@ -278,6 +285,15 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
               Dieses Blatt als Vorlage
             </button>
           </div>
+          {tplAsk && (
+            <Confirm title={`Vorlage „${tplAsk.name}“ anwenden?`} yes="Blatt ersetzen" onYes={() => void replaceSheet(tplAsk)} onClose={() => setTplAsk(undefined)}>
+              <p>
+                Die Vorlage ersetzt das ganze Blatt: {plural(holds().pages, "Seite", "Seiten")} mit {plural(holds().blocks, "Block", "Blöcken")}
+                {holds().ground ? " und der Hintergrund" : ""}. Der Titel bleibt.
+              </p>
+              <p>Mit „Rückgängig“ kommt das Blatt zurück.</p>
+            </Confirm>
+          )}
         </aside>
       )}
     </>

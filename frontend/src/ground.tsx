@@ -8,9 +8,8 @@ export type { Ground };
 export const FADES = [1, 0.5, 0.25] as const;
 export const SCALE_MIN = 0.25;
 export const SCALE_MAX = 4;
-// Shown beside the file control. The rights line is a placeholder, not a decision.
+// Shown beside the file control.
 export const GROUND_HINT = "JPEG, PNG oder PDF, bis 30 MB. Eine PDF bis 20 Seiten.";
-export const RIGHTS_PLACEHOLDER = "[Platzhalter] Text zu Rechten: noch offen.";
 
 // The size that fills the page at `scale` and keeps `ratio` (width over height).
 export function cover(pageW: number, pageH: number, ratio: number, scale = 1) {

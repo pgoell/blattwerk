@@ -35,6 +35,15 @@ ACTIONS = {
     "remove": ("a löschen", "Das Blatt konnte nicht gelöscht werden."),
 }
 API = "**/api/**"
+
+
+def press(page, action):
+    """Presses the action's button. A new sheet is the chooser's empty one."""
+    page.get_by_role("button", name=ACTIONS[action][0]).click()
+    if action == "create":
+        page.locator("dialog.chooser").get_by_role("button", name="Leeres Blatt").click()
+
+
 # Notes whether the page ever says that a sheet was deleted, however briefly.
 SEEN = """new MutationObserver(() => {
     if (document.body.textContent.includes('gelöscht.')) window.said = true;
@@ -93,12 +102,12 @@ def test_a_button_of_the_list_that_fails_says_so_and_a_try_does_it(window, serve
     listed(page, server, client)
     asked = []
     page.on("dialog", lambda d: (asked.append(d), d.accept("Neu" if d.type == "prompt" else None)))
-    label, what = ACTIONS[action]
+    what = ACTIONS[action][1]
     line = page.get_by_role("alert")
     mend = cut(page, how)
     for _ in range(2):
         with failing(page, how):
-            page.get_by_role("button", name=label).click()
+            press(page, action)
         expect(line).to_have_count(1)
         expect(line).to_contain_text(f"{what} {WHY[how]}")
     # Nothing has changed, here or on the server.
@@ -202,10 +211,9 @@ def test_a_try_under_way_takes_no_second_press(window, server, action):
             route.continue_()
 
     page.route(API, came)
-    press = page.get_by_role("button", name=ACTIONS[action][0])
     with page.expect_request(lambda r: r.method == "POST"):
-        press.click()
-    press.click()
+        press(page, action)
+    press(page, action)
     page.evaluate(TURNS)
     assert len(held) == 1
     with page.expect_response(lambda r: r.request.method == "POST"):

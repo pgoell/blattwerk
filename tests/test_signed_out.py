@@ -150,9 +150,15 @@ def test_a_button_of_the_list_that_finds_the_session_gone_brings_the_login(windo
     page, client = window()
     listed(page, server, client)
     page.on("dialog", lambda dialog: dialog.accept("Neu" if dialog.type == "prompt" else None))
+    # A new sheet is the chooser's empty one: the chooser opens while the session still holds.
+    press = page.get_by_role("button", name=ACTIONS[action])
+    if action == "create":
+        press.click()
+        press = page.locator("dialog.chooser").get_by_role("button", name="Leeres Blatt")
+        expect(page.locator("dialog.chooser .tile")).not_to_have_count(1)
     page.context.clear_cookies()
     with page.expect_response(re.compile(r"/api/sheets")) as got:
-        page.get_by_role("button", name=ACTIONS[action]).click()
+        press.click()
     assert got.value.status == 401
     assert got.value.request.method != "GET"
     expect_login(page, f"{server}/")

@@ -49,7 +49,8 @@ def test_einfuegen_pastes_what_ctrl_c_copied_in_the_window(folder, server):
         ok("click", "Passwort")
         ok("type", PASSWORD)
         ok("key", "Enter")
-        said = ok("click", "Neues Blatt")
+        ok("click", "Neues Blatt")
+        said = ok("click", "Leeres Blatt")
         found = re.search(r"The page is /blatt/(\w+)", said)
         assert found, said
         sheet_id = found.group(1)

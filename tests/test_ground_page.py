@@ -8,8 +8,6 @@ from playwright.sync_api import expect
 from test_grounds import jpeg, pdf_of
 from ui import RECT, TEXT, box, doc, pick, png, user
 
-PLACEHOLDER = "[Platzhalter] Text zu Rechten: noch offen."
-
 
 def ground(page):
     return page.locator(".sheet .ground")
@@ -49,7 +47,9 @@ def test_a_photo_is_the_ground_under_the_blocks_and_undo_takes_it_back(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     open_pages(page)
-    expect(page.locator("[data-placeholder=rights]")).to_have_text(PLACEHOLDER)
+    # No placeholder stands where a text on rights may come one day (#1184).
+    expect(page.locator(".ground-box")).not_to_contain_text("Platzhalter")
+    expect(page.locator(".ground-box .hint")).to_have_count(1)
     hint = page.locator(".ground-box .hint").first
     expect(hint).to_contain_text("30 MB")
     expect(hint).to_contain_text("20 Seiten")

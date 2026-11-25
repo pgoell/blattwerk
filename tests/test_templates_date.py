@@ -4,6 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_templates_print import printed, template
 from ui import sheet, user
+from ui_new import apply_template
 
 
 def open_panel(page):
@@ -12,7 +13,7 @@ def open_panel(page):
 
 
 def apply(page, name):
-    page.locator(".tpl button", has_text=name).click()
+    apply_template(page, name)
 
 
 @pytest.mark.parametrize("name", ["Elternbrief", "Klassenarbeit Deckblatt"])

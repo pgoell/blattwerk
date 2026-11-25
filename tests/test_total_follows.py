@@ -50,6 +50,8 @@ def test_a_klassenarbeit_from_the_vorlage_follows(editor):
     reload(page, page.url)
     page.get_by_role("tab", name="Vorlagen").click()
     page.get_by_role("button", name="Klassenarbeit", exact=True).click()
+    # The sheet holds a text, so the template asks first (#1184).
+    page.locator("dialog.confirm").get_by_role("button", name="Blatt ersetzen").click()
     expect(page.get_by_text("/ 60 Punkte").first).to_be_visible()
     blocks = doc(page, client)["pages"]
     total_ids = [
