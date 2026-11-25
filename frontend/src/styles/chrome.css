@@ -95,3 +95,27 @@ main { flex: 1; width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 16p
 .thanks { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 0 8px; text-align: center; }
 .thanks .check { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 32px; }
 .thanks p { margin: 0; font-size: 1.25em; font-weight: 600; }
+/* The library "Mathe-Blöcke": a field over the sheet, the search box on top and the cards below it, which scroll. */
+dialog.library {
+  position: fixed; inset: auto; margin: 0; width: min(620px, calc(100vw - 16px)); max-width: none; max-height: min(640px, calc(100vh - 16px)); padding: 0;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
+}
+dialog.library[open] { display: flex; flex-direction: column; }
+dialog.library::backdrop { background: none; }
+dialog.library .find { display: flex; align-items: center; gap: 8px; margin: 10px 12px 4px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--faint); }
+dialog.library .find:focus-within { border-color: var(--accent); }
+dialog.library .find input { flex: 1; min-width: 0; min-height: var(--ctl); padding: 0; border: 0; outline: 0; box-shadow: none; background: none; color: var(--ink); font: inherit; }
+dialog.library .shelf { overflow-y: auto; padding: 0 12px 12px; }
+dialog.library h3 { margin: 12px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+dialog.library .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 8px; }
+dialog.library .card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: none;
+  color: inherit; font: inherit; text-align: center; cursor: pointer;
+}
+dialog.library .card:hover { background: var(--accent-soft); }
+dialog.library .card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+/* The picture stands in the middle of its room, on white as on paper; a press on it is the card's. */
+dialog.library .pic { display: block; flex: none; margin: auto 0; overflow: hidden; border-radius: 2px; background: #fff; pointer-events: none; }
+dialog.library .card > span:last-child { margin-top: auto; }
+dialog.library .cards { grid-auto-rows: 116px; }
+dialog.library .none { margin: 24px 0 12px; text-align: center; color: var(--faint); }

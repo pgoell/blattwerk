@@ -295,9 +295,9 @@ def test_escape_shuts_the_maths_menu_and_adds_nothing(editor):
     client = user()
     page = editor(client=client)
     page.locator(".dock, .insert").get_by_label("Mathe-Blöcke", exact=True).click()
-    expect(page.locator("dialog.menu")).to_be_visible()
+    expect(page.locator("dialog.library")).to_be_visible()
     page.keyboard.press("Escape")
-    expect(page.locator("dialog.menu")).not_to_be_visible()
+    expect(page.locator("dialog.library")).not_to_be_visible()
     assert doc(page, client)["pages"][0]["blocks"] == []
 
 

@@ -421,10 +421,10 @@ def tool(page, label):
 
 
 def insert(page, label):
-    """Adds a maths block from the "Mathe-Blöcke" menu of the dock (or of Blattform's panel): opens
-    it and picks the item of that name."""
+    """Adds a maths block from the library "Mathe-Blöcke" of the dock (or of Blattform's panel): opens
+    it and picks the card of that name."""
     page.locator(".dock, .insert").get_by_label("Mathe-Blöcke", exact=True).click()
-    page.locator("dialog.menu").get_by_label(label, exact=True).click()
+    page.locator("dialog.library").get_by_label(label, exact=True).click()
 
 
 def drawer(page, side):

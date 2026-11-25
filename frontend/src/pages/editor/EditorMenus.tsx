@@ -2,6 +2,8 @@
 import { flushSync } from "react-dom";
 import { FileText, Presentation } from "lucide-react";
 import Menu, { type Item } from "../../components/Menu";
+import Library from "../../components/Library";
+import { newSeed } from "../Maths";
 import ZoomList from "../../components/ZoomList";
 import Tour from "../../components/Tour";
 import type { Axis } from "../../sheet";
@@ -19,7 +21,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const k = session.k;
   const late = session.late;
   const lens = session.lens;
-  const mathBlocks = session.mathBlocks;
+  const addInsert = session.addInsert;
   const mathMenu = session.mathMenu;
   const moreShapes = session.moreShapes;
   const shapeMenu = session.shapeMenu;
@@ -84,14 +86,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
         />
       )}
       {mathMenu && (
-        <Menu
-          x={mathMenu.x}
-          y={mathMenu.y}
-          up
-          items={mathBlocks}
-          onClose={() => setMathMenu(undefined)}
-          onElsewhere={() => setMathMenu(undefined)}
-        />
+        <Library x={mathMenu.x} y={mathMenu.y} up={mathMenu.up} onPick={(make) => addInsert(make(newSeed()))} onClose={() => setMathMenu(undefined)} />
       )}
       {shapeMenu && (
         <Menu
