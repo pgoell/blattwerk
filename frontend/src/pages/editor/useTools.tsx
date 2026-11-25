@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState } from "react";
-import { ArrowRightLeft, BookOpenText, BrickWall, Calculator, ChartColumn, Shapes, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Grid2x2, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, PenLine, Table2, Grid2x2Plus, Hash, Columns3, Split, LayoutGrid, Orbit, Paintbrush, Presentation, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { Calculator, Shapes, Sigma, CircleHelp, Eye, Grid3x3, Fullscreen, Layers, Heading, ImagePlus, MessageSquare, Paintbrush, Presentation, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -87,35 +87,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
-  // The maths blocks, picked from the "Mathe-Blöcke" menu.
-  const mathBlocks: Item[] = [
-    { label: "Formel", icon: Radical, run: () => addInsert(INSERTS.formula()) },
-    { label: "Zahlenmauer", icon: BrickWall, run: () => addInsert(INSERTS.zahlenmauer(newSeed())) },
-    { label: "Zahlenhaus", icon: House, run: () => addInsert(INSERTS.zahlenhaus(newSeed())) },
-    { label: "Zahlenkette", icon: Link2, run: () => addInsert(INSERTS.zahlenkette(newSeed())) },
-    { label: "Pfeilbild", icon: ArrowRightLeft, run: () => addInsert(INSERTS.pfeilbild(newSeed())) },
-    { label: "Operatorfeld", icon: Orbit, run: () => addInsert(INSERTS.operatorfeld(newSeed())) },
-    { label: "Rechenrad", icon: Disc3, run: () => addInsert(INSERTS.rechenrad(newSeed())) },
-    { label: "Rechentabelle", icon: Table2, run: () => addInsert(INSERTS.rechentabelle(newSeed())) },
-    { label: "Magisches Quadrat", icon: LayoutGrid, run: () => addInsert(INSERTS.magischesquadrat(newSeed())) },
-    { label: "Malquadrat", icon: Grid2x2Plus, run: () => addInsert(INSERTS.malquadrat(newSeed())) },
-    { label: "Zerlegungsfeld", icon: Split, run: () => addInsert(INSERTS.zerlegungsfeld(newSeed())) },
-    { label: "Halbschriftlich rechnen", icon: Split, run: () => addInsert(INSERTS.halbschriftlich(newSeed())) },
-    { label: "Zehnerfeld", icon: Grid2x2Plus, run: () => addInsert(INSERTS.zehnerfeld(newSeed())) },
-    { label: "Stellenwert-Bild", icon: Hash, run: () => addInsert(INSERTS.stellenwertbild(newSeed())) },
-    { label: "Stellenwerttafel", icon: Columns3, run: () => addInsert(INSERTS.stellenwerttafel(newSeed())) },
-    { label: "Zahlzerlegung", icon: Split, run: () => addInsert(INSERTS.zahlzerlegung(newSeed())) },
-    { label: "Textaufgaben", icon: BookOpenText, run: () => addInsert(INSERTS.textaufgabe(newSeed())) },
-    { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
-    { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },
-    { label: "Hunderterfeld", icon: Grid3x3, run: () => addInsert(INSERTS.hunderterfeld(newSeed())) },
-    { label: "Geobrett", icon: DraftingCompass, run: () => addInsert(INSERTS.geobrett(newSeed())) },
-    { label: "Karofeld", icon: Grid2x2, run: () => addInsert(INSERTS.karofeld(newSeed())) },
-    { label: "Uhr", icon: Clock3, run: () => addInsert(INSERTS.uhr(newSeed())) },
-    { label: "Selbstkontrolle", icon: ListChecks, run: () => addInsert(INSERTS.selbstkontrolle(newSeed())) },
-    { label: "Diagramm", icon: ChartColumn, run: () => addInsert(INSERTS.diagramm(newSeed())) },
-    { label: "Lösungsfeld", icon: PenLine, run: () => addInsert(INSERTS.loesungsfeld()) },
-  ];
   const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
@@ -156,11 +127,13 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       <Tool
         icon={Sigma}
         label="Mathe-Blöcke"
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={!!mathMenu}
         onClick={(e) => {
+          // Beside an upright list of tools the library opens to its right; over a row of them, above it.
           const box = e.currentTarget.getBoundingClientRect();
-          setMathMenu({ x: box.left, y: box.top - 4 });
+          const list = e.currentTarget.closest(".insert")?.getBoundingClientRect();
+          setMathMenu(list ? { x: list.right + 8, y: Math.min(box.top, list.top + 60) } : { x: box.left - 120, y: box.top - 10, up: true });
         }}
       />
       <Tool icon={Ruler} label="Strecke" onClick={() => addInsert(INSERTS.strecke())} />
@@ -187,5 +160,5 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       />
     </>
   );
-    return Object.assign(session, { folding, more, inBar, mathBlocks, moreShapes, shapeMenu, setShapeMenu, tools });
+    return Object.assign(session, { folding, more, inBar, moreShapes, shapeMenu, setShapeMenu, tools });
 }
