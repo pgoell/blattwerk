@@ -182,3 +182,5 @@
 .panel[data-open=Aufgaben] .pane:not([data-pane=Aufgaben]) > :not(.pane),
 .panel[data-open=Aussehen] .pane:not([data-pane=Aussehen]) > :not(.pane),
 .panel[data-open=Lage] .pane:not([data-pane=Lage]) > :not(.pane) { display: none; }
+/* The name over a control that has none of its own beside it, such as a font list. */
+.panel .cap { margin: 0 0 4px; font-weight: 500; }
