@@ -137,10 +137,80 @@ export function TablePanel({
     cells[r][c] = `${cells[r][c] ?? ""}${text}`;
     style("table", { cells }, "text");
   };
+  // The settings that act on the whole table with no cell open, and on the picked cells with one open: the panel
+  // shows each under the heading of what it changes.
+  const sizeCtl = (
+          <div className="seg">
+            <button aria-label="Schrift kleiner" onClick={() => (open ? cellLook.cells({ size: Math.max(8, size - 2) }) : cellLook.tables({ size: Math.max(8, size - 2) }))}>−</button>
+            <output>{size} pt</output>
+            <button aria-label="Schrift größer" onClick={() => (open ? cellLook.cells({ size: size + 2 }) : cellLook.tables({ size: size + 2 }))}>＋</button>
+          </div>
+  );
+  const flagsCtl = tables.length === 1 && (
+            <div className="seg">
+              {FLAGS.map(([prop, label]) => (
+                <button key={prop} className={`${prop}${flagged(prop) ? " on" : ""}`} aria-label={label} aria-pressed={flagged(prop)} onClick={() => cellLook.cells({ [prop]: !flagged(prop) })}>
+                  {label[0]}
+                </button>
+              ))}
+            </div>
+  );
+  const fillCtl = tables.length === 1 && (
+            <>
+              <label>
+                Hintergrund
+                <input type="color" value={firstLook.fill ?? "#ffffff"} disabled={fixed} onChange={(e) => cellLook.cells({ fill: e.target.value }, "fill")} />
+              </label>
+              <button className="wide" aria-disabled={!filled} onClick={() => filled && !fixed && cellLook.cells({ fill: undefined })}>Kein Hintergrund</button>
+              <div role="group" aria-label="Innenabstand">
+                {SIDES.map((side, i) => (
+                  <Num key={side} label={`Abstand ${side}`} value={padShown[i]} disabled={fixed} onCommit={(n) => setPad(i, n)} />
+                ))}
+              </div>
+            </>
+  );
+  const penCtl = (
+    <>
+          <label>
+            Linienart
+            <select
+              aria-label="Linienart"
+              value={lineShown.style}
+              onChange={(e) => (open ? setPen({ ...pen, style: e.target.value as LineStyle }) : lines({ style: e.target.value as LineStyle }))}
+            >
+              <option value="solid">Durchgezogen</option>
+              <option value="dashed">Gestrichelt</option>
+              <option value="dotted">Gepunktet</option>
+              <option value="none">Keine</option>
+            </select>
+          </label>
+          <label>
+            Linienstärke
+            <input
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.25}
+              value={lineShown.width}
+              onChange={(e) => (open ? setPen({ ...pen, width: +e.target.value }) : lines({ width: +e.target.value }, "lineWidth"))}
+            />
+          </label>
+          <output>{lineShown.width.toFixed(2).replace(".", ",")} mm</output>
+    </>
+  );
+  const bordersCtl = border && (
+            <div role="group" aria-label="Rahmen" className="borders">
+              {BORDERS.map(([which, label]) => (
+                <button key={which} aria-disabled={off(which)} onClick={() => !off(which) && border(which, lineShown)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+  );
   return (
     <>
       <Pane tab="Aufgaben">
-          <h2>Tabelle</h2>
+          {open ? <h2>Ausgewählte Zellen ({formatted.length})</h2> : <h2>Ganze Tabelle</h2>}
           {tables.length === 1 && cell !== undefined && <FormulaInsert onInsert={putFormula} />}
           {/* More or fewer rows and columns, for one table: each has cells of its own. They come and go at the end,
               or beside the cell being edited, as in PowerPoint. */}
@@ -189,7 +259,6 @@ export function TablePanel({
               </div>
             </>
           )}
-          {/* The table's font holds for all its cells; with a cell open a second list sets the picked cells' own, and the size and B, K, U act on them. */}
           {tables.length === 1 && open && (
             <div className="acts">
               <button onClick={() => cellLook.line("row")}>Ganze Zeile</button>
@@ -198,37 +267,12 @@ export function TablePanel({
           )}
       </Pane>
       <Pane tab="Aussehen">
+          <h2>Ganze Tabelle</h2>
+          <p className="cap">Schriftart</p>
           <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => cellLook.tables({ font })} />
-          {open && <FontSelect label="Schriftart der Zellen" value={fontOf(shown.font ?? tables[0].props.font)} onChange={(font) => cellLook.cells({ font: fontOf(font) })} />}
-          <div className="seg">
-            <button aria-label="Schrift kleiner" onClick={() => (open ? cellLook.cells({ size: Math.max(8, size - 2) }) : cellLook.tables({ size: Math.max(8, size - 2) }))}>−</button>
-            <output>{size} pt</output>
-            <button aria-label="Schrift größer" onClick={() => (open ? cellLook.cells({ size: size + 2 }) : cellLook.tables({ size: size + 2 }))}>＋</button>
-          </div>
-          {tables.length === 1 && (
-            <div className="seg">
-              {FLAGS.map(([prop, label]) => (
-                <button key={prop} className={`${prop}${flagged(prop) ? " on" : ""}`} aria-label={label} aria-pressed={flagged(prop)} onClick={() => cellLook.cells({ [prop]: !flagged(prop) })}>
-                  {label[0]}
-                </button>
-              ))}
-            </div>
-          )}
-          {/* The background and the padding of the picked cells, of the open one, or with no cell open of every cell. */}
-          {tables.length === 1 && (
-            <>
-              <label>
-                Hintergrund
-                <input type="color" value={firstLook.fill ?? "#ffffff"} disabled={fixed} onChange={(e) => cellLook.cells({ fill: e.target.value }, "fill")} />
-              </label>
-              <button className="wide" aria-disabled={!filled} onClick={() => filled && !fixed && cellLook.cells({ fill: undefined })}>Kein Hintergrund</button>
-              <div role="group" aria-label="Innenabstand">
-                {SIDES.map((side, i) => (
-                  <Num key={side} label={`Abstand ${side}`} value={padShown[i]} disabled={fixed} onCommit={(n) => setPad(i, n)} />
-                ))}
-              </div>
-            </>
-          )}
+          {!open && sizeCtl}
+          {!open && flagsCtl}
+          {!open && fillCtl}
           <div className="seg">
             {ALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={tables[0].props.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={tables[0].props.align === value} onClick={() => style("table", { align: value })}>
@@ -244,40 +288,8 @@ export function TablePanel({
             Linien
             <input type="color" value={tables[0].props.line} onChange={(e) => style("table", { line: e.target.value }, "line")} />
           </label>
-          <label>
-            Linienart
-            <select
-              aria-label="Linienart"
-              value={lineShown.style}
-              onChange={(e) => (open ? setPen({ ...pen, style: e.target.value as LineStyle }) : lines({ style: e.target.value as LineStyle }))}
-            >
-              <option value="solid">Durchgezogen</option>
-              <option value="dashed">Gestrichelt</option>
-              <option value="dotted">Gepunktet</option>
-              <option value="none">Keine</option>
-            </select>
-          </label>
-          <label>
-            Linienstärke
-            <input
-              type="range"
-              min={0.25}
-              max={3}
-              step={0.25}
-              value={lineShown.width}
-              onChange={(e) => (open ? setPen({ ...pen, width: +e.target.value }) : lines({ width: +e.target.value }, "lineWidth"))}
-            />
-          </label>
-          <output>{lineShown.width.toFixed(2).replace(".", ",")} mm</output>
-          {border && (
-            <div role="group" aria-label="Rahmen" className="borders">
-              {BORDERS.map(([which, label]) => (
-                <button key={which} aria-disabled={off(which)} onClick={() => !off(which) && border(which, lineShown)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          {!open && penCtl}
+          {!open && bordersCtl}
           <Switch
             label={
               <>
@@ -290,6 +302,18 @@ export function TablePanel({
             onChange={cutting}
           />
           <Switch label="Kopfzeile" on={!!tables[0].props.head} onChange={(head) => style("table", { head })} />
+          {open && (
+            <>
+              <h2>Ausgewählte Zellen ({formatted.length})</h2>
+              <p className="cap">Schriftart</p>
+              <FontSelect label="Schriftart der Zellen" value={fontOf(shown.font ?? tables[0].props.font)} onChange={(font) => cellLook.cells({ font: fontOf(font) })} />
+              {sizeCtl}
+              {flagsCtl}
+              {fillCtl}
+              {penCtl}
+              {bordersCtl}
+            </>
+          )}
       </Pane>
       <Pane tab="Aufgaben">
           <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
