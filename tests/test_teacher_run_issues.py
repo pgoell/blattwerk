@@ -372,7 +372,7 @@ def test_564_a_double_click_opens_a_zahlenmauer_stone_on_the_sheet():
     assert "small wall in the right panel" in bullet
     # F2 opens a text, a cell or a Lineatur. It does not open a stone.
     assert "F2" not in bullet.split("Zahlenmauer", 1)[1]
-    assert 'label: "Zahlenmauer"' in (REPO / "frontend/src/pages/editor/useTools.tsx").read_text()
+    assert 'label: "Zahlenmauer"' in (REPO / "frontend/src/pages/editor/library.ts").read_text()
 
 
 def test_564_a_table_has_no_drehung_and_stays_level():
