@@ -131,7 +131,9 @@ def test_a_percent_of_a_handle_dragged_group_shows_half_its_size(editor):
     drag_se_outward(page)
     before = settled(page, "Höhe")
     enter(page, "Höhe %", "50")
-    expect(field(page, "Höhe")).to_have_value(f"{before / 2:g}".replace(".", ","))
+    # The field shows a drag's length in whole mm (#1189): half of it is within a mm of half the number shown.
+    expect(field(page, "Höhe")).not_to_have_value(f"{before:g}".replace(".", ","))
+    assert abs(settled(page, "Höhe") - before / 2) <= 1
 
 
 def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):

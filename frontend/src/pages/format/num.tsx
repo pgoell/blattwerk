@@ -5,8 +5,11 @@ import { round } from "../../arrange";
 // The size of each unit in mm, for a length typed with one: 72 pt is an inch.
 const UNITS: Record<string, number> = { mm: 1, cm: 10, pt: 25.4 / 72, in: 25.4 };
 
+// A length as a teacher sets it: a tenth of a mm stays, and what a drag left finer shows as whole mm (59,91 as 60).
+// The sheet keeps the exact number.
+const near = (value: number) => (Math.abs(value * 10 - Math.round(value * 10)) < 1e-6 ? value : Math.round(value));
 // What the field shows for a value: nothing where the blocks differ, else the number with a comma.
-const text = (value?: number) => (value === undefined ? "" : String(round(value)).replace(".", ","));
+const show = (value?: number, units?: boolean) => (value === undefined ? "" : String(round(units ? near(value) : value)).replace(".", ","));
 
 // A field for a number. What is typed counts on Enter or when the field is left, and Escape drops it. An arrow up
 // or down steps by one. `value` is absent where the selected blocks differ. With `units` a length may carry mm, cm,
@@ -15,6 +18,7 @@ const text = (value?: number) => (value === undefined ? "" : String(round(value)
 // old value back over that text (#749). After a handle drag that redraw is the drag's size, so the typed 80 is
 // lost (#793).
 export function Num({ label, value, disabled, units, onCommit }: { label: string; value?: number; disabled: boolean; units?: boolean; onCommit: (n: number) => void }) {
+  const text = (v?: number) => show(v, units);
   // Whether the mouse that is down brought the focus.
   const fresh = useRef(false);
   const input = useRef<HTMLInputElement>(null);
@@ -98,7 +102,8 @@ export function Num({ label, value, disabled, units, onCommit }: { label: string
           if (el && el.value !== text(value)) commit(read());
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit(read());
+          // Enter on the number the field shows changes nothing: the sheet keeps its exact length under a rounded one.
+          if (e.key === "Enter") input.current?.value.trim() === text(value) ? (settled.current = true) : commit(read());
           // Ctrl+Z and Ctrl+Y here undo and redo the sheet, whose step takes the place of what was typed.
           if (e.key === "Escape" || ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key))) {
             follow.current = true;
@@ -107,7 +112,8 @@ export function Num({ label, value, disabled, units, onCommit }: { label: string
           }
           if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
           e.preventDefault();
-          const base = input.current && input.current.value !== text(value) ? read() : (value ?? NaN);
+          // An arrow steps from the number the field shows.
+          const base = input.current && input.current.value !== text(value) ? read() : value === undefined ? NaN : units ? near(value) : value;
           commit(round(base + (e.key === "ArrowUp" ? 1 : -1)));
         }}
       />
