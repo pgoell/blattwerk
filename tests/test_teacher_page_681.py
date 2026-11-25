@@ -9,7 +9,7 @@ from test_drop import WEB_PICTURE, spot
 from test_menu import menu
 from test_pages import three
 from test_teacher_page import folder, pytestmark, tool, xy  # noqa: F401
-from ui import TEXT, at, box, png, saved, thumb, user
+from ui import TEXT, at, box, expect_lit, png, saved, thumb, user
 
 KEPT = "Deine Aufnahme lief noch, als das Formular zuging. Sie ist unten gespeichert."
 
@@ -18,16 +18,16 @@ def test_ctrl_click_adds_a_page_and_a_second_drops_it(editor):
     # The thumbnail's text is the page's own words too, so "Seite 1" is not its whole name.
     page = three(editor)
     tool.click(page, xy(thumb(page, 0)))
-    expect(thumb(page, 0)).to_have_attribute("aria-pressed", "true")
+    expect_lit(thumb(page, 0), "true")
     said = tool.ctrl_click(page, xy(thumb(page, 2)))
     assert said.startswith("ctrl-clicked at ")
-    expect(thumb(page, 0)).to_have_attribute("aria-pressed", "true")
-    expect(thumb(page, 1)).to_have_attribute("aria-pressed", "false")
-    expect(thumb(page, 2)).to_have_attribute("aria-pressed", "true")
+    expect_lit(thumb(page, 0), "true")
+    expect_lit(thumb(page, 1), "false")
+    expect_lit(thumb(page, 2), "true")
     expect(menu(page)).to_have_count(0)
     tool.ctrl_click(page, xy(thumb(page, 2)))
-    expect(thumb(page, 2)).to_have_attribute("aria-pressed", "false")
-    expect(thumb(page, 0)).to_have_attribute("aria-pressed", "true")
+    expect_lit(thumb(page, 2), "false")
+    expect_lit(thumb(page, 0), "true")
 
 
 def test_finger_held_on_a_block_opens_the_menu_when_it_lifts(editor):

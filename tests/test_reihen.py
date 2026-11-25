@@ -10,7 +10,7 @@ from test_compare import changed, ctl
 from test_gaps import step
 from test_malquadrat import MQ, mq
 from test_rechentabelle import RT, rt
-from ui import at, box, doc, maths, pick, user
+from ui import at, box, doc, expect_lit, maths, pick, user
 
 KERN = [1, 2, 5, 10]
 
@@ -42,7 +42,7 @@ def test_avoiding_a_zero_rest_and_allowing_one(editor):
     made = maths(client, ops=["/"], max=20, count=20, seed=1, rest=True, b=[[2, 4]])
     page = editor(box("m", "maths", made), client=client)
     pick(page, "m")
-    expect(ctl(page, "Rest 0 vermeiden")).to_have_attribute("aria-pressed", "true")
+    expect(ctl(page, "Rest 0 vermeiden")).to_have_attribute("aria-checked", "true")
     assert all(e["rest"] > 0 for e in made["exercises"])
     props = changed(page, client, lambda: ctl(page, "Rest 0 vermeiden").click())
     assert props["avoid0"] is False
@@ -60,7 +60,7 @@ def test_the_rest_can_be_the_only_gap(editor):
         client=client,
     )
     pick(page, "m")
-    expect(ctl(page, "Lücke: Rest")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Lücke: Rest"), "true")
     changed(page, client, lambda: ctl(page, "Lücke: 1. Zahl").click())
     props = changed(page, client, lambda: ctl(page, "Lücke: 2. Zahl").click())
     assert props["gaps"] == ["c", "rest"]

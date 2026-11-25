@@ -14,6 +14,7 @@ from ui import (
     TEXT,
     at,
     box,
+    expect_lit,
     expect_picked,
     maths,
     pick,
@@ -50,7 +51,7 @@ def brush(page):
 
 def expect_brush(page, on):
     """Waits until the brush is on or off: the button, the cursor over the desk and the editor."""
-    expect(brush(page)).to_have_attribute("aria-pressed", "true" if on else "false")
+    expect_lit(brush(page), "true" if on else "false")
     desk, main = page.locator(".desk"), page.locator("main.editor")
     if on:
         expect(desk).to_have_css("cursor", "copy")

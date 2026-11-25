@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ZahlenstrahlBlock } from "../sheet";
 import { draw } from "../bank";
 import { count, crowded, made, MAX, sane, type Task, type ZahlenstrahlProps } from "../zahlenstrahl";
+import { Switch } from "../components/Switch";
 
 const LABELS = { all: "Bei jedem Strich", major: "Bei langen Strichen", ends: "Anfang und Ende", none: "Keine" } as const;
 
@@ -80,18 +81,9 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
         ))}
       </select>
       <Whole label="Schriftgröße" name="size" value={p.size} ok={takes("size")} apply={apply} />
-      <label>
-        <input type="checkbox" aria-label="Bruchstelle" checked={p.cut} disabled={p.start === 0} onChange={() => apply({ cut: !p.cut })} />
-        Bruchstelle
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Pfeil am Ende" checked={p.point} onChange={() => apply({ point: !p.point })} />
-        Pfeil am Ende
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Striche durchgehend" checked={p.under} onChange={() => apply({ under: !p.under })} />
-        Striche durchgehend
-      </label>
+      <Switch label="Bruchstelle" on={p.cut} disabled={p.start === 0} onChange={() => apply({ cut: !p.cut })} />
+      <Switch label="Pfeil am Ende" on={p.point} onChange={() => apply({ point: !p.point })} />
+      <Switch label="Striche durchgehend" on={p.under} onChange={() => apply({ under: !p.under })} />
       <select aria-label="Aufgaben" value={p.tasks} onChange={(e) => apply({ tasks: e.target.value as ZahlenstrahlProps["tasks"] })}>
         <option value="random">Zufällig</option>
         <option value="free">Selbst wählen</option>
@@ -150,10 +142,7 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
           Die Striche stehen enger als 1 mm. Größerer Schritt oder breiterer Block.
         </p>
       )}
-      <label>
-        <input type="checkbox" aria-label="Sprungbögen" checked={p.jumps} onChange={() => apply({ jumps: !p.jumps })} />
-        Sprungbögen
-      </label>
+      <Switch label="Sprungbögen" on={p.jumps} onChange={() => apply({ jumps: !p.jumps })} />
       {p.jumps && (
         <>
           <Whole label="Sprungweite" name="jump" value={p.jump ?? p.major} ok={takes("jump")} apply={apply} />

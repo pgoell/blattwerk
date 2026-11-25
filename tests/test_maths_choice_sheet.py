@@ -22,7 +22,7 @@ from test_maths_choice import (
     view,
 )
 from test_maths_fit import inside, print_inside
-from ui import at, box, doc, maths, pick, reload, user
+from ui import at, box, doc, expect_lit, maths, pick, reload, user
 
 MINUS, TIMES = chr(0x2212), chr(0x00B7)
 SIGN = {"+": "+", "-": MINUS, "*": TIMES, "/": ":"}
@@ -107,12 +107,12 @@ def test_a8_a_sheet_saved_before_draws_its_stored_tasks(editor, server):
     mine = sheet_id(page)
     check_pupil(pdf_text(server, client, mine), tasks)
     check_key(pdf_text(server, client, mine, solved=True), tasks)
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "true")
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "true")
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "false")
-    expect(control(page, FIRST)).to_have_attribute("aria-pressed", "true")
-    expect(control(page, SECOND)).to_have_attribute("aria-pressed", "true")
-    expect(control(page, RESULT)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ZERO), "true")
+    expect_lit(control(page, ONE), "true")
+    expect_lit(control(page, DISTINCT), "false")
+    expect_lit(control(page, FIRST), "true")
+    expect_lit(control(page, SECOND), "true")
+    expect_lit(control(page, RESULT), "false")
 
 
 @pytest.mark.parametrize(
@@ -188,20 +188,20 @@ def test_i4_the_switches_show_their_state_after_a_reload(editor):
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     control(page, ZERO).click()
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ZERO), "false")
     control(page, ONE).click()
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ONE), "false")
     control(page, DISTINCT).click()
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, DISTINCT), "true")
     control(page, RESULT).click()
-    expect(control(page, RESULT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, RESULT), "true")
     doc(page, client)
     reload(page, page.url)
     pick(page, "m")
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "false")
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "false")
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
-    expect(control(page, RESULT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, ZERO), "false")
+    expect_lit(control(page, ONE), "false")
+    expect_lit(control(page, DISTINCT), "true")
+    expect_lit(control(page, RESULT), "true")
 
 
 def test_i5_a_copy_of_the_block_keeps_its_switches_and_tasks(editor):
@@ -211,7 +211,7 @@ def test_i5_a_copy_of_the_block_keeps_its_switches_and_tasks(editor):
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     control(page, DISTINCT).click()
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, DISTINCT), "true")
     # The switch takes effect in the block once the server has answered: copy after that.
     expect(page.locator("header [role=status]")).to_have_text(re.compile("^Speichert"))
     page.keyboard.press("Control+c")

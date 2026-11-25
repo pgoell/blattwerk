@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_painter import paint
 from test_undo_steps import step
-from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, doc, pick, user
+from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, doc, expect_lit, pick, user
 
 CHOICES = ["Aus", "Grau", "Umriss", "Gepunktet"]
 KARO = {"kind": "k5", "color": "#222222"}
@@ -85,16 +85,14 @@ def test_fading_switch_and_direction(editor, kind):
         client=client,
     )
     pick(page, "a")
-    expect(page.get_by_role("button", name="Ausblenden")).to_have_count(0)
+    expect(page.get_by_role("switch", name="Ausblenden")).to_have_count(0)
     choose(page, "outline")
-    page.get_by_role("button", name="Ausblenden").click()
+    page.get_by_role("switch", name="Ausblenden").click()
     assert fade_of(page, client, "a") == "row"
-    expect(page.get_by_role("button", name="In der Zeile")).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(page.get_by_role("button", name="In der Zeile"), "true")
     page.get_by_role("button", name="Von Zeile zu Zeile").click()
     assert fade_of(page, client, "a") == "rows"
-    page.get_by_role("button", name="Ausblenden").click()
+    page.get_by_role("switch", name="Ausblenden").click()
     assert fade_of(page, client, "a") is None
 
 
@@ -107,7 +105,7 @@ def test_each_choice_is_one_undo_step(editor, kind):
     )
     pick(page, "a")
     choose(page, "outline")
-    page.get_by_role("button", name="Ausblenden").click()
+    page.get_by_role("switch", name="Ausblenden").click()
     page.get_by_role("button", name="Von Zeile zu Zeile").click()
     for _ in range(3):
         step(page, lambda: page.keyboard.press("Control+z"))
@@ -197,7 +195,7 @@ def test_aus_takes_the_fading_along(editor):
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
     choose(page, "outline")
-    page.get_by_role("button", name="Ausblenden").click()
+    page.get_by_role("switch", name="Ausblenden").click()
     choose(page, "off")
     props = block(page, client, "a")["props"]
     assert "trace" not in props and "fade" not in props

@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, pick, user
+from ui import box, doc, expect_lit, pick, user
 
 STRAHL = {
     "start": 0,
@@ -135,7 +135,7 @@ def test_a_tick_cycles_none_box_arrow_and_stores_marks(editor):
     step(page, tick.click)
     assert props_of(doc(page, client))["marks"] == [[3, "arrow"]]
     expect(tick).to_have_attribute("data-task", "arrow")
-    expect(tick).to_have_attribute("aria-pressed", "true")
+    expect_lit(tick, "true")
     step(page, tick.click)
     assert 3 not in [m[0] for m in props_of(doc(page, client)).get("marks", [])]
     expect(tick).not_to_have_attribute("data-task", "box")

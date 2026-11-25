@@ -150,5 +150,5 @@ def test_another_setting_leaves_a_short_block_as_it_is(editor, act):
     if act == "zahlenraum":
         step(page, lambda: controls.get_by_label("Zahlenraum").select_option("100"))
     else:
-        step(page, lambda: controls.get_by_role("button", name="Leer", exact=True).click())
+        step(page, lambda: controls.get_by_role("switch", name="Leer", exact=True).click())
     assert stored_h(client, page) == 50

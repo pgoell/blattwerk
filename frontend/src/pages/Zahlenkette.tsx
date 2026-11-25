@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { ZahlenketteBlock } from "../sheet";
 import { draw } from "../bank";
 import { fitColumns, made, sane, startFlags, type ZahlenketteProps } from "../zahlenkette";
+import { Switch } from "../components/Switch";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const RECHENART = { "+": "Plus", "-": "Minus", "*": "Mal" } as const;
@@ -174,10 +175,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
       {fixedShown && draft?.key === "step" && stepWrong(draft.text, p.op) && (
         <p className="hint" role="status">{stepWrong(draft.text, p.op)}</p>
       )}
-      <label className="check">
-        <input type="checkbox" checked={p.showStep} onChange={(e) => apply({ showStep: e.target.checked })} />
-        Schritt anschreiben
-      </label>
+      <Switch label="Schritt anschreiben" on={p.showStep} onChange={(showStep) => apply({ showStep })} />
       <label>
         Gegebene Ringe
         <select aria-label="Gegebene Ringe" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenketteProps["given"] })}>

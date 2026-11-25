@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import TEXT, at, box, doc, insert, pick, reload, user
+from ui import TEXT, at, box, doc, expect_lit, insert, pick, reload, user
 
 HAUS = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 7}
 FREE = [True, True, True, False, False, False, False, False, False]
@@ -184,10 +184,10 @@ def test_a_free_box_flips_shows_in_every_house_and_survives_a_reload(editor):
     page = editor(dz("d", {**HAUS, "given": "free", "free": FREE}), client=client)
     pick(page, "d")
     right = panel(page, "Stockwerk 2 rechts")
-    expect(right).to_have_attribute("aria-pressed", "false")
+    expect_lit(right, "false")
     step(page, right.click)
     assert props_of(doc(page, client))["free"][4] is True
-    expect(right).to_have_attribute("aria-pressed", "true")
+    expect_lit(right, "true")
     for house in range(4):
         expect(house_box(page, house, 4).locator("text.given")).to_have_count(1)
     step(page, right.click)
@@ -197,7 +197,7 @@ def test_a_free_box_flips_shows_in_every_house_and_survives_a_reload(editor):
     step(page, right.click)
     reload(page, page.url)
     pick(page, "d")
-    expect(panel(page, "Stockwerk 2 rechts")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "Stockwerk 2 rechts"), "true")
     assert props_of(doc(page, client))["free"][4] is True
 
 

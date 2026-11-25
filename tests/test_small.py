@@ -6,7 +6,7 @@ and redoes, and the line under the panel names it when it stands in the way.
 from playwright.sync_api import expect
 from test_compare import changed, ctl, shown
 from test_three import SIGNS
-from ui import at, box, maths, pick, user
+from ui import at, box, expect_lit, maths, pick, user
 
 SWITCH = "Kleines Einmaleins"
 
@@ -33,17 +33,17 @@ def test_the_switch_is_grey_without_times_or_divide_and_with_three_numbers_and_k
         client=client,
     )
     pick(page, "m")
-    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, SWITCH), "true")
     props = changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     expect(ctl(page, SWITCH)).to_be_disabled()
     assert props["small"] is True
     props = changed(page, client, lambda: ctl(page, SIGNS["*"]).click())
     expect(ctl(page, SWITCH)).to_be_enabled()
-    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, SWITCH), "true")
     assert props["small"] is True
     props = changed(page, client, lambda: page.get_by_label("3 Zahlen", exact=True).click())
     expect(ctl(page, SWITCH)).to_be_disabled()
-    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, SWITCH), "true")
     assert props["small"] is True
 
 
@@ -56,11 +56,11 @@ def test_the_switch_undoes_and_redoes(editor):
     props = changed(page, client, lambda: ctl(page, SWITCH).click())
     assert props["small"] is True
     props = changed(page, client, lambda: page.keyboard.press("Control+z"))
-    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "false")
+    expect_lit(ctl(page, SWITCH), "false")
     assert not props.get("small")
     assert shown(at(page, "m")) == before
     props = changed(page, client, lambda: page.keyboard.press("Control+y"))
-    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, SWITCH), "true")
     assert props["small"] is True
 
 

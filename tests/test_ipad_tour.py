@@ -7,7 +7,7 @@ from test_ipad import (
     inside,
     text,
 )
-from ui import bar
+from ui import bar, expect_lit
 
 
 def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
@@ -47,7 +47,7 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
 
     on("Format")
     expect_ringed(page.locator("aside.panel"))
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    expect_lit(bar(page, "right"), "true")
     # The next step's tool stands in the dock, which lies over the open drawer.
     on("Rechenaufgaben")
     page.locator(".dock").get_by_label("Rechnen", exact=True).tap()

@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import expect
 from test_feed_print import pdf_text, sheet_id
 from test_maths_fit import inside, print_inside
-from ui import at, box, doc, maths, pick, reload, user
+from ui import at, box, doc, expect_lit, maths, pick, reload, user
 
 MINUS, TIMES = chr(0x2212), chr(0x00B7)
 SIGN = {"+": "+", "-": MINUS, "*": TIMES, "/": ":"}
@@ -110,7 +110,7 @@ def test_a4_nachbaraufgaben_move_the_first_number_and_a_button_picks_the_second(
     shown = at(page, "m").locator(".maths").inner_text()
     page.locator(".panel").get_by_role("button", name="2. Zahl wandert").click()
     pressed = page.locator(".panel").get_by_role("button", name="2. Zahl wandert")
-    expect(pressed).to_have_attribute("aria-pressed", "true")
+    expect_lit(pressed, "true")
     expect(at(page, "m").locator(".maths")).not_to_have_text(shown)
     fams = families(page, client)
     assert [(int(x), int(y)) for x, _, y, _ in fams[0]] == [(a, b), (a, b - 1), (a, b + 1)], fams[0]

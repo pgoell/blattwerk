@@ -13,7 +13,7 @@ from test_gaps import panel, step
 from test_suchsel_print import key_print
 from test_words import redo, undo
 from test_zahlenkette_print import chains_of
-from ui import at, box, doc, pick, reload, user
+from ui import at, box, doc, expect_lit, pick, reload, user
 
 KETTE = {
     "count": 4,
@@ -142,15 +142,15 @@ def test_a_free_ring_flips_shows_in_every_chain_and_survives_a_reload(editor):
     page = editor(kette("d", {**KETTE, "given": "free", "free": [False] * 6}), client=client)
     pick(page, "d")
     ring = panel(page, "Ring 3")
-    expect(ring).to_have_attribute("aria-pressed", "false")
+    expect_lit(ring, "false")
     step(page, ring.click)
     assert props_of(doc(page, client))["free"][2] is True
-    expect(ring).to_have_attribute("aria-pressed", "true")
+    expect_lit(ring, "true")
     for chain in range(4):
         assert given_rings(page, chain) == [2]
     reload(page, page.url)
     pick(page, "d")
-    expect(panel(page, "Ring 3")).to_have_attribute("aria-pressed", "true")
+    expect_lit(panel(page, "Ring 3"), "true")
     assert props_of(doc(page, client))["free"][2] is True
 
 

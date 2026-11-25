@@ -2,6 +2,7 @@
 import { COLOURS, GROUP_COLOURS, hex, tidy, type LetterMarks, type Where } from "../../letters";
 import type { Block } from "../../sheet";
 import { both, syllabled } from "./words";
+import { Switch } from "../../components/Switch";
 
 const KINDS = [
   ["vowels", "Vokale", "Farbe der Vokale"],
@@ -34,9 +35,7 @@ export function Letters({ sel, look, style }: { sel: Block[]; look: (props: obje
       <h2>Zeichen</h2>
       {KINDS.map(([key, label, colour]) => (
         <span key={key}>
-          <button className={on(key) ? "on" : ""} aria-pressed={on(key)} onClick={() => write({ ...base(), [key]: on(key) ? undefined : COLOURS[key] }, `marks-${key}`)}>
-            {label}
-          </button>
+          <Switch label={label} on={on(key)} onChange={() => write({ ...base(), [key]: on(key) ? undefined : COLOURS[key] }, `marks-${key}`)} />
           {on(key) && (
             <label>
               {colour}

@@ -5,6 +5,7 @@ import type { ZerlegungsfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { NAMES, made, sane, type ZerlegungsfeldProps, type ZerlegungsfeldTyped } from "../zerlegungsfeld";
 import { clean } from "../zerlegungsfeld/pattern";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -149,10 +150,7 @@ export default function Zerlegungsfeld({ block, apply }: { block: Zerlegungsfeld
           </select>
         </label>
       )}
-      <label>
-        <input type="checkbox" aria-label="Zweite Zahl mehrstellig" checked={p.big} onChange={(e) => apply({ big: e.target.checked }, "big")} />
-        Zweite Zahl mehrstellig
-      </label>
+      <Switch label="Zweite Zahl mehrstellig" on={p.big} onChange={(on) => apply({ big: on }, "big")} />
       <label>
         Muster der 1. Zahl
         <input aria-label="Muster der 1. Zahl" type="text" spellCheck={false} placeholder="z. B. X3" value={p.pa ?? ""} onChange={(e) => apply({ pa: clean(e.target.value) || undefined }, "pa")} />
@@ -161,11 +159,7 @@ export default function Zerlegungsfeld({ block, apply }: { block: Zerlegungsfeld
         Muster der 2. Zahl
         <input aria-label="Muster der 2. Zahl" type="text" spellCheck={false} placeholder="z. B. X" value={p.pb ?? ""} onChange={(e) => apply({ pb: clean(e.target.value) || undefined }, "pb")} />
       </label>
-      <div className="seg switch">
-        <button className={p.nil === false ? "" : "on"} aria-pressed={p.nil !== false} onClick={() => apply({ nil: p.nil === false ? undefined : false }, "nil")}>
-          Die Null darf vorkommen
-        </button>
-      </div>
+      <Switch label="Die Null darf vorkommen" on={p.nil !== false} onChange={() => apply({ nil: p.nil === false ? undefined : false }, "nil")} />
       {(p.pa || p.pb || p.nil === false) && !p.typed && m.tasks.every((t) => t.wrong) && (
         <p className="hint" role="status">Mit diesem Muster gibt es keine Aufgabe.</p>
       )}

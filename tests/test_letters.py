@@ -6,7 +6,7 @@ Punctuation stays uncoloured. The same marks work on a text, a shape, a table an
 
 import pytest
 from playwright.sync_api import expect
-from ui import RECT, RULING, TABLE, TEXT, at, box, pick, saved, user
+from ui import RECT, RULING, TABLE, TEXT, at, box, expect_lit, knob, pick, saved, user
 
 RED = "#e02424"
 GREEN = "#2f9e44"
@@ -104,17 +104,17 @@ def test_the_panel_marks_vowels_and_a_group_at_the_start_of_a_word(editor):
     page = editor(box("a", "text", {**TEXT, "text": "Schule!"}), client=client)
     pick(page, "a")
     panel = page.locator(".panel")
-    vowels = panel.get_by_role("button", name="Vokale", exact=True)
+    vowels = knob(panel, "Vokale")
     vowels.click()
-    expect(vowels).to_have_attribute("aria-pressed", "true")
+    expect_lit(vowels, "true")
     assert inks(page, "a") == [("u", RED), ("e", RED)]
     assert saved(page, client)[0]["props"]["marks"] == {"vowels": RED}
     page.get_by_label("Rückgängig", exact=True).click()
-    expect(vowels).to_have_attribute("aria-pressed", "false")
+    expect_lit(vowels, "false")
     assert inks(page, "a") == []
     vowels.click()
-    expect(vowels).to_have_attribute("aria-pressed", "true")
-    panel.get_by_role("button", name="Buchstabengruppe", exact=True).click()
+    expect_lit(vowels, "true")
+    knob(panel, "Buchstabengruppe").click()
     panel.get_by_label("Buchstaben 1").fill("sch")
     panel.get_by_label("Stelle 1").select_option("start")
     colour = panel.get_by_label("Farbe der Gruppe 1")

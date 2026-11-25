@@ -9,7 +9,7 @@ tests name are ones the patterns split as a child speaks them: Fens-ter, Was-ser
 
 from contextlib import suppress
 
-from playwright.sync_api import TimeoutError, expect
+from playwright.sync_api import TimeoutError
 from ui import (
     LINE,
     RECT,
@@ -17,6 +17,7 @@ from ui import (
     TEXT,
     TINTS,
     box,
+    expect_lit,
     tints,
 )
 
@@ -88,21 +89,20 @@ IN_PAPER = """() => {
 
 
 def tint_switch(page):
-    return page.locator(".panel").get_by_role("button", name="Silbenfarbe", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Silbenfarbe", exact=True)
 
 
 def greys(page):
-    return page.locator(".panel").get_by_role("button", name="Schwarz/Grau", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Schwarz/Grau", exact=True)
 
 
 def across(page):
-    return page.locator(".panel").get_by_role("button", name="Über Wortgrenzen", exact=True)
+    return page.locator(".panel").get_by_role("switch", name="Über Wortgrenzen", exact=True)
 
 
 def expect_tint_switch(page, on):
     """Waits until the switch says its state, to the eye and to a screen reader."""
-    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true" if on else "false")
-    expect(tint_switch(page)).to_have_class("on" if on else "")
+    expect_lit(tint_switch(page), "true" if on else "false")
 
 
 def set_colour(page, label, value):

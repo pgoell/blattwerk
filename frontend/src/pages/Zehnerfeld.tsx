@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { ZehnerfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { MAXES, acts, colorsOf, made, sane, type Cross, type Field, type ZehnerfeldProps, type ZehnerfeldTyped } from "../zehnerfeld";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -200,10 +201,7 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
           </select>
         </label>
       )}
-      <label>
-        <input type="checkbox" aria-label="Trennlinien" checked={p.lines} onChange={(e) => apply({ lines: e.target.checked }, "lines")} />
-        Trennlinien
-      </label>
+      <Switch label="Trennlinien" on={p.lines} onChange={(on) => apply({ lines: on }, "lines")} />
       <label>
         Farben
         <select aria-label="Farben" value={p.colors} onChange={(e) => apply({ colors: e.target.value as ZehnerfeldProps["colors"] }, "colors")}>
@@ -226,10 +224,7 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
           </label>
         </>
       )}
-      <label>
-        <input type="checkbox" aria-label="Punkte selbst setzen" checked={p.manual} onChange={(e) => apply({ manual: e.target.checked }, "manual")} />
-        Punkte selbst setzen
-      </label>
+      <Switch label="Punkte selbst setzen" on={p.manual} onChange={(on) => apply({ manual: on }, "manual")} />
       {p.count >= 2 && (
         <label>
           Aufgabe

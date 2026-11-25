@@ -132,10 +132,10 @@ def test_the_switch_hides_the_letter_on_the_sheets(editor):
     client = user()
     page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
     open_dialog(page)
-    page.get_by_role("checkbox", name="Buchstabe auf jedem Blatt").uncheck()
+    page.get_by_role("switch", name="Buchstabe auf jedem Blatt").uncheck()
     off = pages_text(download_pdf(page))
     assert not any(line.strip() == "B" for text in off for line in text.splitlines())
-    page.get_by_role("checkbox", name="Buchstabe auf jedem Blatt").check()
+    page.get_by_role("switch", name="Buchstabe auf jedem Blatt").check()
     on = pages_text(download_pdf(page))
     assert any(line.strip() == "B" for text in on for line in text.splitlines())
 
@@ -285,11 +285,11 @@ def test_the_dialog_keeps_its_choice_while_the_editor_is_open(editor):
     page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
     open_dialog(page)
     page.get_by_role("radio", name="4", exact=True).check()
-    page.get_by_role("checkbox", name="Buchstabe auf jedem Blatt").uncheck()
+    page.get_by_role("switch", name="Buchstabe auf jedem Blatt").uncheck()
     page.get_by_role("button", name="Schließen").click()
     open_dialog(page)
     expect(page.get_by_role("radio", name="4", exact=True)).to_be_checked()
-    expect(page.get_by_role("checkbox", name="Buchstabe auf jedem Blatt")).not_to_be_checked()
+    expect(page.get_by_role("switch", name="Buchstabe auf jedem Blatt")).not_to_be_checked()
 
 
 def test_the_preview_follows_the_count(editor):

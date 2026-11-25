@@ -8,6 +8,7 @@ import Format from "../Format";
 import { INSERTS } from "../../insert";
 import { GRIDS, NONE } from "./palette";
 import { useTools } from "./useTools";
+import { Switch } from "../../components/Switch";
 
 export default function PanelRest({ s: session }: { s: ReturnType<typeof useTools> }) {
   const H = session.H;
@@ -194,10 +195,7 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
               </button>
               <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               <h2>Seitenzahlen</h2>
-              <div className="seg" role="group" aria-label="Seitenzahlen">
-                <button className={folio.on ? "" : "on"} aria-pressed={!folio.on} onClick={() => numbering({}, false)}>Aus</button>
-                <button className={folio.on ? "on" : ""} aria-pressed={folio.on} onClick={() => numbering({})}>An</button>
-              </div>
+              <Switch label="Seitenzahlen" on={folio.on} onChange={(on) => numbering({}, on)} />
               {folio.on && (
                 <>
                   <h2>Ort</h2>
@@ -226,9 +224,7 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                       </button>
                     ))}
                   </div>
-                  <label className="tick">
-                    <input type="checkbox" checked={folio.notFirst} onChange={(e) => numbering({ notFirst: e.target.checked })} /> Nicht auf der ersten Seite
-                  </label>
+                  <Switch label="Nicht auf der ersten Seite" on={folio.notFirst} onChange={(on) => numbering({ notFirst: on })} />
                   <h2>Farbe</h2>
                   <div className="seg">
                     <button className={folio.black ? "" : "on"} aria-pressed={!folio.black} onClick={() => numbering({ black: false })}>Grau</button>

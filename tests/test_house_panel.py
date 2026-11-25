@@ -5,7 +5,7 @@ import pytest
 from playwright.sync_api import expect
 from test_painter import paint
 from test_undo_steps import gesture
-from ui import BROWSER, RULING, at, box, doc, pick, reload, user
+from ui import BROWSER, RULING, at, box, doc, expect_lit, knob, pick, reload, user
 
 L1 = {**RULING, "kind": "l1"}
 L3 = {**RULING, "kind": "l3"}
@@ -14,11 +14,11 @@ HIDDEN = ["l4", "lines", "k5"]
 
 
 def house(page):
-    return page.locator(".panel").get_by_role("button", name="Häuschen", exact=True)
+    return knob(page.locator(".panel"), "Häuschen")
 
 
 def band(page):
-    return page.locator(".panel").get_by_role("button", name="Mittelband einfärben", exact=True)
+    return knob(page.locator(".panel"), "Mittelband einfärben")
 
 
 def tint(page):
@@ -77,9 +77,7 @@ def test_a1_the_panel_shows_no_house_or_band_for_other_kinds(editor, kind):
     page = editor(box("a", "ruling", {**RULING, "kind": kind}))
     pick(page, "a")
     # The section is drawn once its last control, the width, is there.
-    expect(
-        page.locator(".panel").get_by_role("button", name="Seitenbreite", exact=True)
-    ).to_be_visible()
+    expect(knob(page.locator(".panel"), "Seitenbreite")).to_be_visible()
     expect(house(page)).to_have_count(0)
     expect(tint(page)).to_have_count(0)
     expect(band(page)).to_have_count(0)
@@ -91,10 +89,10 @@ def test_a1_a_press_on_haeuschen_draws_the_house_and_takes_it_away_again(editor)
     page = editor(box("a", "ruling", L1))
     pick(page, "a")
     house(page).click()
-    expect(house(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(house(page), "true")
     expect(at(page, "a").locator("g.house").first).to_be_attached()
     house(page).click()
-    expect(house(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(house(page), "false")
     expect(at(page, "a").locator("g.house")).to_have_count(0)
 
 
@@ -103,7 +101,7 @@ def test_a5_the_tint_shows_only_while_the_house_is_on_and_fills_its_parts(editor
     page = editor(box("a", "ruling", L1))
     block = at(page, "a")
     pick(page, "a")
-    expect(house(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(house(page), "false")
     expect(tint(page)).to_have_count(0)
     house(page).click()
     expect(tint(page)).to_be_visible()
@@ -128,7 +126,7 @@ def test_a6_the_band_is_pressed_by_default_for_l1_and_l2_only(editor, kind, pres
     """A6"""
     page = editor(box("a", "ruling", {**RULING, "kind": kind}))
     pick(page, "a")
-    expect(band(page)).to_have_attribute("aria-pressed", pressed)
+    expect_lit(band(page), pressed)
 
 
 def test_a6_a_press_on_the_band_of_an_l1_removes_every_band(editor):
@@ -137,7 +135,7 @@ def test_a6_a_press_on_the_band_of_an_l1_removes_every_band(editor):
     pick(page, "a")
     expect(at(page, "a").locator("rect.band").first).to_be_attached()
     band(page).click()
-    expect(band(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(band(page), "false")
     expect(at(page, "a").locator("rect.band")).to_have_count(0)
 
 
@@ -147,7 +145,7 @@ def test_a6_a_press_on_the_band_of_an_l3_adds_the_bands(editor):
     pick(page, "a")
     expect(at(page, "a").locator("rect.band")).to_have_count(0)
     band(page).click()
-    expect(band(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(band(page), "true")
     expect(at(page, "a").locator("rect.band").first).to_be_attached()
 
 
@@ -304,7 +302,7 @@ def test_i3_tab_from_the_colour_reaches_the_house_controls_in_order_and_space_to
         page.keyboard.press("Shift+Tab")
     expect(house(page)).to_be_focused()
     page.keyboard.press("Space")
-    expect(house(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(house(page), "false")
     expect(house(page)).to_be_focused()
     expect(at(page, "a").locator("g.house")).to_have_count(0)
 
@@ -315,10 +313,10 @@ def test_i4_a_change_to_l3_takes_the_band_default_and_back_to_l1_brings_it(edito
     block = at(page, "a")
     pick(page, "a")
     kind(page).select_option("l3")
-    expect(band(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(band(page), "false")
     expect(block.locator("rect.band")).to_have_count(0)
     kind(page).select_option("l1")
-    expect(band(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(band(page), "true")
     expect(block.locator("rect.band").first).to_be_attached()
 
 
@@ -327,14 +325,14 @@ def test_i4_a_band_switched_off_by_hand_stays_off_after_l3_and_back(editor):
     page = editor(box("a", "ruling", {**L1, "band": False}))
     block = at(page, "a")
     pick(page, "a")
-    expect(band(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(band(page), "false")
     kind(page).select_option("l3")
     expect(kind(page)).to_have_value("l3")
-    expect(band(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(band(page), "false")
     expect(block.locator("rect.band")).to_have_count(0)
     kind(page).select_option("l1")
     expect(kind(page)).to_have_value("l1")
-    expect(band(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(band(page), "false")
     expect(block.locator("rect.band")).to_have_count(0)
 
 
@@ -348,7 +346,7 @@ def test_i4_a_house_is_gone_on_l4_and_back_on_l1(editor):
     expect(house(page)).to_have_count(0)
     expect(block.locator("g.house")).to_have_count(0)
     kind(page).select_option("l1")
-    expect(house(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(house(page), "true")
     expect(block.locator("g.house").first).to_be_attached()
 
 

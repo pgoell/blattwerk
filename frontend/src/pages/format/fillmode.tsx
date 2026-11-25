@@ -1,6 +1,7 @@
 // Füllung of a closed shape: Keine, Farbe, Muster, Lineatur. A line and a text keep the colour alone.
 
 import { COLOUR, RULE, fillMode, motifOf, paperOf, scaleOf, type Motif, type Paper } from "../../sheet/motif";
+import { Switch } from "../../components/Switch";
 
 const MODES = [
   ["none", "Keine", "Keine Füllung"],
@@ -54,9 +55,7 @@ export default function FillModes({ props, look }: { props: Props; look: (next: 
             Skalierung
             <input type="range" min={2} max={20} step={1} value={scaleOf(props.scale)} onChange={(e) => look({ scale: +e.target.value }, "scale")} />
           </label>
-          <label className="tick">
-            <input type="checkbox" checked={props.mono === true} onChange={(e) => look({ mono: e.target.checked || undefined }, "mono")} /> Schwarz-Weiß
-          </label>
+          <Switch label="Schwarz-Weiß" on={props.mono === true} onChange={(on) => look({ mono: on || undefined }, "mono")} />
         </>
       )}
       {mode === "ruling" && (

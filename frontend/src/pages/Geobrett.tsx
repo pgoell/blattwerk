@@ -2,6 +2,7 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { ASK, COLORS, figures, mirrored, moved, sane, scaled, turned, type Band, type GeobrettProps, type Aufgabe } from "../geobrett";
 import type { GeobrettBlock } from "../sheet";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<GeobrettProps>, key?: string) => void;
 
@@ -158,10 +159,7 @@ export default function Geobrett({ block, apply }: { block: GeobrettBlock; apply
               <option key={color} value={color}>{COLOR_NAME[i]}</option>
             ))}
           </select>
-          <label className="tick">
-            <input type="checkbox" aria-label="Gefüllt" checked={band.fill} onChange={() => replace({ ...band, fill: !band.fill })} />
-            Gefüllt
-          </label>
+          <Switch label="Gefüllt" on={band.fill} onChange={() => replace({ ...band, fill: !band.fill })} />
           <div className="naegel" tabIndex={0} aria-label="Nägel" onKeyDown={onKey} style={{ gridTemplateColumns: `repeat(${p.cols}, minmax(0, 1fr))` }}>
             {Array.from({ length: p.rows * p.cols }, (_, i) => {
               const [c, r] = [i % p.cols, Math.floor(i / p.cols)];

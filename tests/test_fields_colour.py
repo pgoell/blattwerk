@@ -15,6 +15,7 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     pick,
     saved,
     user,
@@ -62,9 +63,9 @@ def test_a_text_whose_words_all_have_a_look_counts_as_having_it(editor, name, la
     )
     pick(page, "a", "b")
     button = page.locator(".panel").get_by_label(label, exact=True)
-    expect(button).to_have_attribute("aria-pressed", "true")
+    expect_lit(button, "true")
     page.keyboard.press(f"Control+{key}")
-    expect(button).to_have_attribute("aria-pressed", "false")
+    expect_lit(button, "false")
     for block in saved(page, client):
         assert not block["props"].get(name)
         assert name not in str(block["props"].get("rich"))

@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_fields import by_id, enter, field, lock
-from ui import RECT, box, centre, drag, pick, reload, saved, user
+from ui import RECT, box, centre, drag, expect_lit, pick, reload, saved, user
 
 # A rect with room around it to move and grow in.
 ROOM = {"x": 40, "y": 60, "w": 80, "h": 40}
@@ -15,11 +15,11 @@ def test_the_lock_is_each_blocks_own_when_another_is_picked(editor):
     page = editor(box("a", "shape", RECT, **ROOM), box("b", "shape", RECT, z=2, **BESIDE))
     pick(page, "a")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     pick(page, "b")
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     pick(page, "a")
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
 
 
 def test_the_lock_stays_on_its_block_after_a_reload(editor):
@@ -29,13 +29,13 @@ def test_the_lock_stays_on_its_block_after_a_reload(editor):
     )
     pick(page, "a")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     saved(page, client)
     reload(page, page.url)
     pick(page, "a")
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     pick(page, "b")
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     blocks = by_id(saved(page, client))
     assert blocks["a"]["keep"] is True
     assert "keep" not in blocks["b"]
@@ -45,7 +45,7 @@ def test_a_sheet_without_the_key_opens_unlocked_and_keeps_its_stored_form(editor
     client = user()
     page = editor(box("a", "shape", RECT, **ROOM), client=client)
     pick(page, "a")
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     enter(page, "Breite", "100")
     expect(field(page, "Breite")).to_have_value("100")
     expect(field(page, "Höhe")).to_have_value("40")
@@ -60,10 +60,10 @@ def test_switching_the_lock_is_one_undo_step(editor):
     pick(page, "a")
     before = saved(page, client)
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     saved(page, client)
     page.get_by_label("Rückgängig", exact=True).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     assert saved(page, client) == before
 
 
@@ -72,10 +72,10 @@ def test_switching_the_lock_off_removes_the_key_from_the_sheet(editor):
     page = editor(box("a", "shape", RECT, **ROOM), client=client)
     pick(page, "a")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     saved(page, client)
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(lock(page), "false")
     (a,) = saved(page, client)
     assert "keep" not in a
 
@@ -87,7 +87,7 @@ def test_the_lock_of_two_picked_blocks_keeps_both_ratios(editor):
     )
     pick(page, "a", "b")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     blocks = by_id(saved(page, client))
     assert blocks["a"]["keep"] is True
     assert blocks["b"]["keep"] is True
@@ -98,7 +98,7 @@ def test_a_locked_block_keeps_its_ratio_when_its_corner_is_dragged(editor):
     pick(page, "a")
     enter(page, "Breite", "100")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     x, y = centre(page.locator(".moveable-control.moveable-se"))
     drag(page, (x, y), (x + 60, y))
     expect(field(page, "Breite")).not_to_have_value("100")
@@ -113,7 +113,7 @@ def test_copy_and_paste_carry_the_lock(editor):
     page = editor(box("a", "shape", RECT, **ROOM), client=client)
     pick(page, "a")
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     saved(page, client)
     page.keyboard.press("Control+c")
     page.keyboard.press("Control+v")

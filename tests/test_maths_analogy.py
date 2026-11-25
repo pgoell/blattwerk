@@ -12,7 +12,7 @@ That number is `also`. When the gap already hides it, the other number is hidden
 import pytest
 from playwright.sync_api import expect
 from test_families import FAMILY_ROW, families, pick_family, saved
-from ui import at, box, maths, pick, user
+from ui import at, box, expect_lit, knob, maths, pick, user
 
 from blattwerk.maths import Settings, generate
 
@@ -147,14 +147,12 @@ def test_the_panel_grows_analogieaufgaben_and_hides_the_last_number(editor):
     expect(fam.locator("option")).to_have_text(
         ["Keine", "Tauschaufgaben", "Umkehraufgaben", "Nachbaraufgaben", "Analogieaufgaben"]
     )
-    whole = panel.get_by_role("button", name="Vollständig anzeigen", exact=True)
+    whole = knob(panel, "Vollständig anzeigen")
     expect(whole).to_have_count(0)
     pick_family(page, "Analogieaufgaben")
     expect(at(page, "m").locator(FAMILY_ROW)).to_have_count(4)
-    expect(whole).to_have_attribute("aria-pressed", "true")
-    expect(panel.get_by_role("button", name="1. Zahl wächst")).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(whole, "true")
+    expect_lit(panel.get_by_role("button", name="1. Zahl wächst"), "true")
     fams = families(page, client)
     assert len(fams) == 4 and all(len(f) == 3 for f in fams)
     for (a, _, b, _), (a2, _, b2, _), (a3, _, b3, _) in fams:
@@ -167,7 +165,7 @@ def test_the_panel_grows_analogieaufgaben_and_hides_the_last_number(editor):
     expect(rows.nth(0).locator("u")).to_have_count(1)
     shown = at(page, "m").locator(".maths").inner_text()
     whole.click()
-    expect(whole).to_have_attribute("aria-pressed", "false")
+    expect_lit(whole, "false")
     expect(at(page, "m").locator(".maths")).not_to_have_text(shown)
     rows = at(page, "m").locator(FAMILY_ROW).first.locator(":scope > div")
     expect(rows.nth(0).locator("u")).to_have_count(1)
@@ -177,9 +175,7 @@ def test_the_panel_grows_analogieaufgaben_and_hides_the_last_number(editor):
     assert all(f[-1]["also"] == "a" and "also" not in f[0] and "also" not in f[1] for f in last)
     shown = at(page, "m").locator(".maths").inner_text()
     panel.get_by_role("button", name="2. Zahl wächst").click()
-    expect(panel.get_by_role("button", name="2. Zahl wächst")).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(panel.get_by_role("button", name="2. Zahl wächst"), "true")
     expect(at(page, "m").locator(".maths")).not_to_have_text(shown)
     grown = families(page, client)
     assert len(grown) == 4 and all(len(f) == 3 for f in grown)

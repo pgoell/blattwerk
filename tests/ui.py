@@ -220,6 +220,21 @@ def tints(page, name):
     return [tuple(found) for found in at(page, name).evaluate(TINTS)]
 
 
+def knob(scope, name):
+    """A control of this exact name that is pressed: a button, or the switch of an on/off setting."""
+    button = scope.get_by_role("button", name=name, exact=True)
+    return button.or_(scope.get_by_role("switch", name=name, exact=True))
+
+
+def expect_lit(locator, on="true"):
+    """Waits until the control shows that it is on ("true") or off ("false").
+
+    A switch says it with aria-checked, one of several choices with aria-pressed.
+    """
+    lit = f'[aria-pressed="{on}"], [role=switch][aria-checked="{on}"]'
+    expect(locator.and_(locator.page.locator(lit))).to_have_count(1)
+
+
 def pick(page, *names):
     """Selects the blocks by a click, with Shift for all after the first."""
     for i, name in enumerate(names):
@@ -415,7 +430,7 @@ def insert(page, label):
 def drawer(page, side):
     """Opens a panel on the iPad held upright, where both start shut and lie over the sheet."""
     bar(page, side).tap()
-    expect(bar(page, side)).to_have_attribute("aria-pressed", "true")
+    expect_lit(bar(page, side), "true")
 
 
 def thumb(page, n):

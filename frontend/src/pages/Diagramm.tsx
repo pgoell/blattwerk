@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { COLORS, sane, type ChartAxes, type ChartGrid, type ChartKind, type DiagrammProps, type Point, type ValuePlace } from "../diagramm";
 import type { DiagrammBlock } from "../sheet";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<DiagrammProps>, key?: string) => void;
 
@@ -28,10 +29,7 @@ export default function Diagramm({ block, apply }: { block: DiagrammBlock; apply
           {KINDS.map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
         </select>
       </label>
-      <label className="tick">
-        <input type="checkbox" aria-label="Legende" checked={p.legend} onChange={() => apply({ legend: !p.legend })} />
-        Legende
-      </label>
+      <Switch label="Legende" on={p.legend} onChange={() => apply({ legend: !p.legend })} />
       <label>
         Werte
         <select aria-label="Werte" value={p.values} onChange={(e) => apply({ values: e.target.value as ValuePlace })}>

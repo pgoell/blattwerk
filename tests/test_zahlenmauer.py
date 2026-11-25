@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, insert, pick, user
+from ui import box, doc, expect_lit, insert, pick, user
 
 WALL = {
     "base": 3,
@@ -131,10 +131,10 @@ def test_a_free_stone_flips_and_the_warning_comes_and_goes(editor):
     page = editor(zw("w", {**WALL, "given": "free", "free": FREE}), client=client)
     pick(page, "w")
     stone = panel(page, "Stein 1 der Reihe 1")
-    expect(stone).to_have_attribute("aria-pressed", "true")
+    expect_lit(stone, "true")
     step(page, stone.click)
     assert props_of(doc(page, client))["free"][0] is False
-    expect(stone).to_have_attribute("aria-pressed", "false")
+    expect_lit(stone, "false")
     expect(hint(page)).to_have_text("Die gegebenen Steine legen die Mauer nicht fest.")
     step(page, stone.click)
     assert props_of(doc(page, client))["free"][0] is True

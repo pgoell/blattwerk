@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { HalbschriftlichBlock } from "../sheet";
 import { draw } from "../bank";
 import { NAMES, acts, made, sane, type HalbschriftlichProps, type HalbschriftlichTyped, type Rule } from "../halbschriftlich";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -166,27 +167,10 @@ export default function Halbschriftlich({ block, apply }: { block: Halbschriftli
       </label>
       {ruleSelect("Übergang bei den Einern", k.einer, (einer) => apply({ einer }, "einer"))}
       {p.max === 1000 && ruleSelect("Übergang bei den Zehnern", k.zehner, (zehner) => apply({ zehner }, "zehner"))}
-      <label>
-        <input type="checkbox" aria-label="Karo" checked={p.grid} onChange={(e) => apply({ grid: e.target.checked }, "grid")} />
-        Karo
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Stellenwerte zeigen" checked={p.head} onChange={(e) => apply({ head: e.target.checked }, "head")} />
-        Stellenwerte zeigen
-      </label>
-      <label>
-        <input type="checkbox" aria-label="Zweite Zahl färben" checked={p.tint} onChange={(e) => apply({ tint: e.target.checked }, "tint")} />
-        Zweite Zahl färben
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          aria-label="Rechenzeichen der Schritte drucken"
-          checked={p.ops}
-          onChange={(e) => apply({ ops: e.target.checked }, "ops")}
-        />
-        Rechenzeichen der Schritte drucken
-      </label>
+      <Switch label="Karo" on={p.grid} onChange={(on) => apply({ grid: on }, "grid")} />
+      <Switch label="Stellenwerte zeigen" on={p.head} onChange={(on) => apply({ head: on }, "head")} />
+      <Switch label="Zweite Zahl färben" on={p.tint} onChange={(on) => apply({ tint: on }, "tint")} />
+      <Switch label="Rechenzeichen der Schritte drucken" on={p.ops} onChange={(on) => apply({ ops: on }, "ops")} />
       {p.count >= 2 && (
         <label>
           Aufgabe für eigene Zahlen

@@ -4,6 +4,7 @@ import { mixed, word } from "../../scramble";
 import { boxed, holesOf, lineOf, shownParas, type TextProps } from "../../sheet";
 import type { Block } from "../../sheet";
 import { seedOf } from "./words";
+import { Switch } from "../../components/Switch";
 
 // The words of a text that Schüttelwörter mixes, as typed and in reading order: a linked text has the sheet's words.
 const sources = (p: TextProps, words: string[]) =>
@@ -31,17 +32,11 @@ export function Mix({ sel, look, words: sheet }: { sel: Block[]; look: (props: o
   const words = (): Shown[] => held.flatMap((p) => sources(p, sheet).map((source) => ({ seed: seedOf(p.mix), show: (seed: number) => word(source, seed, p.mixFirst === true, p.mixCaps === true) })));
   return (
     <>
-      <button className={on ? "on" : ""} aria-pressed={on} onClick={() => look(on ? { mix: undefined } : { mix: draw(), holes: undefined }, "mix")}>
-        Schüttelwörter
-      </button>
+      <Switch label="Schüttelwörter" on={on} onChange={() => look(on ? { mix: undefined } : { mix: draw(), holes: undefined }, "mix")} />
       {on && (
         <>
-          <button className={first ? "on" : ""} aria-pressed={first} onClick={() => look({ mixFirst: first ? undefined : true }, "mixFirst")}>
-            Erster Buchstabe bleibt
-          </button>
-          <button className={caps ? "on" : ""} aria-pressed={caps} onClick={() => look({ mixCaps: caps ? undefined : true }, "mixCaps")}>
-            Großbuchstaben
-          </button>
+          <Switch label="Erster Buchstabe bleibt" on={first} onChange={() => look({ mixFirst: first ? undefined : true }, "mixFirst")} />
+          <Switch label="Großbuchstaben" on={caps} onChange={() => look({ mixCaps: caps ? undefined : true }, "mixCaps")} />
           <div className="seg">
             {lines.map(([value, label]) => (
               <button key={label} className={line === value ? "on" : ""} aria-pressed={line === value} onClick={() => look({ mixLine: value }, "mixLine")}>

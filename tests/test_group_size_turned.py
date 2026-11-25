@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fields import by_id, enter, field, lock, number
 from test_group_scale_turned import PAIR, SHAPES, assert_level_under, pick_group, turned_group
-from ui import saved, user
+from ui import expect_lit, saved, user
 
 
 def test_a_turned_group_shows_the_size_of_its_own_frame(editor):
@@ -46,7 +46,7 @@ def test_two_rectangles_turned_as_a_group_show_the_box_around_both(editor):
 def test_with_the_lock_a_turned_group_keeps_its_shape(editor):
     page = turned_group(editor, user(), *SHAPES)
     lock(page).click()
-    expect(lock(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(lock(page), "true")
     enter(page, "Breite", "30")
     expect(field(page, "Breite")).to_have_value("30")
     assert number(page, "Höhe") == pytest.approx(15, abs=0.5)

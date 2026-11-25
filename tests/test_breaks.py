@@ -7,7 +7,7 @@ and a break set for one spelling cuts both.
 from playwright.sync_api import expect
 from test_painter import held
 from test_syllables import bows, gap, word
-from ui import TEXT, box, pick, user
+from ui import TEXT, box, expect_lit, pick, user
 
 COMPOSED = "Bären"
 DECOMPOSED = "Bären"
@@ -28,7 +28,7 @@ def test_a_break_set_by_hand_holds_for_the_composed_and_the_decomposed_word(edit
     # The module cuts "Bä|ren"; the click takes that away, and one after "Bär" is set.
     gap(page, "Bä|ren").click()
     gap(page, "Bär|en").click()
-    expect(gap(page, "Bär|en")).to_have_attribute("aria-pressed", "true")
+    expect_lit(gap(page, "Bär|en"), "true")
     expect(page.locator(".panel .words button")).to_have_text(["Bär·en"])
     # Both spellings are cut after "Bär", each at its own place in the text.
     bows(page, "a").to_have_text(["Bär", "en", "Bär", "en"])

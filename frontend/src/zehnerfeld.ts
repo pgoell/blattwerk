@@ -97,9 +97,9 @@
 // 2 × 10", "hundert" "Hunderterfeld 10 × 10"); select "Rechenart" ("Plus", "Minus"; a change drops `typed` in the same
 // undo step); select "Aufgabentyp" ("dots" "Punkte gegeben, Aufgabe schreiben", "write" "Aufgabe gegeben, Punkte
 // malen", "mixed" "Gemischt"); select "Zahlenraum" ("bis 5" ... "bis 100", only the values up to C; it shows M);
-// with C ≥ 20 select "Zehnerübergang" ("any" "egal", "yes" "mit Zehnerübergang", "no" "ohne Zehnerübergang"); checkbox
+// with C ≥ 20 select "Zehnerübergang" ("any" "egal", "yes" "mit Zehnerübergang", "no" "ohne Zehnerübergang"); switch
 // "Trennlinien"; select "Farben" ("color" "Farbe", "grey" "Graustufen", "own" "Eigene Farben"), with "own" two colour
-// inputs "Erste Farbe" and "Zweite Farbe"; checkbox "Punkte selbst setzen"; with 2 or more tasks select "Aufgabe"
+// inputs "Erste Farbe" and "Zweite Farbe"; switch "Punkte selbst setzen"; with 2 or more tasks select "Aufgabe"
 // ("Aufgabe 1" ...), the task the fields below set. A colour input commits on change (one undo step), not per
 // input event. Without `manual`: number fields "Erste Zahl", "Zweite Zahl"
 // showing the task's a and b (empty for a wrong or empty task); each field is one undo step (key `typed:i:p`), its

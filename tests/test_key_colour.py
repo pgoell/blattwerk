@@ -5,7 +5,7 @@ sheet's own ink. The choice is kept, and the print uses it too.
 """
 
 from playwright.sync_api import expect
-from ui import LINE, at, box, doc, maths, tool, user
+from ui import LINE, at, box, doc, expect_lit, maths, tool, user
 
 from blattwerk import pdf
 
@@ -39,9 +39,7 @@ def test_a_teacher_picks_the_colour_of_the_answers(editor, browser, server):
 
     page.get_by_role("tab", name="Ansicht").click()
     group = page.get_by_role("group", name="Lösungsfarbe")
-    expect(group.get_by_role("button", name="Farbe", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect_lit(group.get_by_role("button", name="Farbe", exact=True), "true")
     page.locator(".panel").get_by_label("Farbe der Lösungen").fill("#008000")
     expect(sums(page).first).to_have_css("color", GREEN)
     expect(length(page)).to_have_css("fill", GREEN)

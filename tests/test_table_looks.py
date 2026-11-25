@@ -4,7 +4,7 @@ import re
 
 from playwright.sync_api import expect
 from test_cells import GRID, cell, open_cell, print_page, props
-from ui import at, box, pick, unpick, user
+from ui import at, box, expect_lit, pick, unpick, user
 
 # Chromium quotes a font's name in `font-family`, WebKit does not.
 NORD = re.compile(r'^"?Fibel Nord"?$')
@@ -25,7 +25,7 @@ def test_bold_goes_on_the_picked_cells_only(editor):
     open_cell(page, "t", 0)
     cell(page, "t", 4).click(modifiers=["Shift"])
     button(page, "Fett").click()
-    expect(button(page, "Fett")).to_have_attribute("aria-pressed", "true")
+    expect_lit(button(page, "Fett"), "true")
     for n in range(9):
         assert weight(page, n) == ("700" if n in (0, 1, 3, 4) else "400"), n
     looks = props(page, client)["looks"]

@@ -9,7 +9,7 @@ from pypdf import PdfReader
 from test_clipboard import button
 from test_pages import copy as duplicate
 from test_pages import pull, three, thumb
-from ui import TEXT, at, box, centre, doc, reload, user
+from ui import TEXT, at, box, centre, doc, expect_lit, knob, reload, user
 
 FOLIO = ".sheet[data-page] .scaled .folio"
 MM = {"upright": 210, "landscape": 297}
@@ -19,9 +19,9 @@ def folio(page, n):
     return page.locator(f'.sheet[data-page="{n}"] .scaled .folio')
 
 
-def switch(page, name):
-    """The button Aus or An of the numbers: the Raster has an Aus of its own."""
-    return page.get_by_role("group", name="Seitenzahlen").get_by_role("button", name=name)
+def switch(page):
+    """The switch of the numbers in the Ansicht tab: the panel Seiten has one of its own."""
+    return page.locator(".panel").get_by_role("switch", name="Seitenzahlen", exact=True)
 
 
 def click_on(page, n):
@@ -36,14 +36,12 @@ def click_on(page, n):
 def numbers(page, at_=None, form=None):
     """Turns the numbers on in the Ansicht tab, then picks a place and a form if asked."""
     page.get_by_role("tab", name="Ansicht").click()
-    page.get_by_role("button", name="An", exact=True).click()
-    expect(page.get_by_role("button", name="An", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    switch(page).click()
+    expect(switch(page)).to_be_checked()
     if at_:
-        page.get_by_role("button", name=at_, exact=True).click()
+        knob(page, at_).click()
     if form:
-        page.get_by_role("button", name=form, exact=True).click()
+        knob(page, form).click()
 
 
 def test_a_sheet_without_page_numbers_shows_none_on_screen_or_in_the_pdf(editor, server):
@@ -52,7 +50,7 @@ def test_a_sheet_without_page_numbers_shows_none_on_screen_or_in_the_pdf(editor,
     page = three(editor, client=client)
     page.get_by_role("tab", name="Ansicht").click()
     expect(page.get_by_role("heading", name="Seitenzahlen", exact=True)).to_be_visible()
-    expect(switch(page, "Aus")).to_have_attribute("aria-pressed", "true")
+    expect(switch(page)).not_to_be_checked()
     expect(page.locator(FOLIO)).to_have_count(0)
     sheet_id = page.url.rsplit("/", 1)[1]
     cookie = {"Cookie": f"session={client.cookies['session']}"}
@@ -124,13 +122,13 @@ def test_undo_and_redo_take_turning_on_and_a_form_change_as_one_step_each(editor
     """Each change is one undo step: the switch on, then the form."""
     page = three(editor)
     page.get_by_role("tab", name="Ansicht").click()
-    page.get_by_role("button", name="An", exact=True).click()
+    switch(page).click()
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
     page.keyboard.press("Control+z")
     expect(page.locator(FOLIO)).to_have_count(0)
     page.keyboard.press("Control+y")
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
-    page.get_by_role("button", name="2 / 5", exact=True).click()
+    knob(page, "2 / 5").click()
     expect(page.locator(FOLIO)).to_have_text(["1 / 3", "2 / 3", "3 / 3"])
     page.keyboard.press("Control+z")
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
@@ -236,12 +234,10 @@ def test_aus_and_an_again_keep_the_place_and_the_form(editor):
     """Switching off and on again keeps the chosen place and form."""
     page = three(editor)
     numbers(page, at_="Oben rechts", form="Seite 2 von 5")
-    switch(page, "Aus").click()
+    switch(page).click()
     expect(page.locator(FOLIO)).to_have_count(0)
-    page.get_by_role("button", name="An", exact=True).click()
-    expect(page.get_by_role("button", name="Oben rechts", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    switch(page).click()
+    expect_lit(knob(page, "Oben rechts"), "true")
     expect(page.locator(FOLIO)).to_have_text(["Seite 1 von 3", "Seite 2 von 3", "Seite 3 von 3"])
 
 
@@ -264,7 +260,7 @@ def test_the_number_is_9_pt_andika_grey_or_black_and_the_thumbnails_show_it(edit
     expect(mark).to_have_css("font-family", "Andika")
     expect(mark).to_have_css("font-size", "12px")
     expect(mark).to_have_css("color", "rgb(112, 112, 112)")
-    page.get_by_role("button", name="Schwarz", exact=True).click()
+    knob(page, "Schwarz").click()
     expect(mark).to_have_css("color", "rgb(0, 0, 0)")
     expect(page.locator(".pages .paper .folio")).to_have_text(["1", "2", "3"])
 

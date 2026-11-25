@@ -70,7 +70,7 @@ def test_ctrl_z_from_a_selbstkontrolle_link_checkbox_undoes(editor):
     client = user()
     page = editor(*linked(client), client=client)
     pick(page, "s")
-    link = page.locator(".panel input[type=checkbox]").first
+    link = page.locator(".panel [role=switch]").first
     step(page, lambda: link.click())
     expect(link).not_to_be_checked()
     step(page, lambda: page.keyboard.press("Control+z"))
@@ -178,13 +178,15 @@ def test_ctrl_z_and_ctrl_y_from_a_slider_undo_and_redo(editor):
     expect(spacing).to_have_value("2")
 
 
-def test_space_on_a_focused_checkbox_still_toggles_it(editor):
-    """#607: Space on the focused Minutenstriche box still toggles it, and the store follows."""
+def test_space_on_a_focused_switch_still_toggles_it(editor):
+    """#607: Space on the focused Minutenstriche switch still toggles it, and the store follows."""
     client = user()
     page = editor(uhr(), client=client)
     pick(page, "u")
     step(page, lambda: minutes_box(page).click())
     expect(minutes_box(page)).not_to_be_checked()
+    # A press with the mouse leaves the focus where it was, so the keys bring it here.
+    minutes_box(page).focus()
     step(page, lambda: page.keyboard.press("Space"))
     expect(minutes_box(page)).to_be_checked()
     assert stored_u(page, client)["props"]["minutes"] is True

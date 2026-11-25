@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_menu import several, spot
-from ui import TEXT, apart, at, box, centre, expect_picked, finger, jitter, outlast
+from ui import TEXT, apart, at, box, centre, expect_lit, expect_picked, finger, jitter, outlast
 
 OPEN = ".ProseMirror, .block textarea:not([readonly]), .crop"
 NAMES = {"one": "a", "group": "ab", "several": "ab"}
@@ -22,7 +22,7 @@ def chosen(editor, kind):
     expect_picked(page, *names)
     if kind == "several":
         several(page).tap()
-    expect(several(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(several(page), "false")
     return page
 
 
@@ -52,10 +52,10 @@ def test_a_finger_held_on_what_is_selected_starts_selecting_several(editor, kind
     start = where(page, on)
     with finger(page, start):
         jitter(at(page, "a"), start, *by)
-        expect(several(page)).to_have_attribute("aria-pressed", "true")
+        expect_lit(several(page), "true")
         expect_picked(page, *names)
     # The lift is no tap: it takes no block out of the selection and opens none.
-    expect(several(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(several(page), "true")
     expect_picked(page, *names)
     expect(page.locator(OPEN)).to_have_count(0)
     assert [spot(page, name) for name in names] == before
@@ -78,8 +78,8 @@ def test_a_finger_that_moves_away_on_what_is_selected_drags_it(editor, kind):
     with finger(page, start):
         jitter(at(page, "a"), start, (0, 9), (0, 14))
         outlast(page)
-        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_lit(several(page), "false")
         assert all(spot(page, name) != was for name, was in zip("ab", before, strict=True))
-    expect(several(page)).to_have_attribute("aria-pressed", "false")
+    expect_lit(several(page), "false")
     expect_picked(page, "a", "b")
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()

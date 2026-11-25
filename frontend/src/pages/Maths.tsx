@@ -7,6 +7,7 @@ import { Reihen } from "./Reihen";
 import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
 import Schriftlich from "./maths/schriftlich";
+import { Switch } from "../components/Switch";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
@@ -23,26 +24,10 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           </button>
         ))}
       </div>
-      <div className="seg switch">
-        <button className={p.zero !== false ? "on" : ""} aria-pressed={p.zero !== false} onClick={() => limit({ zero: p.zero === false })}>
-          Aufgaben mit 0
-        </button>
-      </div>
-      <div className="seg switch">
-        <button className={p.one !== false ? "on" : ""} aria-pressed={p.one !== false} disabled={!times} onClick={() => limit({ one: p.one === false })}>
-          Aufgaben mit 1 beim Malnehmen und Teilen
-        </button>
-      </div>
-      <div className="seg switch">
-        <button className={p.small ? "on" : ""} aria-pressed={!!p.small} disabled={!times || three} onClick={() => limit({ small: !p.small })}>
-          Kleines Einmaleins
-        </button>
-      </div>
-      <div className="seg switch">
-        <button className={p.distinct ? "on" : ""} aria-pressed={!!p.distinct} onClick={() => limit({ distinct: !p.distinct })}>
-          keine gleichen Zahlen
-        </button>
-      </div>
+      <Switch label="Aufgaben mit 0" on={p.zero !== false} onChange={() => limit({ zero: p.zero === false })} />
+      <Switch label="Aufgaben mit 1 beim Malnehmen und Teilen" on={p.one !== false} disabled={!times} onChange={() => limit({ one: p.one === false })} />
+      <Switch label="Kleines Einmaleins" on={!!p.small} disabled={!times || three} onChange={() => limit({ small: !p.small })} />
+      <Switch label="keine gleichen Zahlen" on={!!p.distinct} onChange={() => limit({ distinct: !p.distinct })} />
       {times && !three && (
         <>
           <h2>Einmaleins-Reihen</h2>
@@ -167,11 +152,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
             <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
           </div>
           {p.rest && !whole && (
-            <div className="seg switch">
-              <button className={p.avoid0 !== false ? "on" : ""} aria-pressed={p.avoid0 !== false} onClick={() => limit({ avoid0: p.avoid0 === false })}>
-                Rest 0 vermeiden
-              </button>
-            </div>
+            <Switch label="Rest 0 vermeiden" on={p.avoid0 !== false} onChange={() => limit({ avoid0: p.avoid0 === false })} />
           )}
         </>
       )}
@@ -208,14 +189,8 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
               3
             </button>
           </div>
-          <div className="seg">
-            <button className={pvs ? "on" : ""} aria-pressed={pvs} disabled={!free} onClick={() => limit({ pvs: !p.pvs })}>
-              Punkt vor Strich
-            </button>
-            <button className={brackets ? "on" : ""} aria-pressed={brackets} disabled={!pvs} onClick={() => limit({ brackets: !p.brackets })}>
-              mit Klammern
-            </button>
-          </div>
+          <Switch label="Punkt vor Strich" on={pvs} disabled={!free} onChange={() => limit({ pvs: !p.pvs })} />
+          <Switch label="mit Klammern" on={brackets} disabled={!pvs} onChange={() => limit({ brackets: !p.brackets })} />
           <h2>Aufgabenfamilien</h2>
           <select aria-label="Aufgabenfamilien" value={p.family ?? "none"} disabled={three} onChange={(e) => limit({ family: e.target.value as Limits["family"] })}>
             {FAMILIES.map(([family, label]) => (
@@ -235,11 +210,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
             </div>
           )}
           {fam && (
-            <div className="seg switch">
-              <button className={p.full !== false ? "on" : ""} aria-pressed={p.full !== false} onClick={() => limit({ full: p.full === false })}>
-                Vollständig anzeigen
-              </button>
-            </div>
+            <Switch label="Vollständig anzeigen" on={p.full !== false} onChange={() => limit({ full: p.full === false })} />
           )}
           {numbered && !three && p.family === "swap" && (p.ops.includes("-") || p.ops.includes("/")) && <p className="hint" role="status">Tauschaufgaben gibt es nur für + und ·.</p>}
         </>

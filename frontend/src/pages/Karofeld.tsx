@@ -10,6 +10,7 @@ import {
   type KarofeldProps,
   type Look,
 } from "../karofeld";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<KarofeldProps>, key?: string) => void;
 
@@ -73,9 +74,7 @@ export default function Karofeld({ block, apply }: { block: KarofeldBlock; apply
       <p className="hint">
         Kästchen {c + 1}, {r + 1}. Tippen setzt eine Ziffer oder ein Zeichen und rückt weiter. Enter springt in die nächste Zeile.
       </p>
-      <button className={sq.line ? "on" : ""} aria-pressed={!!sq.line} onClick={() => put(painted(p, { line: !sq.line }), "line")}>
-        Lösungsstrich
-      </button>
+      <Switch label="Lösungsstrich" on={!!sq.line} onChange={() => put(painted(p, { line: !sq.line }), "line")} />
       <select
         aria-label="Komma oder Punkt"
         value={sq.mark ?? ""}

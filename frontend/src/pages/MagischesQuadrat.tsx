@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent
 import type { MagischesQuadratBlock } from "../sheet";
 import { draw } from "../bank";
 import { DEFAULT_GIVEN, GIVEN, MIN_MAX, made, sane, type MagischesQuadratProps, type MagischesQuadratTyped } from "../magischesquadrat";
+import { Switch } from "../components/Switch";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -170,10 +171,7 @@ export default function MagischesQuadrat({ block, apply }: { block: MagischesQua
           })}
         />
       )}
-      <label>
-        <input type="checkbox" aria-label="Zielzahl anzeigen" checked={p.showSum} onChange={() => apply({ showSum: !p.showSum })} />
-        Zielzahl anzeigen
-      </label>
+      <Switch label="Zielzahl anzeigen" on={p.showSum} onChange={() => apply({ showSum: !p.showSum })} />
       <label>
         Eigene Zahlen
         <select aria-label="Magisches Quadrat für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>

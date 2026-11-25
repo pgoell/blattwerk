@@ -8,7 +8,7 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from ui import at, box, doc, maths, pick, reload, user
+from ui import at, box, doc, expect_lit, knob, maths, pick, reload, user
 
 ZERO = "Aufgaben mit 0"
 ONE = "Aufgaben mit 1 beim Malnehmen und Teilen"
@@ -38,7 +38,7 @@ SHOWN = """(block) => [...block.querySelectorAll('.maths > div')].map((div) => {
 
 
 def control(page, name):
-    return page.locator(".panel").get_by_role("button", name=name, exact=True)
+    return knob(page.locator(".panel"), name)
 
 
 def props(page, client, after=False):
@@ -77,17 +77,16 @@ def test_a1_the_gap_format_has_a_setting_luecke_and_hides_only_what_is_ticked(ed
     props_in = maths(client, format="gap", ops=["+"], max=20, count=8)
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
-    pressed = "aria-pressed"
-    expect(control(page, FIRST)).to_have_attribute(pressed, "true")
-    expect(control(page, SECOND)).to_have_attribute(pressed, "true")
-    expect(control(page, RESULT)).to_have_attribute(pressed, "false")
+    expect_lit(control(page, FIRST), "true")
+    expect_lit(control(page, SECOND), "true")
+    expect_lit(control(page, RESULT), "false")
     expect(control(page, THIRD)).to_have_count(0)
     assert {e.get("hide") for e in exercises(page, client)} <= {"a", "b"}
     control(page, FIRST).click()
-    expect(control(page, FIRST)).to_have_attribute(pressed, "false")
+    expect_lit(control(page, FIRST), "false")
     assert all(e.get("hide") == "b" for e in exercises(page, client, after=True))
     assert shown(page) == ["b"] * 8
-    page.get_by_role("button", name="Zeile", exact=True).click()
+    knob(page, "Zeile").click()
     expect(control(page, FIRST)).to_have_count(0)
     expect(control(page, RESULT)).to_have_count(0)
 
@@ -99,15 +98,15 @@ def test_a2_ergebnis_beside_a_number_mixes_both_gaps_in_one_block(editor):
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     control(page, RESULT).click()
-    expect(control(page, RESULT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, RESULT), "true")
     control(page, SECOND).click()
-    expect(control(page, SECOND)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, SECOND), "false")
     # Twelve tasks of one kind are rare, and a new roll mends that: each read waits for its change.
     for _ in range(5):
         kinds = {e.get("hide", "result") for e in exercises(page, client, after=True)}
         if kinds == {"a", "result"}:
             break
-        page.locator(".panel").get_by_role("button", name="Neu würfeln", exact=True).click()
+        knob(page.locator(".panel"), "Neu würfeln").click()
     assert kinds == {"a", "result"}, kinds
     assert {"a", "result"} <= set(shown(page))
 
@@ -118,9 +117,9 @@ def test_a3_aufgaben_mit_0_off_keeps_0_out(editor):
     props_in = maths(client, ops=["+", "-"], max=10, count=20, format="row")
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, ZERO), "true")
     control(page, ZERO).click()
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ZERO), "false")
     for e in exercises(page, client, after=True):
         assert 0 not in (e["a"], e["b"], e["result"]), e
 
@@ -149,7 +148,7 @@ def test_a4_aufgaben_mit_1_off_keeps_1_out_of_times_and_divide(editor):
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     control(page, ONE).click()
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ONE), "false")
     for e in exercises(page, client, after=True):
         if e["op"] == "*":
             assert 1 not in (e["a"], e["b"]), e
@@ -163,9 +162,9 @@ def test_a5_keine_gleichen_zahlen_keeps_equal_numbers_out(editor):
     props_in = maths(client, ops=["+", "/"], max=10, count=20, format="row")
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, DISTINCT), "false")
     control(page, DISTINCT).click()
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, DISTINCT), "true")
     for e in exercises(page, client, after=True):
         assert e["a"] != e["b"], e
 
@@ -189,17 +188,17 @@ def test_a7_the_same_tasks_come_back_after_a_reload(editor):
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     control(page, ZERO).click()
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ZERO), "false")
     control(page, DISTINCT).click()
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, DISTINCT), "true")
     control(page, RESULT).click()
-    expect(control(page, RESULT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, RESULT), "true")
     before = view(page, client, after=True)
     reload(page, page.url)
     pick(page, "m")
     assert view(page, client) == before
-    expect(control(page, ZERO)).to_have_attribute("aria-pressed", "false")
-    expect(control(page, DISTINCT)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, ZERO), "false")
+    expect_lit(control(page, DISTINCT), "true")
     body = {
         "ops": ["+", "*"],
         "max": 20,
@@ -244,17 +243,19 @@ def test_a11_each_new_setting_is_one_undo_step_and_redo_brings_it_back(editor, n
     props_in = maths(client, ops=["+", "*"], max=20, count=6, format="gap")
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
-    start = control(page, name).get_attribute("aria-pressed")
+    start = control(page, name).evaluate(
+        "el => el.getAttribute('aria-pressed') ?? el.getAttribute('aria-checked')"
+    )
     flipped = "false" if start == "true" else "true"
     before = view(page, client)
     control(page, name).click()
-    expect(control(page, name)).to_have_attribute("aria-pressed", flipped)
+    expect_lit(control(page, name), flipped)
     after = view(page, client, after=True)
     page.keyboard.press("Control+z")
-    expect(control(page, name)).to_have_attribute("aria-pressed", start)
+    expect_lit(control(page, name), start)
     assert view(page, client, after=True) == before
     page.keyboard.press("Control+y")
-    expect(control(page, name)).to_have_attribute("aria-pressed", flipped)
+    expect_lit(control(page, name), flipped)
     assert view(page, client, after=True) == after
 
 
@@ -266,7 +267,7 @@ def test_i2_the_last_ticked_box_of_luecke_cannot_be_unticked(editor):
     pick(page, "m")
     before = view(page, client)
     control(page, FIRST).click()
-    expect(control(page, FIRST)).to_have_attribute("aria-pressed", "true")
+    expect_lit(control(page, FIRST), "true")
     assert view(page, client) == before
 
 
@@ -277,7 +278,7 @@ def test_i3_the_switch_for_1_is_greyed_without_times_and_divide_and_keeps_its_va
     page = editor(box("m", "maths", props_in, y=20, h=60), client=client)
     pick(page, "m")
     expect(control(page, ONE)).to_be_disabled()
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ONE), "false")
     control(page, "·").click()
     expect(control(page, ONE)).to_be_enabled()
-    expect(control(page, ONE)).to_have_attribute("aria-pressed", "false")
+    expect_lit(control(page, ONE), "false")

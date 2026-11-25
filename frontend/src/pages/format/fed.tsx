@@ -4,6 +4,7 @@ import { holed } from "../../holes";
 import { boxed, holesOf, listColsOf } from "../../sheet";
 import type { Block } from "../../sheet";
 import { seedOf } from "./words";
+import { Switch } from "../../components/Switch";
 
 // The sheet's Lernwörter for a text or a shape: as its own text or as the list, in 1 to 4 columns, with letters hidden as
 // gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew, in "one" only: the other two modes do not depend on the seed.
@@ -33,9 +34,7 @@ export function Fed({ sel, words, toList, look, link, feed }: { sel: Block[]; wo
             ))}
           </div>
           <button onClick={toList}>Lernwörter bearbeiten</button>
-          <button className={holes ? "on" : ""} aria-pressed={holes} onClick={() => feed(holes ? { holes: undefined } : { holes: "one", holeSeed: seedOf(held[0].holeSeed) ?? draw(), mix: undefined }, "holes")}>
-            Lückenwörter
-          </button>
+          <Switch label="Lückenwörter" on={holes} onChange={() => feed(holes ? { holes: undefined } : { holes: "one", holeSeed: seedOf(held[0].holeSeed) ?? draw(), mix: undefined }, "holes")} />
           {holes && mode && (
             <>
               <div className="seg">

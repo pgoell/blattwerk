@@ -5,6 +5,7 @@ import { sane, type LoesungsfeldProps, type Wrong } from "../loesungsfeld";
 import type { Doc, LoesungsfeldBlock } from "../sheet";
 import { SYMBOLS } from "../symbols";
 import { Symbols } from "./format/symbols";
+import { Switch } from "../components/Switch";
 
 type Apply = (props: Partial<LoesungsfeldProps>, key?: string) => void;
 
@@ -118,9 +119,7 @@ export default function Loesungsfeld({
         Schriftgröße
         <input aria-label="Schriftgröße" type="number" min={8} max={48} value={p.size} onChange={(e) => apply({ size: Number(e.target.value) }, "size")} />
       </label>
-      <label className="tick">
-        <input type="checkbox" checked={allEven} onChange={() => markEven(!allEven)} /> Alle Lösungsfelder gleich breit
-      </label>
+      <Switch label="Alle Lösungsfelder gleich breit" on={allEven} onChange={() => markEven(!allEven)} />
       {p.kind === "text" && (
         <label>
           Falsche Lösungen

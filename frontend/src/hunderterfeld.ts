@@ -58,7 +58,7 @@
 // "random" Zufällig verdeckt, "free" Selbst verdecken), for "random" "Verdeckt" (number input) and "Neu würfeln";
 // "Färben" (select: "none" Nicht, "even" Gerade Zahlen, "times" Einmaleins-Reihe, "row" Eine Zeile, "column" Eine
 // Spalte, "free" Selbst färben), for "times" "Reihe" and for "row" and "column" "Nummer" (number inputs), for a rule
-// "Farbe" (select: "1" Gelb, "2" Blau); "Ausschnitt" (checkbox). Punkte: "Füllen" (select: "count" Anzahl, "free"
+// "Farbe" (select: "1" Gelb, "2" Blau); "Ausschnitt" (switch). Punkte: "Füllen" (select: "count" Anzahl, "free"
 // Selbst füllen), for "count" "Gefüllt" (number input). While a mode set by clicking is on, a grid of 100 buttons
 // `.hundert button`, each "Feld <v>", with `data-hidden`, `data-tint` "1" | "2", `data-cut` "in" | "given",
 // `data-filled` as stored; with more than one such mode a select "Klick setzt" ("hide" Verdecken, "tint" Färben,

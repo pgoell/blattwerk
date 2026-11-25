@@ -40,7 +40,9 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
+    knob,
     pick,
     saved,
     tints,
@@ -58,9 +60,7 @@ def test_tab_reaches_the_colour_switch_and_its_settings_and_space_and_enter_pres
     page.keyboard.press("Tab")
     page.keyboard.press("Tab")
     page.keyboard.press("Tab")
-    expect(
-        page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True)
-    ).to_be_focused()
+    expect(knob(page.locator(".panel"), "Silbenbögen")).to_be_focused()
     page.keyboard.press("Tab")
     expect(tint_switch(page)).to_be_focused()
     expect_tint_switch(page, False)
@@ -76,12 +76,12 @@ def test_tab_reaches_the_colour_switch_and_its_settings_and_space_and_enter_pres
     page.keyboard.press("Tab")
     expect(greys(page)).to_be_focused()
     page.keyboard.press("Space")
-    expect(greys(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(greys(page), "true")
     tinted(page, "a").to_have_text([("Fens", GREYS[0]), ("ter", GREYS[1]), ("Maus", GREYS[0])])
     page.keyboard.press("Tab")
     expect(across(page)).to_be_focused()
     page.keyboard.press("Enter")
-    expect(across(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(across(page), "true")
     assert held(page, client)["a"]["tintsAcross"] is True
     tint_switch(page).focus()
     page.keyboard.press("Enter")
@@ -145,7 +145,7 @@ def test_the_colours_follow_each_letter_typed_and_the_switch_leaves_the_caret(ed
         page.keyboard.type(typed)
         tinted(page, "a").to_have_text(shown)
     # The word the caret stands at is open with no click; a break set there shows in the field.
-    expect(word(page, "Was·ser")).to_have_attribute("aria-pressed", "true")
+    expect_lit(word(page, "Was·ser"), "true")
     gap(page, "Wa|sser").click()
     tinted(page, "a").to_have_text(
         [("Fens", BLUE), ("ter", RED), ("Wa", BLUE), ("s", RED), ("ser", BLUE)]
@@ -156,8 +156,8 @@ def test_the_colours_follow_each_letter_typed_and_the_switch_leaves_the_caret(ed
     page.keyboard.press("Backspace")
     # The caret in another word opens that one.
     page.keyboard.press("Home")
-    expect(word(page, "Fens·ter")).to_have_attribute("aria-pressed", "true")
-    expect(gap(page, "Fens|ter")).to_have_attribute("aria-pressed", "true")
+    expect_lit(word(page, "Fens·ter"), "true")
+    expect_lit(gap(page, "Fens|ter"), "true")
     tint_switch(page).click()
     expect_tint_switch(page, False)
     tinted(page, "a").to_have_count(0)

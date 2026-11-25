@@ -20,7 +20,9 @@ from ui import (
     at,
     box,
     caret,
+    expect_lit,
     expect_picked,
+    knob,
     pick,
     syls,
     user,
@@ -43,13 +45,12 @@ WORDY = {
 
 
 def switch(page):
-    return page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True)
+    return knob(page.locator(".panel"), "Silbenbögen")
 
 
 def expect_switch(page, on):
     """Waits until the switch says its state, to the eye and to a screen reader."""
-    expect(switch(page)).to_have_attribute("aria-pressed", "true" if on else "false")
-    expect(switch(page)).to_have_class("on" if on else "")
+    expect_lit(switch(page), "true" if on else "false")
 
 
 class bows:
@@ -80,16 +81,16 @@ class bows:
 
 def word(page, name):
     """The button of a word in the panel's list, by the word as it is split."""
-    return page.locator(".panel .words").get_by_role("button", name=name, exact=True)
+    return knob(page.locator(".panel .words"), name)
 
 
 def gap(page, name):
     """The button between two letters of the open word: "Ma|us"."""
-    return page.locator(".panel .gaps").get_by_role("button", name=name, exact=True)
+    return knob(page.locator(".panel .gaps"), name)
 
 
 def reset(page):
-    return page.locator(".panel").get_by_role("button", name="Zurücksetzen", exact=True)
+    return knob(page.locator(".panel"), "Zurücksetzen")
 
 
 def redo(page):
@@ -312,7 +313,7 @@ def test_the_bows_follow_each_letter_typed_and_the_switch_leaves_the_caret(edito
         page.keyboard.type(typed)
         bows(page, "a").to_have_text(shown)
     # The word the caret stands at is open with no click; a break set there shows in the field.
-    expect(word(page, "Was·ser")).to_have_attribute("aria-pressed", "true")
+    expect_lit(word(page, "Was·ser"), "true")
     gap(page, "Wa|sser").click()
     bows(page, "a").to_have_text(["Fens", "ter", "Wa", "s", "ser"])
     expect(page.locator(FIELD)).to_be_focused()
@@ -321,8 +322,8 @@ def test_the_bows_follow_each_letter_typed_and_the_switch_leaves_the_caret(edito
     page.keyboard.press("Backspace")
     # The caret in another word opens that one.
     page.keyboard.press("Home")
-    expect(word(page, "Fens·ter")).to_have_attribute("aria-pressed", "true")
-    expect(gap(page, "Fens|ter")).to_have_attribute("aria-pressed", "true")
+    expect_lit(word(page, "Fens·ter"), "true")
+    expect_lit(gap(page, "Fens|ter"), "true")
     switch(page).click()
     expect_switch(page, False)
     bows(page, "a").to_have_count(0)

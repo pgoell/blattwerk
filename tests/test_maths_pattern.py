@@ -9,7 +9,7 @@ says so. A pattern combines with Übertrag, and a contradiction names the limit 
 import pytest
 from playwright.sync_api import expect
 from pydantic import ValidationError
-from ui import box, maths, pick, saved, user
+from ui import box, expect_lit, maths, pick, saved, user
 
 from blattwerk.maths import Settings, generate
 from blattwerk.maths.pairs import carries
@@ -135,6 +135,6 @@ def test_the_panel_sets_a_pattern_and_refuses_a_third_fixed_number(editor):
         }"""
     )
     expect(result).to_have_value("")
-    expect(
-        panel.get_by_role("button", name="Die Null darf bei + und \N{MINUS SIGN} vorkommen")
-    ).to_have_attribute("aria-pressed", "true")
+    expect_lit(
+        panel.get_by_role("switch", name="Die Null darf bei + und \N{MINUS SIGN} vorkommen"), "true"
+    )

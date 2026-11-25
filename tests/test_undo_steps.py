@@ -5,7 +5,21 @@ from playwright.sync_api import expect
 from test_painter import held
 from test_syllables import gap
 from test_undo_same import field, steps
-from ui import LINE, RECT, RULING, TABLE, TEXT, box, drag, expect_picked, maths, pick, saved, user
+from ui import (
+    LINE,
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    box,
+    drag,
+    expect_picked,
+    knob,
+    maths,
+    pick,
+    saved,
+    user,
+)
 
 # A text and a shape that name all a gesture changes, each slider at its lower end: a press on a
 # slider's left end then asks for what the block has.
@@ -266,7 +280,11 @@ STORED = [
 
 
 def panel(page, label):
-    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=label, exact=True)
+        .or_(knob(page.locator(".panel"), label))
+    )
 
 
 def step(page, action):

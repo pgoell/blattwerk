@@ -11,7 +11,7 @@ from test_feed_print import pdf_text, printed, sheet_id
 from test_fix_mix import key
 from test_gaps import step
 from test_words import redo, undo
-from ui import at, box, maths, pick, saved, tool, user
+from ui import at, box, expect_lit, knob, maths, pick, saved, tool, user
 
 SIGNS = {"+": "+", "-": "\u2212", "*": "·", "/": ":"}
 # Which sides are terms: "nn" has two numbers, "tn" a term and a number, "tt" two terms.
@@ -20,7 +20,11 @@ KINDS = {"nn": (False, False), "tn": (True, False), "tt": (True, True)}
 
 def ctl(page, label):
     """A button or a field of the panel, by its name."""
-    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+    return (
+        page.locator(".panel")
+        .get_by_role("button", name=label, exact=True)
+        .or_(knob(page.locator(".panel"), label))
+    )
 
 
 def text_of(side):
@@ -112,7 +116,7 @@ def test_knapp_keeps_the_sides_close(editor):
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Knapp").click())
     assert props["close"] is True
-    expect(ctl(page, "Knapp")).to_have_attribute("aria-pressed", "true")
+    expect_lit(ctl(page, "Knapp"), "true")
     for e in props["exercises"]:
         gap = abs(e["left"]["value"] - e["right"]["value"])
         assert gap in {0, 1, 2, 10, 20} and (gap == 0) == (e["sign"] == "=")
@@ -212,7 +216,7 @@ def test_columns_size_and_numbering_work_as_for_a_row(editor):
     assert props["size"] == 16
     assert grid.evaluate("el => parseFloat(getComputedStyle(el).fontSize)") > size
     # Each block's numbering sits lower in the panel too: Aufgaben nummerieren comes first.
-    numbering = page.locator(".panel").get_by_role("button", name="1 2 3", exact=True).first
+    numbering = knob(page.locator(".panel"), "1 2 3").first
     props = changed(page, client, numbering.click)
     assert props["numbering"] == "1."
     expect(block.locator(".maths > div > b")).to_have_text(
@@ -274,7 +278,7 @@ def test_the_new_settings_show_only_under_vergleichen(editor):
     page = editor(box("m", "maths", maths(client, ops=["/"])), client=client)
     pick(page, "m")
     panel = page.locator(".panel")
-    expect(panel.get_by_role("button", name="Mit Rest", exact=True)).to_be_visible()
+    expect(knob(panel, "Mit Rest")).to_be_visible()
     expect(panel.get_by_label("Seiten", exact=True)).to_have_count(0)
     expect(ctl(page, "Knapp")).to_have_count(0)
     expect(ctl(page, "Keine mit =")).to_have_count(0)

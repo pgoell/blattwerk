@@ -89,7 +89,7 @@
 // ("2 nebeneinander"); select "Rechenart" ("Plus", "Minus"; a change drops `typed` in the same undo step); select
 // "Zahlenraum" ("bis 100", "bis 1000"); select "Stellen der zweiten Zahl" ("einstellig", "zweistellig", with bis 1000
 // also "dreistellig"; it shows k as it acts, so a stored 3 with bis 100 reads "zweistellig"; a choice stores its number); select "Übergang bei den Einern" ("egal", "mit Übergang", "ohne Übergang"); with bis 1000
-// select "Übergang bei den Zehnern" (the same words); checkboxes "Karo", "Stellenwerte
+// select "Übergang bei den Zehnern" (the same words); switches "Karo", "Stellenwerte
 // zeigen", "Zweite Zahl färben", "Rechenzeichen der Schritte drucken"; select "Aufgabe für eigene Zahlen" (with 2 or
 // more tasks, "Aufgabe 1" ...); number fields "Erste Zahl", "Zweite Zahl", "Ergebnis" showing the given numbers (typed or
 // drawn), the other fields empty; each field is one undo step (key `typed:i:p`). Hints (p.hint, role=status): with

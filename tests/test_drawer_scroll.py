@@ -7,7 +7,7 @@ On its side the panel already shows, so nothing scrolls.
 import pytest
 from playwright.sync_api import expect
 from test_menu import HELD, props
-from ui import FIELD, RECT, TEXT, at, bar, box, drawer, expect_picked, tool, user
+from ui import FIELD, RECT, TEXT, at, bar, box, drawer, expect_lit, expect_picked, tool, user
 
 
 def expect_wide(page):
@@ -122,7 +122,7 @@ def test_shutting_the_drawer_takes_the_scroll_back(editor):
     drawer(page, "right")
     assert scroll(page) > 0
     bar(page, "right").tap()
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    expect_lit(bar(page, "right"), "false")
     page.wait_for_function("document.querySelector('.desk').scrollLeft === 0")
     assert sheet.bounding_box() == before
 
@@ -175,7 +175,7 @@ def test_shutting_the_drawer_gives_back_a_zoomed_desk_its_scroll(editor):
     drawer(page, "right")
     assert scroll(page) > before
     bar(page, "right").tap()
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    expect_lit(bar(page, "right"), "false")
     assert scroll(page) == before
 
 

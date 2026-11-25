@@ -9,7 +9,7 @@ from test_bows import bows, expect_under
 from test_painter import held
 from test_syllables import gap, word
 from test_tints import BLUE, PAIR, RED, tint_switch, tinted
-from ui import RULING, at, box, pick, sheet, syls, user
+from ui import RULING, at, box, expect_lit, knob, pick, sheet, syls, user
 
 from blattwerk import pdf
 
@@ -20,7 +20,7 @@ LINES = """(block) => [...block.querySelectorAll('svg.ruling line')].map(
 
 
 def bows_switch(page):
-    return page.get_by_role("button", name="Silbenbögen", exact=True)
+    return knob(page, "Silbenbögen")
 
 
 @pytest.mark.parametrize("kind", ["l1", "l2", "l3", "l4", "lines"])
@@ -63,11 +63,11 @@ def test_a_karo_undo_and_redo_take_and_give_back_the_switch(editor, switch):
     pick(page, "a")
     button = bows_switch(page) if switch == "Silbenbögen" else tint_switch(page)
     button.click()
-    expect(button).to_have_attribute("aria-pressed", "true")
+    expect_lit(button, "true")
     page.keyboard.press("Control+z")
-    expect(button).to_have_attribute("aria-pressed", "false")
+    expect_lit(button, "false")
     page.keyboard.press("Control+y")
-    expect(button).to_have_attribute("aria-pressed", "true")
+    expect_lit(button, "true")
 
 
 def test_a_kind_change_keeps_the_bows_and_the_colours(editor):
@@ -75,11 +75,11 @@ def test_a_kind_change_keeps_the_bows_and_the_colours(editor):
     pick(page, "a")
     kind = page.locator(".panel").get_by_label("Art der Lineatur", exact=True)
     kind.select_option("k5")
-    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
-    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(bows_switch(page), "true")
+    expect_lit(tint_switch(page), "true")
     kind.select_option("l1")
-    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
-    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(bows_switch(page), "true")
+    expect_lit(tint_switch(page), "true")
 
 
 def test_c3_mending_a_word_on_a_karo_moves_its_bows(editor):
@@ -106,7 +106,7 @@ def test_c5_silbenfarbe_colours_the_syllables_of_the_ruling(editor):
     page = editor(box("a", "ruling", ABEND))
     pick(page, "a")
     tint_switch(page).click()
-    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(tint_switch(page), "true")
     expect(page.get_by_label("Erste Silbe")).to_be_visible()
 
 
@@ -144,7 +144,7 @@ def test_a_karo_picked_along_takes_the_bows_with_the_lineatur(editor):
     page = editor(box("a", "ruling", ABEND), box("k", "ruling", karo, z=2), client=client)
     pick(page, "a", "k")
     bows_switch(page).click()
-    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect_lit(bows_switch(page), "true")
     stored = held(page, client)
     assert stored["a"]["syllables"] and stored["k"]["syllables"]
 

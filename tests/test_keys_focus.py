@@ -14,6 +14,7 @@ from ui import (
     at,
     box,
     centre,
+    expect_lit,
     expect_picked,
     maths,
     pick,
@@ -357,9 +358,9 @@ def test_an_escape_that_ends_something_else_keeps_the_selection(editor):
     brush = page.get_by_label("Format übertragen", exact=True)
     pick(page, "shape")
     brush.click()
-    expect(brush).to_have_attribute("aria-pressed", "true")
+    expect_lit(brush, "true")
     page.keyboard.press("Escape")
-    expect(brush).to_have_attribute("aria-pressed", "false")
+    expect_lit(brush, "false")
     then_none("shape")
 
     # The right click's menu.

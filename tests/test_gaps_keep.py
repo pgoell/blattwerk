@@ -98,7 +98,7 @@ def test_a_block_that_holds_no_words_shows_no_gap_controls(editor, kind):
         page.locator(".panel").get_by_role("button", name="Jedes n-te Wort", exact=True)
     ).to_have_count(0)
     expect(
-        page.locator(".panel").get_by_role("button", name="Lösungswörter", exact=True)
+        page.locator(".panel").get_by_role("switch", name="Lösungswörter", exact=True)
     ).to_have_count(0)
 
 
@@ -142,7 +142,7 @@ def test_tab_reaches_the_gap_controls_and_space_and_enter_press_them(editor):
         page.keyboard.press("Tab")
     expect(panel(page, "Lücke")).to_be_focused()
     page.keyboard.press("Space")
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-checked", "true")
     page.keyboard.press("Tab")
     expect(panel(page, "Lücken gleich breit")).to_be_focused()
     page.keyboard.press("Tab")

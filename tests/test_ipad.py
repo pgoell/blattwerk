@@ -21,6 +21,7 @@ from ui import (
     box,
     centre,
     drawer,
+    expect_lit,
     expect_picked,
     saved,
     user,
@@ -137,7 +138,7 @@ def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor, theme):
     page = editor(text("a", 1), theme=theme, touch=True)
     expect_wide(page)
     for side in ("left", "right"):
-        expect(bar(page, side)).to_have_attribute("aria-pressed", "false")
+        expect_lit(bar(page, side), "false")
     # Blattform's own layout is for a wide window: its tools stand in the bar at the lower edge.
     expect(page.locator(".dock[role=toolbar]")).to_be_visible()
     expect(page.locator(".insert, .modes")).to_have_count(0)
@@ -169,7 +170,7 @@ def test_a_drawer_opens_and_shuts_by_its_button_and_lies_over_the_sheet(editor, 
     assert page.evaluate("([x, y]) => !!document.elementFromPoint(x, y).closest('aside')", [x, y])
     bar(page, side).tap()
     expect(panel).to_have_count(0)
-    expect(bar(page, side)).to_have_attribute("aria-pressed", "false")
+    expect_lit(bar(page, side), "false")
     assert sheet(page).bounding_box() == before
 
 
@@ -309,7 +310,7 @@ def test_opening_one_drawer_shuts_the_other(editor):
         drawer(page, side)
         expect(page.locator("aside")).to_have_count(1)
         expect(page.locator("aside.left" if side == "left" else "aside.panel")).to_be_visible()
-        expect(bar(page, other)).to_have_attribute("aria-pressed", "false")
+        expect_lit(bar(page, other), "false")
 
 
 def test_a_change_in_the_format_drawer_is_one_step_of_undo(editor):
@@ -323,13 +324,13 @@ def test_a_change_in_the_format_drawer_is_one_step_of_undo(editor):
     undo, redo = (page.get_by_label(label, exact=True) for label in ("Rückgängig", "Wiederholen"))
     expect(undo).to_be_disabled()
     bold.tap()
-    expect(bold).to_have_attribute("aria-pressed", "true")
+    expect_lit(bold, "true")
     assert saved(page, client)[0]["props"]["bold"] is True
     undo.tap()
-    expect(bold).to_have_attribute("aria-pressed", "false")
+    expect_lit(bold, "false")
     expect(undo).to_be_disabled()
     redo.tap()
-    expect(bold).to_have_attribute("aria-pressed", "true")
+    expect_lit(bold, "true")
     expect(redo).to_be_disabled()
     assert saved(page, client)[0]["props"]["bold"] is True
 
@@ -348,7 +349,7 @@ def test_the_format_drawer_opens_and_sets_a_look_while_a_text_stays_open(editor)
     expect(page.locator(FIELD)).to_be_focused()
     bold = page.locator(".panel").get_by_label("Fett", exact=True)
     bold.tap()
-    expect(bold).to_have_attribute("aria-pressed", "true")
+    expect_lit(bold, "true")
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("y")
     expect(page.locator(FIELD)).to_contain_text("xy")
@@ -368,7 +369,7 @@ def test_a_tap_on_a_block_beside_the_open_format_drawer_selects_it(editor):
     page.touchscreen.tap(place["x"] + 40, place["y"] + place["height"] / 2)
     expect_picked(page, "b")
     expect(what).to_contain_text("Form")
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    expect_lit(bar(page, "right"), "true")
 
 
 @THEMES

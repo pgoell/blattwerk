@@ -55,11 +55,11 @@
 //
 // The panel (pages/Zahlenstrahl.tsx), by aria-label: "Anfang", "Ende", "Schritt kleine Striche", "Schritt lange
 // Striche" (number inputs), "Zahlen" (select: "all" Bei jedem Strich, "major" Bei langen Strichen, "ends" Anfang
-// und Ende, "none" Keine), "Schriftgröße" (number input), "Bruchstelle" (checkbox, disabled while start is 0),
-// "Pfeil am Ende" and "Striche durchgehend" (checkboxes),
+// und Ende, "none" Keine), "Schriftgröße" (number input), "Bruchstelle" (switch, disabled while start is 0),
+// "Pfeil am Ende" and "Striche durchgehend" (switches),
 // "Aufgaben" (select: "random" Zufällig, "free" Selbst wählen); for "random": "Ein Kästchen weniger", "Ein Kästchen
 // mehr", "Ein Pfeil weniger", "Ein Pfeil mehr", "Neu würfeln"; for "free": a button per tick, "Strich <v>", that
-// cycles none, Kästchen, Pfeil, with `data-task` "box" or "arrow" when set; "Sprungbögen" (checkbox), and while on
+// cycles none, Kästchen, Pfeil, with `data-task` "box" or "arrow" when set; "Sprungbögen" (switch), and while on
 // "Sprungweite" (number input) and a text input per arc, "Bogen <i>" from 1. A `p.hint.warn[role=status]` warns when
 // `crowded(p, w)`. Each change is one undo step; typing into one field is one step.
 //

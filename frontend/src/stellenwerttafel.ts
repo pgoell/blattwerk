@@ -75,7 +75,7 @@
 // ("2 nebeneinander"); select "Zahlenraum" ("bis 1000", "bis 10 000"; a change drops `typed` in the same undo step);
 // select "Aufgabentyp" ("read" "Plättchen gegeben, Zahl schreiben", "lay" "Zahl gegeben, Plättchen legen", "move"
 // "Ein Plättchen verschieben"); stepper "Weniger Plättchen" / "Mehr Plättchen" ("höchstens 9 Plättchen", "höchstens
-// 1 Plättchen"), 1 to 36; checkbox "Leere Stellen"; with 2 or more tasks select "Aufgabe" ("Aufgabe 1" ...), the task
+// 1 Plättchen"), 1 to 36; switch "Leere Stellen"; with 2 or more tasks select "Aufgabe" ("Aufgabe 1" ...), the task
 // the field below sets; number field "Zahl" showing the task's n (the typed number for a wrong task, empty for an
 // empty task), up to 4 digits; it is one undo step per task (key `typed:i`), its text kept as a draft while it has
 // focus; emptying it removes the task's entry. Hints (p.hint, role=status): with `none` "Mit diesen Einstellungen gibt

@@ -9,7 +9,7 @@ import json
 import pytest
 from playwright.sync_api import expect
 from test_bar import BAR, expect_fitted, more, sized, text
-from ui import at, pick
+from ui import at, expect_lit, pick
 
 WIDTHS = pytest.mark.parametrize("width", [1280, 820, 360])
 ENDS = pytest.mark.parametrize("end", ["Enter", "Escape", "click"])
@@ -128,9 +128,9 @@ def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(
     page, field = titled(editor, 1280, TOO, theme="")
     expect_title(page, 1280, focused=True)
     pin = page.get_by_label("Format und Ansicht", exact=True)
-    expect(pin).to_have_attribute("aria-pressed", "true")
+    expect_lit(pin, "true")
     pin.click()
-    expect(pin).to_have_attribute("aria-pressed", "false")
+    expect_lit(pin, "false")
     expect(field).not_to_be_focused()
     page.wait_for_function(UNFOLDED, timeout=2000)
 

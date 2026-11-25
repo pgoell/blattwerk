@@ -16,6 +16,7 @@ import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { syllabled, worded } from "./words";
 import type { Doc } from "../../sheet";
+import { Switch } from "../../components/Switch";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 
@@ -273,13 +274,18 @@ export function TablePanel({
               ))}
             </div>
           )}
-          <button className={tables[0].props.cut ? "wide on" : "wide"} aria-pressed={!!tables[0].props.cut} onClick={() => cutting(!tables[0].props.cut)}>
-            <Scissors size={14} aria-hidden />
-            Schneidelinien
-          </button>
-          <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
-            Kopfzeile
-          </button>
+          <Switch
+            label={
+              <>
+                <Scissors size={14} aria-hidden />
+                Schneidelinien
+              </>
+            }
+            name="Schneidelinien"
+            on={!!tables[0].props.cut}
+            onChange={cutting}
+          />
+          <Switch label="Kopfzeile" on={!!tables[0].props.head} onChange={(head) => style("table", { head })} />
           <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
           {!text && <Letters sel={sel} look={look} style={style} />}
