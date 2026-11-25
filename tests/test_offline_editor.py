@@ -93,8 +93,7 @@ RECORD_LINK = """() => {
 
 
 @pytest.mark.parametrize("how", HOW)
-@pytest.mark.parametrize("name", ["PDF", "Lösungen"])
-def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(editor, how, name):
+def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(editor, how):
     """A17, I6: the editor stays, the change made just before is kept and saved, and the PDF
     comes as a download with the sheet's name."""
     client = user()
@@ -106,7 +105,7 @@ def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(
     pick(page, "a")
     page.keyboard.press("ArrowRight")
     mend = broken(page, how, r"/sheets/\d+/pdf")
-    page.get_by_role("button", name=name, exact=True).click()
+    page.get_by_role("button", name="Herunterladen", exact=True).click()
     said(page, NO_PDF, how)
     expect(page.locator("main.editor")).to_be_visible()
     expect(page).to_have_url(address)
@@ -115,7 +114,7 @@ def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(
     page.evaluate(RECORD_LINK)
     with page.expect_download() as got:
         again(page)
-    want = f"Plus bis 20{' Lösungen' * (name != 'PDF')}.pdf"
+    want = "Plus bis 20.pdf"
     assert page.evaluate("() => window.__pdfName") == want
     # WebKit's Playwright renames a download to Plus_bis_20.pdf, so only Chromium checks that name.
     if not WEBKIT:

@@ -15,7 +15,7 @@ When a teacher asks for: "Ein Blatt mit Plusaufgaben und einem Suchsel, mehrere 
 * A block without a `seed` prints the same on every variant. Give every block that should change a whole-number seed.
 * The maths block takes its tasks from its limits and `seed`. Its `exercises` is what the server made for those limits, so keep them with the seed.
 * The suchsel draws its grid from `seed`. Its `words` stay the same on every variant.
-* Claude cannot print. The teacher presses the button "Varianten drucken", picks how many variants to print (letters A to D), and the solutions carry the letter. Nothing is stored.
+* Claude cannot print. The teacher opens the download window with the button "Weitere Formate und Optionen", the arrow beside "Herunterladen", picks under "Varianten" how many variants to print (letters A to D), and the solutions carry the letter. Nothing is stored.
 * See [maths](../blocks/maths.md) and [suchsel](../blocks/suchsel.md) for the other props.
 
 # Doc

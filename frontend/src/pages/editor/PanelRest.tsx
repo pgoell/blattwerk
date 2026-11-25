@@ -1,5 +1,5 @@
 // The Lernwörter and the Ansicht of the format panel.
-import { Eraser, Layers, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
+import { Eraser, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
 import { RULINGS, type PageNumbers } from "../../sheet";
 import { MONTESSORI, NAMES, storedPlaces, type PlaceName } from "../../places";
 import { KEY_RED } from "../../sheet/doc";
@@ -31,7 +31,6 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   const mine = session.mine;
   const numbering = session.numbering;
   const onPaste = session.onPaste;
-  const openVariants = session.openVariants;
   const own = session.own;
   const page = session.page;
   const pages = session.pages;
@@ -266,12 +265,6 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                   <p className="hint">Einer, Zehner, Hunderter und Tausender in jedem Mathe-Block. Text und Dezimalzahlen bleiben schwarz.</p>
                 </>
               )}
-              {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
-              <h2>Drucken</h2>
-              <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
-                <Layers size={14} aria-hidden />
-                Varianten drucken
-              </button>
             </>
           )}
     </>

@@ -190,7 +190,7 @@ def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor
         hit = "([x, y]) => document.elementFromPoint(x, y).closest('button').ariaLabel"
         label = bar(page, side).get_attribute("aria-label")
         assert page.evaluate(hit, centre(bar(page, side))) == label
-    assert inside(page, page.get_by_role("button", name="PDF", exact=True))
+    assert inside(page, page.get_by_role("button", name="Herunterladen", exact=True))
     assert inside(page, page.get_by_label("Mehr", exact=True))
 
 

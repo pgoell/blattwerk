@@ -30,9 +30,9 @@ from ui import (
     at,
     box,
     expect_picked,
-    knob,
     user,
 )
+from ui_download import download_window, saver, variants
 
 # The window
 
@@ -55,7 +55,7 @@ def test_where_gives_a_label_and_its_field_as_one_place_the_fields(editor, brows
     # The label holds its field.
     assert tool.where(page, "Randstärke") == f"Randstärke at {middle(slider(page))}"
     # A button's words and the button are one place too.
-    assert tool.where(page, "PDF").count("\n") == 0
+    assert tool.where(page, "Herunterladen").count("\n") == 0
     # On the login page the label stands beside its field.
     context = browser.new_context()
     login = context.new_page()
@@ -184,51 +184,43 @@ def test_406_6_screenshot_takes_a_comma_in_its_name(editor, folder):
         tool.screenshot(page, "../out")
 
 
-@pytest.mark.parametrize("name, args", [("PDF", ()), ("Lösungen", ("Lösungen",))])
-def test_pdf_saves_what_the_bars_button_sends(editor, folder, name, args):
+def test_pdf_saves_what_the_bars_button_sends(editor, folder):
     page = editor(box("a", "text", ONE))
-    path = Path(tool.pdf(page, *args))
-    assert path.parent == folder and path.suffix == ".pdf", (name, path)
+    path = Path(tool.pdf(page))
+    assert path.parent == folder and path.suffix == ".pdf", path
     assert path.read_bytes().startswith(b"%PDF")
 
 
 def test_497_pdf_with_the_variants_dialog_open_takes_the_dialogs_button(editor):
-    # Issue #497: with "Varianten drucken" open, `pdf` and `pdf Lösungen` each found the bar's
-    # button and the dialog's, and refused. The dialog's is the one a click can hit, and its file
-    # holds one page per variant. The bar's file of this sheet would be a single page.
+    # Issue #497: with the download window open, `pdf` found the bar's button and the window's,
+    # and refused. The window's is the one a click can hit, and its file holds one page per
+    # variant. The bar's file of this sheet would be a single page.
     page = editor(box("a", "text", ONE))
-    panel = knob(page.locator(".panel"), "Varianten drucken")
-    if not panel.is_visible():
-        page.get_by_role("tab", name="Ansicht").click()
-    panel.click()
-    dialog = page.locator("dialog.variants")
-    expect(dialog).to_be_visible()
-    assert tool.where(page, "PDF").count("\n") == 1
-    assert tool.where(page, "Lösungen").count("\n") == 1
+    dialog = download_window(page)
+    variants(dialog, 2)
+    assert tool.where(page, "Herunterladen").count("\n") == 1
     plain = PdfReader(io.BytesIO(Path(tool.pdf(page)).read_bytes()))
     assert len(plain.pages) == 2
     expect(dialog).to_be_visible()
-    key = PdfReader(io.BytesIO(Path(tool.pdf(page, "Lösungen")).read_bytes()))
+    tool.click(page, "Mit Lösungen")
+    key = PdfReader(io.BytesIO(Path(tool.pdf(page)).read_bytes()))
     assert len(key.pages) == 2
+    assert "Lösungen" in key.pages[0].extract_text()
 
 
 def test_617_click_on_the_variants_pdf_saves_the_file_in_the_run_folder(editor, folder):
-    # `click` on the dialog's PDF failed and the file landed in Downloads. `pdf X,Y` saved it.
-    # `click "PDF"` and a click at that button's place do what `pdf` does (#617).
+    # `click` on the window's download failed and the file landed in Downloads. `pdf X,Y` saved it.
+    # `click "Herunterladen"` and a click at that button's place do what `pdf` does (#617).
     page = editor(box("a", "text", ONE))
-    panel = knob(page.locator(".panel"), "Varianten drucken")
-    if not panel.is_visible():
-        page.get_by_role("tab", name="Ansicht").click()
-    panel.click()
-    dialog = page.locator("dialog.variants")
-    expect(dialog).to_be_visible()
-    plain = Path(tool.click(page, "PDF"))
+    dialog = download_window(page)
+    variants(dialog, 2)
+    plain = Path(tool.click(page, "Herunterladen"))
     assert plain.parent == folder and plain.suffix == ".pdf"
     assert plain.read_bytes().startswith(b"%PDF")
     assert len(PdfReader(io.BytesIO(plain.read_bytes())).pages) == 2
     expect(dialog).to_be_visible()
     # The same button by its place: `pdf X,Y` saved the file, `click X,Y` did not.
-    place = xy(knob(dialog, "Lösungen"))
+    place = xy(saver(dialog))
     key = Path(tool.click(page, place))
     assert key.parent == folder and key.suffix == ".pdf"
     assert len(PdfReader(io.BytesIO(key.read_bytes())).pages) == 2

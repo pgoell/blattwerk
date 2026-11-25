@@ -1,6 +1,7 @@
 // The bar: the title, the commands that fit, and the clash.
-import { CircleHelp, ClipboardPaste, Copy, CopyPlus, Ellipsis, Eye, Group, FileCheck, FileDown, Layers, MessageSquare, Paintbrush, PanelLeft, PanelRight, Presentation, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
+import { CircleHelp, ClipboardPaste, Copy, CopyPlus, ChevronDown, Ellipsis, Eye, Group, FileDown, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
 import Feedback from "../../components/Feedback";
+import { Switch } from "../../components/Switch";
 import Variants from "../../components/Variants";
 import { fresh } from "../../history";
 import { newer } from "../../saves";
@@ -37,6 +38,10 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
   const lockIt = session.lockIt;
   const locked = session.locked;
   const menu = session.menu;
+  const format = session.format;
+  const setFormat = session.setFormat;
+  const keyed = session.keyed;
+  const setKeyed = session.setKeyed;
   const mode = session.mode;
   const more = session.more;
   const newerSheet = session.newerSheet;
@@ -169,28 +174,12 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
           {inBar("Gruppierung aufheben") && <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />}
           {/* With none of them left in the bar, the divider before them is enough. */}
           {fits !== 0 && <i className="sep" />}
-          {inBar("Lösungen zeigen") && <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />}
           {!leaf && inBar("Kleiner") && zoomer}
           <Tool icon={PanelRight} label="Format und Ansicht" className={`pin${right ? " on" : ""}`} aria-pressed={right} onClick={() => showRight(!right)} />
           {inBar("Rundgang") && <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />}
           <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />
           </Feedback>
-          {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={(e) => openVariants(e.currentTarget)} />}
-          {/* The sheet as a PowerPoint or a Word file: the menu opens under the button. */}
-          {inBar("Als PowerPoint oder Word laden") && (
-            <Tool
-              icon={Presentation}
-              label="Als PowerPoint oder Word laden"
-              className="office"
-              aria-haspopup="menu"
-              aria-expanded={!!menu?.office}
-              onClick={(e) => {
-                const box = e.currentTarget.getBoundingClientRect();
-                setMenu({ x: box.left, y: box.bottom + 4, office: true });
-              }}
-            />
-          )}
           {more.length > 0 && (
             <Tool
               icon={Ellipsis}
@@ -206,19 +195,33 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
               }}
             />
           )}
+          {/* Shows the answers on the sheet. What is downloaded has them only when its window says so. */}
+          <Switch
+            label={
+              <>
+                <Eye size={15} aria-hidden />
+                <span className="words">Lösungen zeigen</span>
+              </>
+            }
+            name="Lösungen zeigen"
+            className="key"
+            on={solved}
+            onChange={setSolved}
+          />
+          {/* The plain PDF at once; the arrow opens the window for the other files, the variants and the answers. */}
           <span className="pdf" data-tour="pdf">
-            <button onClick={() => pdf(true)}>
-              <FileCheck size={14} aria-hidden />
-              Lösungen
-            </button>
-            <button className="primary" onClick={() => pdf(false)}>
+            <button className="primary" aria-label="Herunterladen" title="Als PDF herunterladen" onClick={() => pdf(false)}>
               <FileDown size={14} aria-hidden />
-              PDF
+              <span className="words">Herunterladen</span>
+            </button>
+            <button className="primary" aria-label="Weitere Formate und Optionen" title="Weitere Formate und Optionen" aria-haspopup="dialog" onClick={(e) => openVariants(e.currentTarget)}>
+              <ChevronDown size={14} aria-hidden />
             </button>
           </span>
           {variants && (
             <Variants
               id={file.id}
+              title={title}
               doc={hist.doc}
               count={count}
               setCount={setCount}
@@ -227,7 +230,11 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
               opener={variantsDoor}
               onClose={() => { setVariants(false); setFromPress(undefined); }}
               clash={!!saver?.clash}
-              newer={(key) => newerSheet({ count, letters, print: key, newer: true })}
+              format={format}
+              setFormat={setFormat}
+              solved={keyed}
+              setSolved={setKeyed}
+              newer={(key) => newerSheet({ count, letters, format, solved: key, print: key, newer: true })}
               print={fromPress?.print}
               fresh={fromPress?.newer}
             />

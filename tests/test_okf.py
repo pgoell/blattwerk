@@ -161,8 +161,9 @@ EDITOR = "\n".join(
     for p in sorted((ROOT / "frontend/src/pages/editor").rglob("*"))
     if p.suffix in {".ts", ".tsx"}
 )
-# The editor's buttons: a Tool's label, a menu entry's label, and the shapes' names.
-BUTTONS = set(re.findall(r'label[=:] ?"([^"]+)"', EDITOR)) | set(
+# The editor's buttons: a Tool's label, a menu entry's label, a switch's or a plain button's name,
+# and the shapes' names.
+BUTTONS = set(re.findall(r'(?:label|name)[=:] ?"([^"]+)"', EDITOR)) | set(
     re.findall(r'\["\w+", "([^"]+)", \w+\]', EDITOR)
 )
 

@@ -3,7 +3,7 @@
 Do this for every sheet.
 
 1. Wait for `Gespeichert`. Click `Ganze Seite` in the bar first: the editor opens at 88 % and cuts the page off at the bottom. The zoom has no 100 %: its steps are 77, 88, 110 and 138 %. Compare at `Ganze Seite` only. Then `take_screenshot` of the editor with the whole page in view. Save it as `/tmp/teacher-run/<n>-screen.png`. A sheet of two pages gets one screenshot per page, from the tool's window: see sheet 4.
-2. Click `PDF`. The page stays where it is and the browser saves `~/Downloads/<Titel>.pdf`. Wait until `ls ~/Downloads` shows it. If no file comes within 30 seconds, that is a fault.
+2. Click `Herunterladen`. The page stays where it is and the browser saves `~/Downloads/<Titel>.pdf`. Wait until `ls ~/Downloads` shows it. If no file comes within 30 seconds, that is a fault.
 3. Turn the PDF into pictures, one per page, and delete the PDF:
 
    ```sh
@@ -41,7 +41,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 4. With the exercises picked, set in the right panel: under `Rechenart` turn `−` on beside `+`; `Zahlenraum` to `bis 100`; `Zehnerübergang` to `Mit`; click `Eine Aufgabe mehr` until it says `16 Aufgaben`; click `Eine Spalte mehr` once, so it says `4 Spalten`. In the tool's window: `click "−"`, `click "Zahlenraum"`, `key ArrowDown`, `key Enter` (from `bis 20` that step is `bis 100`; `click "bis 100"` finds nothing), `click "Mit"`. `value "Zehnerübergang"` prints `Mit`. Hunderterübergang is not offered at bis 100: the Zahlenraum does not go past 100.
 5. Check on screen: 16 exercises, 4 columns, only plus and minus, no number and no result above 100, no result below 0, each crosses a ten (a sum of the Einer of exactly 10 does not). The numbers differ from run to run.
 6. Export and compare.
-7. The answer key: `Lösungen zeigen` turns it on screen. In the window of 1280 px it lies under `Mehr` at the bar's right: in the tool's window `click "Mehr"`, then `click "Lösungen zeigen"`; in the MCP page click `Mehr`, `take_snapshot`, and click the item `Lösungen zeigen` by its uid, since the snapshot shows it only while the menu is open. A wider window has it in the bar as the eye icon. The results show on screen. Take a screenshot, then click `Lösungen`, which saves `~/Downloads/TR1 Rechnen Lösungen.pdf`. Turn it into a picture as above. Check that the key holds the same 16 exercises as the sheet, that every result is right (work each one out), and that the plain PDF from step 6 shows no result. Turn `Lösungen zeigen` off again.
+7. The answer key: the switch `Lösungen zeigen` in the bar turns it on screen: `click "Lösungen zeigen"`. The results show on screen. Take a screenshot. Then open the download window with the arrow `Weitere Formate und Optionen` beside `Herunterladen`, switch `Mit Lösungen` on and click that window's `Herunterladen`, which saves `TR1 Rechnen Lösungen.pdf`; close the window with `Schließen`. Turn it into a picture as above. Check that the key holds the same 16 exercises as the sheet, that every result is right (work each one out), and that the plain PDF from step 6 shows no result. Turn `Lösungen zeigen` off again.
 
 ### 2. Lineatur writing sheet, title `TR2 Schreiben`
 

@@ -47,7 +47,20 @@ dialog.variants label { display: inline-flex; align-items: center; gap: 6px; mar
 /* The dialog lies in the bar, whose rule for the title's field would make each box 80px wide. */
 dialog.variants input { min-width: 0; margin: 0; }
 dialog.variants .preview {
-  display: flex; gap: 12px; height: 320px; overflow: auto; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+  display: flex; gap: 12px; height: 360px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+}
+/* The download window: the preview on the left, the choices on the right; one under the other where it is narrow. */
+dialog.variants { width: min(820px, calc(100vw - 24px)); }
+dialog.variants .sides { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+dialog.variants .choices > fieldset:first-child { margin-top: 0; }
+dialog.variants .choices .sw { margin-top: 14px; }
+dialog.variants .named { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin: 14px 0 0; }
+dialog.variants .named span { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+dialog.variants .named input { flex: 1; max-width: none; padding: 0 8px; border-color: var(--line); background: var(--field); font-weight: 400; }
+dialog.variants fieldset:disabled { opacity: .5; }
+@media (max-width: 700px) {
+  dialog.variants .sides { grid-template-columns: minmax(0, 1fr); }
+  dialog.variants .preview { height: 220px; }
 }
 /* A page keeps the size the preview gave it: the row never squeezes it narrower. */
 dialog.variants .preview > .paper { flex: none; }

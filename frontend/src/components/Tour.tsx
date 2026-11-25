@@ -106,7 +106,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Drucken",
-    text: "„PDF“ lädt das Blatt zum Drucken, „Lösungen“ dasselbe Blatt mit den Ergebnissen. „Varianten drucken“ macht mehrere Fassungen, damit der Nachbar nicht abschreibt. Speichern musst du nie: Das Blatt sichert sich von selbst.",
+    text: "„Herunterladen“ lädt das Blatt als PDF zum Drucken. Der Pfeil daneben öffnet ein Fenster für alles Weitere: das Blatt mit Lösungen, als Word oder PowerPoint, oder in mehreren Varianten, damit der Nachbar nicht abschreibt. Speichern musst du nie: Das Blatt sichert sich von selbst.",
     find: "[data-tour=pdf]",
   },
   {

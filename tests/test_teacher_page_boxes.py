@@ -145,9 +145,12 @@ def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, s
 
 
 @pytest.mark.native
-def test_the_answer_key_shows_by_mehr_and_its_item_in_two_calls(folder, server, playwright):
-    """#773: in the window of 1280 px "Lösungen zeigen" lies under "Mehr", and one call opens the
-    menu while the next, a client of its own, clicks the item."""
+def test_the_answer_key_is_a_switch_and_a_folded_command_takes_two_calls(
+    folder, server, playwright
+):
+    """#773 and #1186: in the window of 1280 px "Lösungen zeigen" is a switch in the bar. A command
+    that a narrower window folds takes two calls: one opens "Mehr", and the next, a client of its
+    own, clicks the item."""
     email = f"{uuid4().hex}@example.com"
     client = user(email)
     sheet(client, [box("a", "text", ONE)], title="Probe")
@@ -156,6 +159,10 @@ def test_the_answer_key_shows_by_mehr_and_its_item_in_two_calls(folder, server, 
         done = run(folder, server, *words)
         assert done.returncode == 0, (words, done.stdout, done.stderr)
         return done.stdout
+
+    def joined_page():
+        joined = playwright.chromium.connect_over_cdp(tool.running()["endpoint"])
+        return joined, joined.contexts[0].pages[0]
 
     try:
         ok("start")
@@ -167,13 +174,18 @@ def test_the_answer_key_shows_by_mehr_and_its_item_in_two_calls(folder, server, 
         ok("click", "Probe")
         ok("click", "Beenden")
         ok("where", "Gespeichert")
-        assert run(folder, server, "where", "Lösungen zeigen").returncode == 1
-        ok("click", "Mehr")
+        # No command is folded at this width: the last one of the bar is there.
+        ok("where", "Feedback")
         ok("click", "Lösungen zeigen")
+        joined, page = joined_page()
+        expect(page.get_by_role("switch", name="Lösungen zeigen")).to_be_checked()
+        joined.close()
+        ok("resize", "900", "800")
+        assert run(folder, server, "where", "Feedback").returncode == 1
         ok("click", "Mehr")
-        joined = playwright.chromium.connect_over_cdp(tool.running()["endpoint"])
-        item = joined.contexts[0].pages[0].get_by_role("menuitemcheckbox", name="Lösungen zeigen")
-        expect(item).to_have_attribute("aria-checked", "true")
+        ok("click", "Feedback")
+        joined, page = joined_page()
+        expect(page.locator("dialog.feedback")).to_be_visible()
         joined.close()
     finally:
         run(folder, server, "stop")

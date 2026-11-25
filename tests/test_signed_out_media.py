@@ -70,7 +70,7 @@ def test_a_pdf_that_finds_the_session_gone_brings_the_login_and_stays_in_the_app
     page.on("download", lambda download: left.append(download))
     page.on("framenavigated", lambda frame: left.append(frame.url))
     with page.expect_response(f"{run.server}/api/me") as got:
-        page.get_by_role("button", name="PDF", exact=True).click()
+        page.get_by_role("button", name="Herunterladen", exact=True).click()
     assert got.value.status == 401
     expect_login(page, address)
     expect(page.locator(NOTICE)).to_have_text([WAITS] if change else [])

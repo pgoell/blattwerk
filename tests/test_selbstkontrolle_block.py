@@ -120,9 +120,9 @@ def test_a_word_that_variant_b_cannot_fill_is_named_in_the_dialog(editor):
         route.fulfill(json=answer)
 
     page.route("**/api/sheets/*/variante/B", one_task_less)
-    page.get_by_role("tab", name="Ansicht").click()
-    page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     expect(page.get_by_role("dialog")).to_be_visible()
+    page.get_by_role("radio", name="2", exact=True).check()
     expect(page.get_by_role("alert")).to_contain_text("Selbstkontrolle-Block auf Seite 1")
 
 

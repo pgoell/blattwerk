@@ -15,7 +15,7 @@ When a teacher asks for: "Ein Lückentext mit einer Wortbox darunter und den Lö
 * `text` holds the same words as one plain string. Keep the two in step.
 * `gapWidth: 25` makes every gap at least 25 mm wide, so the pupil has room to write.
 * `bank: 3` prints a box of the hidden words under the text, shuffled. The number is the seed for the order.
-* The teacher sees the answers with the button "Lösungen zeigen". To print them, the teacher downloads the PDF "Lösungen". The plain PDF has no answers.
+* The teacher sees the answers with the button "Lösungen zeigen". To print them, the teacher opens the download window with the button "Weitere Formate und Optionen", the arrow beside "Herunterladen", switches "Mit Lösungen" on and presses "Herunterladen" there. The plain PDF has no answers.
 * See [text](../blocks/text.md) for the other props.
 
 # Doc

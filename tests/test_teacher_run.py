@@ -30,8 +30,9 @@ TITLES = ["TR1 Rechnen", "TR2 Schreiben", "TR3 Bild und Tabelle", "TR4 Zwei Seit
 # `Gespeichert`, the word the reader waits for in the editor: the bar picks it beside
 # "Nicht gespeichert".
 LABELS = [
-    "PDF",
-    "Lösungen",
+    "Herunterladen",
+    "Weitere Formate und Optionen",
+    "Mit Lösungen",
     "Lösungen zeigen",
     "Anmelden",
     "E-Mail",
@@ -115,8 +116,8 @@ def test_a9_the_brief_names_what_the_issue_asks():
     for n, title in enumerate(TITLES, 1):
         assert re.search(r"^\d+\. Export and compare\.", section(f"### {n}. "), re.M), title
         assert re.search(rf"^### {n}\. .*title `{title}`$", sheets, re.M), title
-    assert "Click `PDF`" in section("## Export and compare")
-    assert "`Lösungen`" in section("### 1. ")
+    assert "Click `Herunterladen`" in section("## Export and compare")
+    assert "`Mit Lösungen`" in section("### 1. ")
 
     # The time box of the last part, and where its pull requests come from.
     prs = section(PRS)
