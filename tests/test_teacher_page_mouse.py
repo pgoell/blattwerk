@@ -291,8 +291,7 @@ def test_536_a_lineatur_font_and_its_trace_answer_to_their_names(editor):
 def test_536_a_table_font_is_schriftart_der_tabelle(editor):
     page = editor(box("t", "table", TABLE))
     tool.click(page, "H")
-    with pytest.raises(tool.Refused, match="Schriftart"):
-        tool.click(page, "Schriftart")
+    # "Schriftart" alone is the caption over the list since #1188, not the list: its own name opens it.
     tool.click(page, "Schriftart der Tabelle")
     expect(page.get_by_role("listbox", name="Liste: Schriftart der Tabelle")).to_be_visible()
 
