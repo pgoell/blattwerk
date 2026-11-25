@@ -119,6 +119,9 @@ dialog.library .find { display: flex; align-items: center; gap: 8px; margin: 10p
 dialog.library .find:focus-within { border-color: var(--accent); }
 dialog.library .find input { flex: 1; min-width: 0; min-height: var(--ctl); padding: 0; border: 0; outline: 0; box-shadow: none; background: none; color: var(--ink); font: inherit; }
 dialog.library .shelf { overflow-y: auto; padding: 0 12px 12px; }
+/* The tools that are no cards, before the first group: a row of buttons a finger hits. */
+dialog.library .lead { display: flex; gap: 8px; margin-top: 8px; }
+dialog.library .lead button { flex: 1; min-height: 44px; gap: 8px; font-weight: 500; }
 dialog.library h3 { margin: 12px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 dialog.library .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 8px; }
 dialog.library .card {

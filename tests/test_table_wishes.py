@@ -44,8 +44,7 @@ def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(e
         assert at(page, "t").bounding_box() == still
     assert page.evaluate(where) == scrolled
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
-    # On the iPad held upright the format panel is a drawer: its button keeps the cells picked.
-    bar(page, "right").tap()
+    # On the iPad held upright the format panel came up from below with the pick: the cells stay picked.
     expect_lit(bar(page, "right"), "true")
     page.get_by_role("button", name="Zellen verbinden", exact=True).tap()
     expect(cell(page, "t", 0)).to_have_attribute("data-span", "2x2")

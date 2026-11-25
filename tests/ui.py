@@ -26,7 +26,7 @@ import threading
 import time
 import unicodedata
 import zlib
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from uuid import uuid4
 
 import uvicorn
@@ -421,16 +421,22 @@ def tool(page, label):
 
 
 def insert(page, label):
-    """Adds a maths block from the library "Mathe-Blöcke" of the dock (or of Blattform's panel): opens
-    it and picks the card of that name."""
-    page.locator(".dock, .insert").get_by_label("Mathe-Blöcke", exact=True).click()
+    """Adds a maths block from the library "Mathe-Blöcke" of the dock (or of Blattform's panel, or
+    "Mathe" in the tablet's rail): opens it and picks the card of that name."""
+    page.locator(".dock, .insert, .rail").get_by_label(re.compile("^Mathe(-Blöcke)?$")).click()
     page.locator("dialog.library").get_by_label(label, exact=True).click()
 
 
 def drawer(page, side):
-    """Opens a panel on the iPad held upright, where both start shut and lie over the sheet."""
-    bar(page, side).tap()
-    expect_lit(bar(page, side), "true")
+    """Opens a panel on the iPad held upright, where both start shut. Format has come up by itself
+    under a picked block (#1187)."""
+    knob = bar(page, side)
+    if side == "right" and page.locator(".block.sel").count():
+        with suppress(AssertionError):
+            expect(knob).to_have_attribute("aria-pressed", "true", timeout=500)
+    if knob.get_attribute("aria-pressed") != "true":
+        knob.tap()
+    expect_lit(knob, "true")
 
 
 def thumb(page, n):

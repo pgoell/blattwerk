@@ -27,12 +27,17 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
   const edge = (...a: any[]) => (session as Record<string, any>).edge(...a);
   const steer = (...a: any[]) => (session as Record<string, any>).steer(...a);
 // Each turn upright starts with both shut.
-  useEffect(() => setDrawer(undefined), [drawers]);
+  // The Format panel there comes from below and is none of the drawers: the pages may lie open beside it.
+  const [below, setBelow] = useState(false);
+  useEffect(() => {
+    setDrawer(undefined);
+    setBelow(false);
+  }, [drawers]);
   const leaf = leafy && !drawers;
   const left = drawers ? drawer === "left" : side;
-  const right = drawers ? drawer === "right" : pane;
+  const right = drawers ? below : pane;
   const showLeft = (on: boolean) => (drawers ? setDrawer(on ? "left" : undefined) : setSide(on));
-  const showRight = (on: boolean) => (drawers ? setDrawer(on ? "right" : undefined) : setPane(on));
+  const showRight = (on: boolean) => (drawers ? setBelow(on) : setPane(on));
   // The bar is one row, and what has no room in it lies behind "Mehr": `fits` is how many of the commands that may
   // fold stay in the bar, counted from its left. While it is not known all of them are drawn in the bar, where they
   // are measured and the count is set before the browser paints.
@@ -176,41 +181,24 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
     addEventListener("pointerup", stop);
     addEventListener("pointercancel", stop);
   };
-  // An open Format drawer lies over the sheet's right end. The desk scrolls so the picked block, or the caret in the
-  // open text, stays in view beside it: the drawer shows the room on the desk's right, see `.drawn` in styles.css.
-  const drawnRight = drawers && drawer === "right";
-  // The desk's scroll before the drawer moved it: shutting the drawer puts it back.
-  const scrolledFrom = useRef<number | undefined>(undefined);
+  // On the tablet held upright the Format panel comes up from below when something is picked, and goes when nothing
+  // is. "Fertig" shuts it under a picked block, and the bar's button opens it over none.
+  const picked = ids.join();
+  const first = useRef(true);
+  useEffect(() => {
+    // Not for what was picked when the tablet turned.
+    if (first.current) return void (first.current = false);
+    if (drawers) setBelow(!!picked);
+  }, [picked]);
+  // The open panel takes the desk's lower part. The desk scrolls so the picked block, or the caret in the open text,
+  // stays in view above it.
+  const drawnRight = drawers && below;
   useLayoutEffect(() => {
-    const el = desk.current;
-    if (!drawnRight) {
-      if (el && scrolledFrom.current !== undefined) el.scrollLeft = scrolledFrom.current;
-      scrolledFrom.current = undefined;
-      return;
-    }
-    const panel = document.querySelector("aside.panel");
-    if (!el || !panel || !ids.length) return;
-    // The part to keep in view, as its left and right edges on the window.
-    let rect: { left: number; right: number } | undefined;
-    if (editing) {
-      const caret = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : undefined;
-      // A caret at the end of a line may have no size: then the text's box stands in for it.
-      rect = caret && (caret.width || caret.height) ? caret : document.querySelector(`.block[data-id="${editing}"]`)?.getBoundingClientRect();
-    } else {
-      const boxes = ids.map((id) => document.querySelector(`.block[data-id="${id}"]`)?.getBoundingClientRect()).filter((b): b is DOMRect => !!b);
-      if (boxes.length) rect = { left: Math.min(...boxes.map((b) => b.left)), right: Math.max(...boxes.map((b) => b.right)) };
-    }
-    if (!rect) return;
-    // Scroll until the part clears the panel's left edge with a gap, but no further than the desk's own left edge allows.
-    const gap = 16;
-    const dx = rect.right - (panel.getBoundingClientRect().left - gap);
-    const by = dx > 0 ? Math.max(0, Math.min(dx, rect.left - (el.getBoundingClientRect().left + gap))) : 0;
-    if (by > 0) {
-      scrolledFrom.current = el.scrollLeft;
-      el.scrollLeft += by;
-    }
-  }, [drawnRight]);
+    if (!drawnRight || !ids.length) return;
+    const el = editing ? (getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).startContainer.parentElement : null) : null;
+    (el?.closest(".block") ? el : document.querySelector(`.block[data-id="${ids[0]}"]`))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [drawnRight, picked]);
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
-    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, templates, setTemplates, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, spaceButton, asked, stage, desk, dragDesk, middlePan, drawnRight, scrolledFrom, moveable, picker });
+    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, templates, setTemplates, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, spaceButton, asked, stage, desk, dragDesk, middlePan, drawnRight, moveable, picker });
 }

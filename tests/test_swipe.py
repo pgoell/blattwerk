@@ -1,4 +1,4 @@
-"""The iPad held upright: a swipe in from an edge opens that side's drawer, and back shuts it.
+"""The iPad held upright: a swipe in from the left edge opens the page list, and back shuts it.
 
 On its side nothing opens by a swipe, and a mouse drag from the edge opens nothing either.
 """
@@ -24,6 +24,8 @@ from ui import (
 )
 
 SIDES = pytest.mark.parametrize("side", ["left", "right"])
+# How wide the rail of tools is at the window's left.
+RAIL = 76
 
 
 def text(name, z):
@@ -44,91 +46,91 @@ def to_edge(page, name, left):
 
 
 @SIDES
-def test_f_an_edge_swipe_opens_the_drawer_on_its_side(editor, side):
-    """F: a swipe in from the left edge opens the page list, one from the right the format panel."""
+def test_f_a_swipe_from_the_left_edge_opens_the_pages_and_one_from_the_right_nothing(editor, side):
+    """F: a swipe in from the left edge opens the page list. The Format panel comes from below
+    (#1187): a swipe in from the right edge opens nothing."""
     page = editor(text("a", 1), touch=True)
     shut(page)
     if side == "left":
         swipe(page, (3, 600), (30, 600), (60, 600), (100, 600), (160, 600))
+        expect_lit(bar(page, "left"), "true")
+        expect(page.locator("aside.left")).to_be_visible()
     else:
         swipe(page, (831, 600), (800, 600), (760, 600), (720, 600), (680, 600))
-    expect_lit(bar(page, side), "true")
-    expect(page.locator(f"aside.{'left' if side == 'left' else 'panel'}")).to_be_visible()
+        shut(page)
+        expect(page.locator("aside.panel")).to_have_count(0)
 
 
-@SIDES
-def test_g_a_swipe_back_to_its_edge_shuts_the_open_drawer(editor, side):
-    """G: an open drawer shuts when a finger swipes it back towards its edge."""
+def test_g_a_swipe_back_to_its_edge_shuts_the_open_pages(editor):
+    """G: the open page list shuts when a finger swipes it back towards its edge. The Format panel
+    shuts by a swipe down: tests/test_tablet.py."""
     page = editor(text("a", 1), touch=True)
-    drawer(page, side)
-    if side == "left":
-        swipe(page, (200, 600), (160, 600), (120, 600), (80, 600), (40, 600))
-    else:
-        swipe(page, (640, 600), (680, 600), (720, 600), (760, 600), (800, 600))
-    expect_lit(bar(page, side), "false")
+    drawer(page, "left")
+    swipe(page, (200, 600), (160, 600), (120, 600), (80, 600), (40, 600))
+    expect_lit(bar(page, "left"), "false")
 
 
-def test_4_a_swipe_opens_the_format_drawer_beside_the_picked_block(editor):
-    """Implied 4: a swipe opens the Format drawer beside the picked block, as its button does."""
-    page = editor(box("a", "shape", RECT, z=1, x=150, w=50), touch=True)
+def test_4_a_sideways_swipe_on_the_open_panel_leaves_it_open(editor):
+    """Implied 4: a swipe across the Format panel, as over a row of its buttons, leaves it open."""
+    page = editor(box("a", "shape", RECT, z=1, x=20, y=20, w=50), touch=True)
     shut(page)
     at(page, "a").tap()
     expect_picked(page, "a")
-    y = at(page, "a").bounding_box()["y"] + 400
-    swipe(page, (831, y), (800, y), (760, y), (720, y), (680, y))
     expect_lit(bar(page, "right"), "true")
-    page.wait_for_function("document.querySelector('.desk').scrollLeft > 0")
-    place = at(page, "a").bounding_box()
-    assert place["x"] + place["width"] <= page.locator("aside.panel").bounding_box()["x"]
+    y = page.locator("aside.panel").bounding_box()["y"] + 200
+    swipe(page, (640, y), (680, y), (720, y), (760, y), (800, y))
+    expect_lit(bar(page, "right"), "true")
 
 
 def test_h_a_swipe_from_the_edge_over_a_block_moves_nothing_and_opens_nothing(editor):
-    """H: a zoomed sheet covers the left edge. A swipe from the edge over a block opens no drawer
-    and moves no block."""
+    """H: a zoomed sheet reaches under the rail. A swipe from the desk's left edge over a block
+    opens no drawer and moves no block."""
     page = editor(text("a", 1), touch=True)
     for _ in range(3):
         tool(page, "Größer").tap()
-    to_edge(page, "a", -20)
-    assert page.locator(".sheet").first.bounding_box()["x"] < 0
+    to_edge(page, "a", RAIL - 20)
+    assert page.locator(".sheet").first.bounding_box()["x"] < RAIL
     y = centre(at(page, "a"))[1]
     before = at(page, "a").evaluate("el => [el.style.left, el.style.top]")
-    swipe(page, (3, y), (30, y), (60, y), (100, y))
+    swipe(page, (RAIL + 3, y), (RAIL + 30, y), (RAIL + 60, y), (RAIL + 100, y))
     shut(page)
     assert at(page, "a").evaluate("el => [el.style.left, el.style.top]") == before
 
 
 def test_i_a_finger_drag_of_a_picked_block_at_the_edge_moves_it_and_opens_nothing(editor):
-    """I: a picked block at the left edge, dragged by a finger rightwards: it moves, no drawer."""
+    """I: a picked block at the desk's left edge, dragged by a finger rightwards: it moves, no drawer."""
     page = editor(text("a", 1), touch=True)
     for _ in range(3):
         tool(page, "Größer").tap()
-    # The block's left edge lies left of the window's: the finger comes down in the edge zone.
-    to_edge(page, "a", -10)
+    # The block's left edge lies under the rail: the finger comes down at the desk's edge.
+    to_edge(page, "a", RAIL - 10)
     at(page, "a").tap()
     expect_picked(page, "a")
     y = centre(at(page, "a"))[1]
     before = at(page, "a").bounding_box()["x"]
-    swipe(page, (12, y), (52, y), (92, y), (132, y), (172, y))
+    swipe(page, (RAIL + 12, y), (RAIL + 52, y), (RAIL + 92, y), (RAIL + 132, y), (RAIL + 172, y))
     assert at(page, "a").bounding_box()["x"] > before + 20
-    shut(page)
+    # The pick brought the Format panel up, and the drag opened no pages.
+    expect_lit(bar(page, "left"), "false")
 
 
 def test_j_a_brush_drag_from_the_edge_paints_and_opens_nothing(editor):
-    """J: the brush paints a text at the left edge by a mouse drag across it, no drawer opens."""
+    """J: the brush paints a text at the desk's left edge by a mouse drag across it, no pages open."""
     client = user()
-    # "a" is bold and "b" is not; "b" lies at the window's left edge, "a" lies far to the right.
+    # "a" is bold and "b" is not; "b" lies at the desk's left edge, "a" lies far to the right.
     a = {**box("a", "text", {**TEXT, "bold": True}, z=2), "y": 120}
     page = editor(a, text("b", 1), touch=True, client=client)
     for _ in range(3):
         tool(page, "Größer").tap()
-    to_edge(page, "b", 6)
+    to_edge(page, "b", RAIL + 6)
     at(page, "a").click()
     expect_picked(page, "a")
     tool(page, "Format übertragen").click()
+    # The pick brought the panel up and the desk scrolled to "a": back to "b".
+    page.locator(".desk").evaluate("el => (el.scrollTop = 0)")
     y = centre(at(page, "b"))[1]
-    drag(page, (12, y), (60, y), (120, y))
+    drag(page, (RAIL + 12, y), (RAIL + 60, y), (RAIL + 120, y))
     expect_lit(bar(page, "left"), "false")
-    expect_lit(bar(page, "right"), "false")
     looks = {b["id"]: b["props"].get("bold", False) for b in saved(page, client)}
     assert looks["b"] is True
 
@@ -140,14 +142,15 @@ def test_k_a_mouse_drag_from_the_edge_opens_no_drawer(editor):
     shut(page)
 
 
-def test_5_a_drawer_opened_by_swipe_shuts_when_the_other_opens(editor):
-    """5: one drawer opened by a swipe shuts when a swipe opens the other."""
-    page = editor(text("a", 1), touch=True)
+def test_5_the_pages_opened_by_a_swipe_stay_open_when_a_pick_brings_the_panel_up(editor):
+    """5: the Format panel is none of the drawers (#1187): the pages stay open beside it."""
+    page = editor(box("a", "text", TEXT, z=1, x=120, y=20, w=60), touch=True)
     swipe(page, (3, 600), (30, 600), (60, 600), (100, 600), (160, 600))
     expect_lit(bar(page, "left"), "true")
-    swipe(page, (831, 600), (800, 600), (760, 600), (720, 600), (680, 600))
+    at(page, "a").tap()
+    expect_picked(page, "a")
     expect_lit(bar(page, "right"), "true")
-    expect_lit(bar(page, "left"), "false")
+    expect_lit(bar(page, "left"), "true")
 
 
 def test_6_a_vertical_swipe_on_the_open_drawer_leaves_it_open(editor):

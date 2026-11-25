@@ -1,7 +1,7 @@
 // The library "Mathe-Blöcke": a field over the sheet with a search box and, in groups, a card for each maths block
 // with a small picture of it. A modal dialog as the menus are, so Escape and the focus are its own.
 import { memo, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Search } from "lucide-react";
+import { Search, type LucideIcon } from "lucide-react";
 import type { Fresh } from "../insert";
 import { found, type Entry } from "../pages/editor/library";
 import { Paper, type Block, type Doc } from "../sheet";
@@ -26,9 +26,10 @@ const Picture = memo(function Picture({ entry }: { entry: Entry }) {
 });
 
 // `up` puts the field's bottom edge at `y`, over a row of tools; without it the field's top is at `y`.
-type Props = { x: number; y: number; up?: boolean; onPick: (fresh: (seed: number) => Fresh) => void; onClose: () => void };
+// `lead` holds tools that stand before the cards, each a button with its name: the tablet's rail has no room for them.
+type Props = { x: number; y: number; up?: boolean; lead?: { label: string; icon?: LucideIcon; run: () => void }[]; onPick: (fresh: (seed: number) => Fresh) => void; onClose: () => void };
 
-export default function Library({ x, y, up, onPick, onClose }: Props) {
+export default function Library({ x, y, up, lead, onPick, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
   // The card the arrows are on, which Enter adds: a place in the cards that the search left.
@@ -119,6 +120,23 @@ export default function Library({ x, y, up, onPick, onClose }: Props) {
         />
       </label>
       <div className="shelf">
+        {lead && !query && (
+          <div className="lead">
+            {lead.map(({ label, icon: Icon, run }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  shut();
+                  run();
+                }}
+              >
+                {Icon && <Icon size={16} aria-hidden />}
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {groups.map((g) => (
           <section key={g.name} aria-label={g.name}>
             <h3>{g.name}</h3>

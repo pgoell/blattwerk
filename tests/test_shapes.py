@@ -286,14 +286,14 @@ def test_a_finger_inserts_a_shape_and_moves_the_slider(editor, size):
     page.set_viewport_size({"width": size[0], "height": size[1]})
     upright = size[0] < size[1]
     if upright:
-        # Held upright the shapes stand in the bar at the lower edge, which lies inside the window
-        # and scrolls sideways.
-        expect(page.locator(".dock .shapes .ib")).to_have_count(9)
-        bar = page.locator(".dock").bounding_box()
+        # Held upright the shapes are the list of "Formen" in the rail, which lies inside the window.
+        bar = page.locator(".rail").bounding_box()
         assert bar["x"] >= 0
         assert bar["x"] + bar["width"] <= size[0]
         assert bar["y"] + bar["height"] <= size[1]
-        page.locator(".dock").get_by_label("Stern", exact=True).tap()
+        page.locator(".rail").get_by_label("Formen", exact=True).tap()
+        expect(page.get_by_role("menuitem")).not_to_have_count(0)
+        page.get_by_role("menuitem", name="Stern", exact=True).tap()
     else:
         # Every shape's button lies inside the bar, and nothing in the bar runs out of it sideways.
         bar = page.locator(".insert").bounding_box()

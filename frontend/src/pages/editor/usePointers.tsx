@@ -114,8 +114,8 @@ useEffect(() => {
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
   });
-  // On the iPad held upright a swipe in from a window's edge opens that side's drawer, and a swipe of an open drawer
-  // back to its edge shuts it. Only one finger counts, and only a swipe across more than a vertical one: a scroll
+  // On the iPad held upright a swipe in from the window's left edge opens the drawer of pages, and a swipe of the open
+  // drawer back to its edge shuts it. Only one finger counts, and only a swipe across more than a vertical one: a scroll
   // of the drawer or a drag of a block keeps its own. Set by hand, as the desk must not pan once a swipe is taken.
   useEffect(() => {
     if (!drawers) return;
@@ -125,9 +125,9 @@ useEffect(() => {
       const { clientX: x, clientY: y } = e.touches[0];
       const on = e.target as Element;
       const free = !on.closest(".sheet, header, aside, .dock, .moveable-control-box");
-      const panel = drawer && on.closest(drawer === "left" ? "aside.left" : "aside.panel");
-      const shut = panel && !on.closest("input, select, textarea, [draggable=true]") && !tug.current?.held ? drawer : undefined;
-      const open = free && x <= 24 ? "left" : free && x >= innerWidth - 24 ? "right" : undefined;
+      const panel = on.closest("aside.panel .grab") ? "right" : drawer === "left" && on.closest("aside.left") ? "left" : undefined;
+      const shut = panel && !on.closest("input, select, textarea, [draggable=true]") && !tug.current?.held ? panel : undefined;
+      const open = free && x <= 24 ? "left" : undefined;
       if (open || shut) swipe.current = { x, y, open, shut };
     }
     function onMove(e: globalThis.TouchEvent) {
@@ -141,15 +141,22 @@ useEffect(() => {
       const dx = e.touches[0].clientX - s.x;
       const dy = e.touches[0].clientY - s.y;
       if (s.decided) return e.preventDefault();
+      // The Format panel came up from below: a swipe down by its grip sends it back.
+      if (s.shut === "right") {
+        if (dy > 40 && dy > 2 * Math.abs(dx)) {
+          showRight(false);
+          s.decided = true;
+          e.preventDefault();
+        } else if (Math.abs(dx) > 40) swipe.current = undefined;
+        return;
+      }
       if (Math.abs(dx) <= 40 || Math.abs(dx) <= 2 * Math.abs(dy)) {
         // A scroll that runs up or down first is not a swipe.
         if (Math.abs(dy) > 40 && Math.abs(dy) > 2 * Math.abs(dx)) swipe.current = undefined;
         return;
       }
       if (s.open === "left" && dx > 0) showLeft(true);
-      else if (s.open === "right" && dx < 0) showRight(true);
       else if (s.shut === "left" && dx < 0) showLeft(false);
-      else if (s.shut === "right" && dx > 0) showRight(false);
       else {
         swipe.current = undefined;
         return;

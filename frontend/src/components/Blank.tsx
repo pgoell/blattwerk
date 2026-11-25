@@ -13,7 +13,7 @@ export function useSheetChrome() {
   }, []);
 }
 
-// An iPad held upright: the panels are drawers over the desk. The same words as in styles.css.
+// An iPad held upright: a rail of tools at the left, the pages a drawer over the desk. The same words as in styles.css.
 export const DRAWERS = matchMedia("(orientation: portrait) and (min-width: 701px) and (max-width: 1099px)");
 // How the editor opens. Blattform lays it out anew on a wide window, `leafy`, from the width of an iPad on its
 // side: beside the green panel a narrower window has no room for the bar's one row. `side` is whether the panel of
@@ -79,6 +79,8 @@ export default function Blank({ late }: { late: boolean }) {
         )}
       </header>
       {(leaf || side) && !drawers && <aside className="left" />}
+      {/* The rail of the tablet held upright, empty until the editor is there. */}
+      {drawers && <div className="rail" />}
       <div className="stage">
         <div className="desk">
           <div className="sheet blank" role="status">

@@ -58,7 +58,7 @@ def test_a_tools_name_shows_whole_over_it_on_hover_in_a_narrow_window(editor):
 
 
 @THEMES
-@pytest.mark.parametrize("width", [360, 600, 701])
+@pytest.mark.parametrize("width", [360, 600, 700])
 def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(editor, theme, width):
     """A2, I2, I3"""
     page = narrow(editor, width, theme=theme)
@@ -164,7 +164,7 @@ def test_for_a_finger_no_shapes_name_shows_in_blattforms_left_panel_and_nothing_
 @THEMES
 def test_for_a_mouse_the_dock_wraps_in_a_narrow_window_as_in_a_wider_one(editor, theme):
     """B2"""
-    wide = narrow(editor, 701, theme=theme).evaluate(DOCK)
+    wide = narrow(editor, 700, theme=theme).evaluate(DOCK)
     small = narrow(editor, 600, theme=theme).evaluate(DOCK)
     for got in (wide, small):
         assert got["wrap"] == "wrap" and got["flow"] == "visible" and not got["scrolls"], got
@@ -200,7 +200,7 @@ def test_for_a_mouse_every_tool_of_the_wrapped_dock_lies_in_the_window(editor, t
 
 
 # The desk scrolled to its end: how far the last sheet reaches under the highest dock, the room
-# each of the three keeps free of the dock, and what the dock needs from the desk's lower edge.
+# the desk and a block keep free of the dock, and what the dock needs from the desk's lower edge.
 ROOM = """() => {
     const desk = document.querySelector(".desk");
     desk.scrollTop = desk.scrollHeight;
@@ -212,7 +212,6 @@ ROOM = """() => {
         over: [...desk.querySelectorAll(".sheet")].at(-1).getBoundingClientRect().bottom - top,
         desk: px(desk, "paddingBottom"),
         block: px(desk.querySelector(".block"), "scrollMarginBottom"),
-        drawer: px(document.querySelector(".left, .panel"), "paddingBottom"),
         needs: desk.getBoundingClientRect().bottom - top,
         rows: new Set(tops(".stage .dock .ib").map(Math.round)).size,
     };
@@ -220,7 +219,7 @@ ROOM = """() => {
 
 
 @THEMES
-@pytest.mark.parametrize("width", [360, 701])
+@pytest.mark.parametrize("width", [360, 700])
 def test_for_a_mouse_the_dock_lies_over_no_part_of_the_sheet_scrolled_to_its_end(
     editor, theme, width
 ):
@@ -248,12 +247,12 @@ def test_for_a_finger_the_desk_keeps_the_room_it_had_under_a_dock_of_one_row(edi
 
 def test_all_that_keeps_clear_of_the_dock_follows_its_height(editor):
     """I8"""
-    # An upright window with a mouse: the panels are drawers, and the dock has two rows.
-    page = narrow(editor, 701)
-    page.get_by_role("button", name="Seiten und Vorlagen").click()
+    # A narrow window with a mouse: the dock has two rows. The upright tablet has a rail and no
+    # dock (#1187), so no drawer lies under one.
+    page = narrow(editor, 700)
     got = page.evaluate(ROOM)
     assert got["rows"] == 2 and got["desk"] > 88, got
-    assert got["desk"] == got["block"] == got["drawer"] >= got["needs"], got
+    assert got["desk"] == got["block"] >= got["needs"], got
     got = narrow(editor, 1400).evaluate(ROOM)
     assert got["rows"] == 1 and got["desk"] == got["block"] == 88, got
 

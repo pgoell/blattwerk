@@ -139,9 +139,9 @@ def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor, theme):
     expect_wide(page)
     for side in ("left", "right"):
         expect_lit(bar(page, side), "false")
-    # Blattform's own layout is for a wide window: its tools stand in the bar at the lower edge.
-    expect(page.locator(".dock[role=toolbar]")).to_be_visible()
-    expect(page.locator(".insert, .modes")).to_have_count(0)
+    # Blattform's own layout is for a wide window: here the tools stand in a rail at the left (#1187).
+    expect(page.locator(".rail[role=toolbar]")).to_be_visible()
+    expect(page.locator(".insert, .modes, .dock")).to_have_count(0)
 
 
 @pytest.mark.parametrize("side", ["left", "right"])
@@ -154,19 +154,19 @@ def test_a_drawer_opens_and_shuts_by_its_button_and_lies_over_the_sheet(editor, 
     drawer(page, side)
     expect(panel).to_be_visible()
     assert sheet(page).bounding_box() == before
-    # Under the bar, down to the window's lower edge, at the window's own edge and over the sheet.
     head, place, window = page.locator("header").bounding_box(), panel.bounding_box(), IPAD
-    assert place["y"] == head["y"] + head["height"]
     assert place["y"] + place["height"] == window["height"]
     if side == "left":
+        # Under the bar, down to the window's lower edge, at the window's own edge and over the sheet.
+        assert place["y"] == head["y"] + head["height"]
         assert place["x"] == 0
-        x = place["width"] - 5
+        x, y = place["width"] - 5, before["y"] + 5
         assert x > before["x"]
     else:
-        assert place["x"] + place["width"] == window["width"]
-        x = place["x"] + 5
-        assert x < before["x"] + before["width"]
-    y = before["y"] + 5
+        # From below (#1187): the window's width at its foot, over the sheet's lower part.
+        assert place["x"] == 0 and place["width"] == window["width"]
+        x, y = before["x"] + 5, place["y"] + 5
+        assert y < before["y"] + before["height"]
     assert page.evaluate("([x, y]) => !!document.elementFromPoint(x, y).closest('aside')", [x, y])
     bar(page, side).tap()
     expect(panel).to_have_count(0)
@@ -271,7 +271,7 @@ def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(ed
     page.set_viewport_size(IPAD)
     expect_wide(page)
     expect_picked(page, "a")
-    expect(page.locator(".dock[role=toolbar]")).to_be_visible()
+    expect(page.locator(".rail[role=toolbar]")).to_be_visible()
     page.set_viewport_size(TURNED)
     expect(page.locator(other)).to_be_visible()
     expect(page.locator(shut)).to_have_count(0)
@@ -303,14 +303,18 @@ def test_a_number_typed_in_the_format_drawer_lands_when_its_button_shuts_the_dra
     assert saved(page, client)[0]["x"] == 25
 
 
-def test_opening_one_drawer_shuts_the_other(editor):
-    """I2"""
+def test_the_pages_and_the_panel_from_below_are_open_together(editor):
+    """I2. The Format panel is none of the drawers since #1187: one opens beside the other."""
     page = editor(text("a", 1), touch=True)
-    for side, other in (("left", "right"), ("right", "left"), ("left", "right")):
-        drawer(page, side)
-        expect(page.locator("aside")).to_have_count(1)
-        expect(page.locator("aside.left" if side == "left" else "aside.panel")).to_be_visible()
-        expect_lit(bar(page, other), "false")
+    drawer(page, "left")
+    drawer(page, "right")
+    expect(page.locator("aside")).to_have_count(2)
+    for side in ("left", "right"):
+        expect_lit(bar(page, side), "true")
+    # Each shuts by its own button.
+    bar(page, "left").tap()
+    expect(page.locator("aside.left")).to_have_count(0)
+    expect(page.locator("aside.panel")).to_be_visible()
 
 
 def test_a_change_in_the_format_drawer_is_one_step_of_undo(editor):
@@ -355,7 +359,7 @@ def test_the_format_drawer_opens_and_sets_a_look_while_a_text_stays_open(editor)
     expect(page.locator(FIELD)).to_contain_text("xy")
 
 
-def test_a_tap_on_a_block_beside_the_open_format_drawer_selects_it(editor):
+def test_a_tap_on_a_block_above_the_open_format_panel_selects_it(editor):
     """I5"""
     page = editor(text("a", 1), box("b", "shape", RECT, z=2), touch=True)
     at(page, "a").tap()
@@ -363,9 +367,9 @@ def test_a_tap_on_a_block_beside_the_open_format_drawer_selects_it(editor):
     drawer(page, "right")
     what = page.locator(".panel .what")
     expect(what).to_contain_text("Text")
-    # The drawer lies over the block's right end: the finger comes down left of it.
-    place, edge = at(page, "b").bounding_box(), page.locator("aside.panel").bounding_box()["x"]
-    assert place["x"] + 40 < edge < place["x"] + place["width"]
+    # The panel takes the desk's lower part, and the block lies above it.
+    place, edge = at(page, "b").bounding_box(), page.locator("aside.panel").bounding_box()["y"]
+    assert place["y"] + place["height"] <= edge
     page.touchscreen.tap(place["x"] + 40, place["y"] + place["height"] / 2)
     expect_picked(page, "b")
     expect(what).to_contain_text("Form")
@@ -373,20 +377,18 @@ def test_a_tap_on_a_block_beside_the_open_format_drawer_selects_it(editor):
 
 
 @THEMES
-def test_upright_a_tap_in_the_dock_inserts_a_block(editor, theme):
+def test_upright_a_tap_in_the_rail_inserts_a_block(editor, theme):
     """I6"""
     page = editor(text("a", 1), theme=theme, touch=True)
     expect_wide(page)
-    dock = page.locator(".dock")
-    assert inside(page, dock)
-    dock.get_by_label("Text", exact=True).tap()
+    rail = page.locator(".rail")
+    assert inside(page, rail)
+    rail.get_by_label("Tabelle", exact=True).tap()
     expect(page.locator(".block[data-id]")).to_have_count(2)
-    # So does a tool at the bar's far end, which scrolls to it.
-    last = dock.get_by_label("Doppelpfeil", exact=True)
-    expect(last).not_to_be_in_viewport()
-    last.tap()
+    # So does a tool of a group, by the group's list.
+    rail.get_by_label("Formen", exact=True).tap()
+    page.get_by_role("menuitem", name="Doppelpfeil", exact=True).tap()
     expect(page.locator(".block[data-id]")).to_have_count(3)
-    assert inside(page, dock)
 
 
 @THEMES

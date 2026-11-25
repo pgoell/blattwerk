@@ -8,6 +8,8 @@ type Step = {
   title: string;
   // One text, or one for a mouse and one for a finger.
   text: string | [string, string];
+  // The text on the tablet held upright, where the tools are groups in a rail and the Format panel comes from below.
+  rail?: string;
   // The element the ring goes round.
   find?: string;
   // The panel the step needs open: a tab of the right one, or Vorlagen for the left one.
@@ -24,6 +26,7 @@ const STEPS: Step[] = [
   {
     title: "Ein Textfeld einfügen",
     text: ["Klicke auf Text. Ein Textfeld landet auf dem Blatt.", "Tippe auf Text. Ein Textfeld landet auf dem Blatt."],
+    rail: "Tippe links auf Text und dann in der Liste noch einmal auf Text. Ein Textfeld landet auf dem Blatt.",
     find: "[data-tour=text]",
     done: (now, start) => now.blocks > start.blocks,
   },
@@ -48,12 +51,14 @@ const STEPS: Step[] = [
   {
     title: "Format",
     text: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Der Knopf oben rechts blendet die Leiste ein und aus.",
+    rail: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Die Leiste kommt von unten, sobald du etwas antippst, und „Fertig“ schließt sie.",
     find: ".panel",
     tab: "Format",
   },
   {
     title: "Rechenaufgaben",
     text: ["Klicke auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt.", "Tippe auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt."],
+    rail: "Tippe links auf Mathe und dann auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt.",
     find: "[data-tour=maths]",
     done: (now, start) => now.blocks > start.blocks,
   },
@@ -172,7 +177,7 @@ export default function Tour({ seen, show, close }: { seen: Seen; show: (tab: st
           Schritt {n + 1} von {STEPS.length}
         </small>
         <h2>{step.title}</h2>
-        <p>{typeof step.text === "string" ? step.text : step.text[+finger]}</p>
+        <p>{(document.querySelector(".rail") && step.rail) || (typeof step.text === "string" ? step.text : step.text[+finger])}</p>
         <div>
           <button onClick={close}>Beenden</button>
           {n > 0 && <button onClick={() => go(n - 1)}>Zurück</button>}

@@ -7,14 +7,14 @@ A click on an option of an open Zahlenraum is already settled: the brief says
 from test_teacher_run import section
 
 
-def test_814_the_upright_swipe_starts_clear_of_the_scrollbar():
-    # 817 lies on the scrollbar of the upright window. 800 starts the swipe.
+def test_814_the_upright_swipe_opens_the_pages_from_the_left_edge():
+    # Since #1187 the Format panel comes from below, and the right edge with its scrollbar opens nothing.
     bullet = next(
         line for line in section("## Rules").splitlines() if line.startswith("  - `swipe ")
     )
-    assert "`swipe 800,600 660,600`" in bullet
-    assert "817,600" not in bullet
-    assert "x 817 lies on the scrollbar" in bullet
+    assert "`swipe 10,600 200,600`" in bullet
+    assert "800,600" not in bullet
+    assert "`click Fertig`" in bullet
 
 
 def test_814_a_photograph_reaches_the_run_folder_by_a_verb():
