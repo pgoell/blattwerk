@@ -54,17 +54,23 @@ export default function Blank({ late }: { late: boolean }) {
             <i className="sep" />
             {ib(9)}
             <i className="sep" />
-            {ib(2)}
+            {ib(1)}
             <button className="zoom">100 %</button>
-            {ib(6)}
+            {ib(5)}
+            <button className="sw key">
+              <span>
+                <svg width={15} height={15} />
+                <span className="words">Lösungen zeigen</span>
+              </span>
+              <i />
+            </button>
             <span className="pdf">
-              <button>
+              <button className="primary">
                 <svg width={14} height={14} />
-                Lösungen
+                <span className="words">Herunterladen</span>
               </button>
-              <button>
+              <button className="primary">
                 <svg width={14} height={14} />
-                PDF
               </button>
             </span>
           </div>
