@@ -30,3 +30,17 @@ def apply_template(page, name):
     if held:
         page.locator("dialog.confirm").get_by_role("button", name=REPLACE, exact=True).click()
     expect(page.locator("dialog.confirm")).to_have_count(0)
+
+
+def more(page, title, item):
+    """Picks an entry of a row's menu on the sheet list: "Umbenennen", "In den Schulordner", "Löschen"."""
+    page.get_by_role("button", name=f"{title}: weitere Aktionen", exact=True).click()
+    page.locator("dialog.menu").get_by_role("menuitem", name=item, exact=True).click()
+
+
+def delete_sheet(page, title):
+    """Deletes a sheet from the list and says yes to the app's question."""
+    more(page, title, "Löschen")
+    question = page.locator("dialog.confirm")
+    expect(question.get_by_role("heading")).to_have_text(f"Blatt „{title}“ löschen?")
+    question.get_by_role("button", name="Blatt löschen", exact=True).click()

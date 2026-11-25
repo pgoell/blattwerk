@@ -43,6 +43,7 @@ from ui import (
     PASSWORD,
     at,
 )
+from ui_new import delete_sheet
 
 
 @pytest.mark.parametrize("state", ["held", "failed", "clash"])
@@ -124,8 +125,7 @@ def test_a_sheet_deleted_on_the_list_takes_its_clash_notice_and_its_kept_change_
     elsewhere(run, 40)
     page, _, _ = again(run, None)
     expect(page.locator(NOTICE)).to_contain_text("wurde auf einem anderen Gerät geändert")
-    page.on("dialog", lambda dialog: dialog.accept())
-    page.get_by_role("button", name="a löschen").click()
+    delete_sheet(page, "a")
     expect(page.locator(".sheets li")).to_have_count(2)
     expect(page.locator(NOTICE)).to_have_count(0)
     assert record(page, run.ids["a"]) is None
