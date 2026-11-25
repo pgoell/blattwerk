@@ -12,6 +12,7 @@ import { SchoolPanels, useSchools } from "./format/schools";
 import { Symbols } from "./format/symbols";
 import { TablePanel, type CellLooks } from "./format/table";
 import { TextPanel } from "./format/text";
+import { Pane } from "./format/pane";
 
 export { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaled, scaledGroup, sized, swung, unfit } from "../arrange";
 
@@ -118,10 +119,13 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   return (
     <>
       <Notices sel={sel} doc={doc} full={full} cramped={cramped} held={held} W={W} H={H} paper={schools.paperHint} refused={schools.refusedType} />
-      <Place sel={sel} place={place} lock={lock} setLock={setLock} from={from} setFrom={setFrom} W={W} H={H} spin={spin} onSize={onSize} alone={alone} />
+      <Pane tab="Lage">
+        <Place sel={sel} place={place} lock={lock} setLock={setLock} from={from} setFrom={setFrom} W={W} H={H} spin={spin} onSize={onSize} alone={alone} />
+      </Pane>
       <TextPanel sel={sel} part={part} look={look} style={style} paint={paint} itemize={itemize} traced={traced} link={link} feed={feed} gap={gap} every={every} cell={cell} mendWord={mendWord} doc={doc} words={words} toList={toList} onInsert={onInsert} onHelp={onHelp} />
       <RulingPanel sel={sel} style={style} place={place} words={words} lineaturen={lineaturen} list={list} toList={toList} part={part} look={look} mendWord={mendWord} doc={doc} traced={traced} W={W} H={H} />
       <TablePanel sel={sel} style={style} part={part} look={look} mendWord={mendWord} doc={doc} words={words} cell={cell} reach={reach} rank={rank} merge={merge} unmerge={unmerge} laid={laid} sizeCells={sizeCells} evenCells={evenCells} lines={lines} cutting={cutting} border={border} cellLook={cellLook} traced={traced} gap={gap} every={every} />
+      <Pane tab="Aufgaben">
       <SchoolPanels {...schools} style={style} doc={doc} words={words} owe={owe} H={H} markEven={markEven} />
       {points && (
         <>
@@ -131,6 +135,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           </div>
         </>
       )}
+      </Pane>
+      <Pane tab="Aussehen">
       {sign && (
         <>
           <h2>Symbol</h2>
@@ -145,10 +151,15 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           </button>
         </>
       )}
-      <Turns sel={sel} alone={alone} spin={spin} mirror={mirror} />
+      </Pane>
+      <Pane tab="Lage">
+        <Turns sel={sel} alone={alone} spin={spin} mirror={mirror} />
+      </Pane>
+      <Pane tab="Aussehen">
       <h2>Nummerierung</h2>
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
+      </Pane>
     </>
   );
 }

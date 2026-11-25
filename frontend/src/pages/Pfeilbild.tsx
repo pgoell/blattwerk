@@ -4,6 +4,7 @@ import type { PfeilbildBlock } from "../sheet";
 import { draw } from "../bank";
 import { fitColumns, made, opLabel, sane, type PfeilbildProps } from "../pfeilbild";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 type Op = PfeilbildProps["ops"][number];
 
@@ -110,6 +111,7 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
           ＋
         </button>
       </div>
+      <Pane tab="Aussehen">
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.columns === 1} onClick={() => apply({ columns: p.columns - 1 })}>
           −
@@ -119,6 +121,7 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
           ＋
         </button>
       </div>
+      </Pane>
       <label>
         Zahlenraum
         <select

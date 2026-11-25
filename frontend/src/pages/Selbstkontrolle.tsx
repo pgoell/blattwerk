@@ -5,6 +5,7 @@ import type { Block, Doc, SelbstkontrolleBlock } from "../sheet";
 import { checked, labelOf, ordered, sane, tasksOf, worded, type MixLook, type SelbstkontrolleProps } from "../selbstkontrolle";
 import { newSeed } from "./Maths";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 type Apply = (props: Partial<SelbstkontrolleProps>, key?: string) => void;
 
@@ -117,7 +118,9 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
           <input type="text" aria-label="Lösungswort" value={p.word} onChange={(e) => apply({ word: e.target.value }, "word")} />
         </label>
       )}
+      <Pane tab="Aussehen">
       <Size value={p.size} apply={apply} />
+      </Pane>
       <select aria-label="Drucken" value={p.turn} onChange={(e) => apply({ turn: e.target.value as SelbstkontrolleProps["turn"] })}>
         <option value="none">Normal</option>
         <option value="upside">Auf dem Kopf</option>

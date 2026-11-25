@@ -6,6 +6,7 @@ import type { Doc, LoesungsfeldBlock } from "../sheet";
 import { SYMBOLS } from "../symbols";
 import { Symbols } from "./format/symbols";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 type Apply = (props: Partial<LoesungsfeldProps>, key?: string) => void;
 
@@ -115,11 +116,13 @@ export default function Loesungsfeld({
           ))}
         </select>
       </label>
+      <Pane tab="Aussehen">
       <label>
         Schriftgröße
         <input aria-label="Schriftgröße" type="number" min={8} max={48} value={p.size} onChange={(e) => apply({ size: Number(e.target.value) }, "size")} />
       </label>
       <Switch label="Alle Lösungsfelder gleich breit" on={allEven} onChange={() => markEven(!allEven)} />
+      </Pane>
       {p.kind === "text" && (
         <label>
           Falsche Lösungen

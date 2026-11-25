@@ -8,6 +8,7 @@ import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
 import Schriftlich from "./maths/schriftlich";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
@@ -249,6 +250,8 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           Das passt nicht mehr auf die Seite: Der Block würde unten über den Rand ragen. Mehr Platz gibt es mit weniger Aufgaben, mehr Spalten, kleinerer Schrift oder weiter oben auf der Seite.
         </p>
       )}
+      <Pane tab="Aussehen">
+      <h2>Spalten und Schrift</h2>
       <div className="seg">
         <button aria-label="Eine Spalte weniger" onClick={() => show({ columns: Math.max(1, p.columns - 1) })}>−</button>
         <output>{p.columns === 1 ? "1 Spalte" : `${p.columns} Spalten`}</output>
@@ -266,6 +269,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           <button aria-label="Schrift größer" onClick={() => show({ size: p.size + 2 })}>＋</button>
         </div>
       )}
+      </Pane>
       {p.loosen && (
         <p className="hint" role="status">
           {fam
@@ -279,8 +283,10 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
         </p>
       )}
       <button className="wide" onClick={() => limit({ seed: newSeed() })}>Neu würfeln</button>
+      <Pane tab="Aussehen">
       <h2>Aufgaben nummerieren</h2>
       <Numbering value={p.numbering} onChange={(numbering) => show({ numbering })} />
+      </Pane>
     </>
   );
 }

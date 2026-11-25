@@ -4,6 +4,7 @@ import type { UhrBlock } from "../sheet";
 import { parsed, sane, timesOf, type UhrProps } from "../uhr";
 import { newSeed } from "./Maths";
 import { Switch } from "../components/Switch";
+import { Pane } from "./format/pane";
 
 // Returns false when the change is refused. `back` is the height the block had when a number was stored before: that
 // number and height come back, and no check refuses them.
@@ -99,7 +100,9 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
       </select>
       <Switch label="Minutenstriche" on={p.minutes} onChange={() => apply({ minutes: !p.minutes })} />
       <Switch label="13 bis 24" on={p.ring} disabled={p.numbers === "none"} onChange={() => apply({ ring: !p.ring })} />
+      <Pane tab="Aussehen">
       <Switch label="Zeiger färben" on={p.colours} onChange={() => apply({ colours: !p.colours })} />
+      </Pane>
       <select aria-label="Aufgabe" value={p.task} onChange={(e) => apply({ task: e.target.value as UhrProps["task"] })}>
         <option value="read">Uhrzeit ablesen</option>
         <option value="draw">Zeiger einzeichnen</option>
@@ -123,7 +126,9 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
         </select>
       )}
       <Whole label="Uhren" name="count" value={p.count} h={block.h} ok={inRange(1, 12)} apply={apply} />
+      <Pane tab="Aussehen">
       <Whole label="Spalten" name="cols" value={p.cols} h={block.h} ok={inRange(1, 6)} apply={apply} />
+      </Pane>
       <select
         aria-label="Zeiten"
         value={p.fill}

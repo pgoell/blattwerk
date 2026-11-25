@@ -4,6 +4,7 @@ import type { RechentabelleBlock } from "../sheet";
 import { draw } from "../bank";
 import { FIRST, made, sane, type CarryRule, type Op, type RechentabelleProps, type RechentabelleTyped, type Tint } from "../rechentabelle";
 import { Reihen } from "./Reihen";
+import { Pane } from "./format/pane";
 
 type CarryTuple = [CarryRule, CarryRule];
 
@@ -235,6 +236,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
           {p.max >= 1000 && carrySelect(1, "Hunderterübergang")}
         </>
       )}
+      <Pane tab="Aussehen">
       <label>
         Farbe
         <select aria-label="Farbe" value={p.tint} onChange={(e) => apply({ tint: e.target.value as Tint })}>
@@ -245,6 +247,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
           ))}
         </select>
       </label>
+      </Pane>
       <label>
         Eigene Zahlen
         <select aria-label="Rechentabelle für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>

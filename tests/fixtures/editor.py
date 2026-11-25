@@ -77,6 +77,17 @@ def playwright():
 @pytest.fixture(scope="session")
 def browser(playwright):
     browser = getattr(playwright, BROWSER).launch(headless=not NATIVE)
+    make = browser.new_context
+
+    def new_context(*args, tabs=False, **kwargs):
+        """A window of the suite. Its format panel shows all three tabs at once unless `tabs`
+        is asked for: the tests reach for a field of any tab right after a pick (pane.tsx)."""
+        context = make(*args, **kwargs)
+        if not tabs:
+            context.add_init_script("window.wholePanel = true")
+        return context
+
+    browser.new_context = new_context
     yield browser
     browser.close()
 
@@ -87,7 +98,15 @@ def editor(browser, server, playwright):
     contexts = []
 
     def start(
-        *blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None, wait=1100
+        *blocks,
+        client=None,
+        more=(),
+        pages=(),
+        theme=None,
+        touch=False,
+        words=None,
+        wait=1100,
+        tabs=False,
     ):
         """`more` holds the blocks of a second page. With `touch` the window takes fingers too,
         and with `touch="landscape"` the iPad lies on its side.
@@ -96,7 +115,9 @@ def editor(browser, server, playwright):
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut. `words`
         are the sheet's Lernwörter. `wait` is the time in ms from a change to its save: a test
-        that counts on a change being unsaved for a while asks for a teacher's 2000.
+        that counts on a change being unsaved for a while asks for a teacher's 2000. With `tabs`
+        the format panel shows one of its three tabs, as a teacher has it; without, all three
+        stand one under the other, so that a test reaches any field right after a pick.
         """
         window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if touch:
@@ -105,7 +126,7 @@ def editor(browser, server, playwright):
         if WEBKIT and touch:
             # In WebKit its sharp screen and its name too.
             window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
-        context = browser.new_context(**window)
+        context = browser.new_context(**window, tabs=tabs)
         contexts.append(context)
         # The tests save 1.1 s after a change; a teacher's page waits 2 s (saves.ts). Not less: a
         # test that waits for "Speichert …" looks at most 1 s apart, and must not look past it.
