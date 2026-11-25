@@ -61,10 +61,11 @@ def test_the_file_carries_the_name_the_teacher_typed(editor):
     window.get_by_role("switch", name="Mit Lösungen", exact=True).click()
     expect(name).to_have_value(f"{title} Lösungen")
 
-    name.fill("Test Montag")
+    # One word: WebKit puts a `_` for a space in the name it suggests.
+    name.fill("Montagstest")
     with page.expect_download() as got:
         saver(window).click()
-    assert got.value.suggested_filename == "Test Montag.pdf"
+    assert got.value.suggested_filename == "Montagstest.pdf"
 
 
 def test_herunterladen_in_the_bar_saves_the_plain_pdf_at_once(editor):
