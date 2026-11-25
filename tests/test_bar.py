@@ -40,10 +40,9 @@ EDITS = [
     "Sperren",
     "Gruppieren",
     "Gruppierung aufheben",
-    "Lösungen zeigen",
 ]
 ZOOM = ["Kleiner", "Zoom", "Ganze Seite", "Größer"]
-LAST = ["Rundgang", "Feedback", "Varianten drucken", "Als PowerPoint oder Word laden"]
+LAST = ["Rundgang", "Feedback"]
 # What the bar says of itself: whether the four that never fold lie in the window, whether it is
 # one row that does not scroll, and the names of the commands in it that may fold.
 BAR = """() => {
@@ -122,8 +121,12 @@ def test_the_bar_is_one_row_with_pdf_and_undo_in_the_window(editor, theme, width
     """A1"""
     page = sized(editor, text("a"), width=width, height=height, touch=touch, theme=theme)
     expect_fitted(page)
-    for name in ("PDF", "Lösungen"):
+    for name in ("Herunterladen", "Weitere Formate und Optionen"):
         expect(page.get_by_role("button", name=name, exact=True)).to_be_in_viewport(ratio=1)
+    # The switch for the answers on screen never folds either.
+    expect(page.get_by_role("switch", name="Lösungen zeigen", exact=True)).to_be_in_viewport(
+        ratio=1
+    )
 
 
 @THEMES

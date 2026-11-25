@@ -5,6 +5,7 @@ from playwright.sync_api import expect
 from test_pdf_stale import pdf_button, text_of, type_text
 from test_refused_save import open_sheet
 from ui import TEXT, at, box, user
+from ui_download import saver
 
 NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert."
 
@@ -39,8 +40,7 @@ def save_by_the_api(client, sheet_id, text):
     assert client.patch(f"/api/sheets/{sheet_id}", json=body).status_code == 200
 
 
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
-def test_pdf_alone_finds_a_version_saved_elsewhere_and_shows_it_first(editor, button):
+def test_pdf_alone_finds_a_version_saved_elsewhere_and_shows_it_first(editor):
     """The press is the only news of the other version: the editor shows it, says so, prints it."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
@@ -48,7 +48,7 @@ def test_pdf_alone_finds_a_version_saved_elsewhere_and_shows_it_first(editor, bu
     save_by_the_api(client, sheet_id, "Vom Tool")
 
     with page.expect_download() as got:
-        page.locator("header .pdf").get_by_role("button", name=button, exact=True).click()
+        page.locator("header .pdf").get_by_role("button", name="Herunterladen", exact=True).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     expect(page.locator(".fault", has_text=NEWER)).to_have_count(1)
     assert "Vom Tool" in text_of(got.value)
@@ -60,25 +60,29 @@ def test_varianten_in_a_quiet_window_open_on_the_newer_sheet(editor):
     sheet_id = int(page.url.rsplit("/", 1)[1])
     save_by_the_api(client, sheet_id, "Vom Tool")
 
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     expect(page.locator(".fault", has_text=NEWER)).to_have_count(1)
     expect(page.locator("dialog.variants .preview")).to_contain_text("Vom Tool")
 
 
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
-def test_variants_pdf_in_an_open_dialog_loads_the_newer_sheet_first(editor, button):
+@pytest.mark.parametrize("answers", [False, True], ids=["pdf", "loesungen"])
+def test_variants_pdf_in_an_open_dialog_loads_the_newer_sheet_first(editor, answers):
     """#733: a newer version saved while the dialog is open: its press shows and prints it."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     sheet_id = int(page.url.rsplit("/", 1)[1])
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     save_by_the_api(client, sheet_id, "Vom Tool")
 
     with page.expect_download() as got:
-        page.locator("dialog.variants").get_by_role("button", name=button, exact=True).click()
+        saver(page.locator("dialog.variants"), answers).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     expect(page.locator("dialog.variants .preview")).to_contain_text("Vom Tool")
+    # The window that takes over keeps the choice of the one that went.
+    expect(
+        page.locator("dialog.variants").get_by_role("switch", name="Mit Lösungen")
+    ).to_be_checked(checked=answers)
     expect(page.locator("dialog.variants .clash", has_text=NEWER)).to_have_count(1)
     assert "Vom Tool" in text_of(got.value)
 
@@ -87,13 +91,15 @@ def test_variants_keep_count_and_letters_when_a_newer_sheet_loads(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     sheet_id = int(page.url.rsplit("/", 1)[1])
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     page.locator("dialog.variants").get_by_label("3", exact=True).check()
     page.locator("dialog.variants").get_by_label("Buchstabe auf jedem Blatt").uncheck()
     save_by_the_api(client, sheet_id, "Vom Tool")
 
     with page.expect_request(lambda r: "/pdf?" in r.url) as request, page.expect_download():
-        page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+        page.locator("dialog.variants").get_by_role(
+            "button", name="Herunterladen", exact=True
+        ).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     expect(page.locator("dialog.variants").get_by_label("3", exact=True)).to_be_checked()
     letters = page.locator("dialog.variants").get_by_label("Buchstabe auf jedem Blatt")
@@ -103,7 +109,7 @@ def test_variants_keep_count_and_letters_when_a_newer_sheet_loads(editor):
 
 def test_varianten_dialog_stays_open_when_another_tab_saves(editor):
     page, _ = open_sheet(editor)
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     dialog = page.locator("dialog.variants")
     dialog.get_by_label("3", exact=True).check()
     dialog.get_by_label("Buchstabe auf jedem Blatt").uncheck()
@@ -119,14 +125,18 @@ def test_schliessen_after_a_press_from_the_dialog_gives_the_focus_back(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     sheet_id = int(page.url.rsplit("/", 1)[1])
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     save_by_the_api(client, sheet_id, "Vom Tool")
 
     with page.expect_download():
-        page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+        page.locator("dialog.variants").get_by_role(
+            "button", name="Herunterladen", exact=True
+        ).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     page.locator("dialog.variants").get_by_role("button", name="Schließen", exact=True).click()
-    bar_button = page.locator("header .top").get_by_label("Varianten drucken", exact=True)
+    bar_button = page.locator("header .top").get_by_label(
+        "Weitere Formate und Optionen", exact=True
+    )
     expect(bar_button).to_be_focused()
 
 
@@ -150,7 +160,7 @@ def test_a_window_with_a_change_is_not_reloaded_over_it(editor):
     sheet_id = int(page.url.rsplit("/", 1)[1])
     type_text(page, "Von hier")
     save_by_the_api(client, sheet_id, "Vom Tool")
-    page.locator("header .pdf").get_by_role("button", name="PDF", exact=True).click()
+    page.locator("header .pdf").get_by_role("button", name="Herunterladen", exact=True).click()
     expect(page.locator(".clash")).to_be_visible()
     expect(at(page, "a")).to_contain_text("Von hier")
     expect(page.locator(".fault", has_text=NEWER)).to_have_count(0)

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { NEWER } from "../../components/Variants";
 import { attempt, drop as dropFault, note } from "../../fault";
 import { ask, flush, inClash, isGone, newer, signed } from "../../saves";
-import { officeFault, pdfFault } from "./palette";
+import { pdfFault } from "./palette";
 import { useGuides } from "./useGuides";
 
 export function usePrint(session: ReturnType<typeof useGuides>) {
@@ -53,57 +53,31 @@ export function usePrint(session: ReturnType<typeof useGuides>) {
     }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
-  // The sheet as a PowerPoint or a Word file, made of what the server holds as the PDF is. It does not wait for a
-  // clash's choice as the PDF does: the line says to choose first.
-  async function office(kind: "pptx" | "docx", key: boolean) {
-    const what = officeFault;
-    const clash = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt, und lade die Datei dann noch einmal.";
-    const deleted = "Die Datei konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder eine Datei.";
-    await attempt(what, async () => {
-      if (inClash(file.id)) return note(what, clash);
-      dropFault(NEWER);
-      await newerSheet();
-      if (isGone(file.id)) throw new Error("404");
-      const current = await flush(file.id);
-      if (inClash(file.id)) return note(what, clash);
-      await ask("/me");
-      const res = await signed(
-        fetch(`/api/sheets/${file.id}/${kind}${key ? "?solved=true" : ""}`).then((res) => {
-          if (!res.ok) throw new Error(String(res.status));
-          return res;
-        }),
-      );
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(await res.blob());
-      link.download = decodeURIComponent(/filename\*=UTF-8''(.+)/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `Blatt.${kind}`);
-      link.click();
-      // After the browser has taken the file.
-      setTimeout(() => URL.revokeObjectURL(link.href), 60000);
-      if (!current) note(what, "Die Datei zeigt den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
-    }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
-  }
-
   // The print variants: the dialog's choice lives here, so it stays while the editor is open.
   const [variants, setVariants] = useState(!!opened);
   // What opened the dialog: a press that came with a newer sheet prints once, and the line stays while the dialog is open.
   const [fromPress, setFromPress] = useState(opened);
-  const [count, setCount] = useState(opened?.count ?? 2);
+  // One variant is the plain sheet: the window starts with it.
+  const [count, setCount] = useState(opened?.count ?? 1);
   const [letters, setLetters] = useState(opened?.letters ?? true);
+  // The file's kind, and whether it holds the answers.
+  const [format, setFormat] = useState(opened?.format ?? "pdf");
+  const [keyed, setKeyed] = useState(opened?.solved ?? opened?.print === true);
   // The button that opened the dialog gets the focus back when it shuts.
   const variantsDoor = useRef<HTMLElement | null>(null);
-  dialogState.current = variants ? { count, letters, newer: true } : undefined;
+  dialogState.current = variants ? { count, letters, format, solved: keyed, newer: true } : undefined;
   // A press that re-mounted the editor has the dialog open: Schließen gives the focus back to the bar's button.
   useEffect(() => {
     if (!opened) return;
-    variantsDoor.current = bar.current?.querySelector<HTMLElement>('[aria-label="Varianten drucken"]') ?? bar.current?.querySelector<HTMLElement>(".more") ?? null;
+    variantsDoor.current = bar.current?.querySelector<HTMLElement>('[aria-label="Weitere Formate und Optionen"]') ?? null;
   }, []);
   // A newer version saved in another window: the dialog opens on it, in the editor that shows it (#720).
   const openVariants = async (door: HTMLElement) => {
     dropFault(NEWER);
-    if (await newerSheet({ count, letters, newer: true })) return;
+    if (await newerSheet({ count, letters, format, solved: keyed, newer: true })) return;
     variantsDoor.current = door;
     setVariants(true);
   };
 
-    return Object.assign(session, { holdPdf, pdf, office, variants, setVariants, fromPress, setFromPress, count, setCount, letters, setLetters, variantsDoor, openVariants });
+    return Object.assign(session, { holdPdf, pdf, variants, setVariants, fromPress, setFromPress, count, setCount, letters, setLetters, format, setFormat, keyed, setKeyed, variantsDoor, openVariants });
 }

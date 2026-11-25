@@ -1,5 +1,5 @@
-"""Print variants: the dialog "Varianten drucken" prints the sheet once per variant and shows them
-in a preview. Nothing it does is stored: no save, no undo step, nothing in the browser storage.
+"""Print variants: the download window prints the sheet once per variant and shows them in a
+preview. Nothing it does is stored: no save, no undo step, nothing in the browser storage.
 
 The docstrings name the checklist lines: A is the drawing, I the editor's own ways of handling the
 dialog. Wait with `expect`, never for a fixed time.
@@ -11,6 +11,7 @@ import re
 from playwright.sync_api import expect
 from pypdf import PdfReader
 from ui import TEXT, at, box, doc, maths, pick, tool, user
+from ui_download import saver
 
 SUCHSEL = {
     "words": ["BLUMEN", "KERZEN", "GARTEN", "SONNEN", "WASSER", "MONDEN"],
@@ -75,20 +76,21 @@ def in_order(text, words):
 
 
 def opener(page):
-    # The panel's button; the bar has one of the same name on a wide window.
-    return page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    """The arrow beside the bar's "Herunterladen"."""
+    return page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True)
 
 
-def open_dialog(page):
-    """The button stands in the panel Ansicht, which the bar's "Ansicht" opens."""
-    if not opener(page).is_visible():
-        page.get_by_role("tab", name="Ansicht").click()
+def open_dialog(page, count=2):
+    """Opens the window and picks `count` variants: it starts with one, the plain sheet."""
     opener(page).click()
     expect(page.get_by_role("dialog")).to_be_visible()
+    if count:
+        page.get_by_role("radio", name=str(count), exact=True).check()
 
 
 def press(page, name):
-    page.get_by_role("dialog").get_by_role("button", name=name, exact=True).click()
+    """Presses the window's download button: "PDF" for the sheets, "Lösungen" for their answers."""
+    saver(page.get_by_role("dialog"), name == "Lösungen").click()
 
 
 def pages_text(data):
@@ -102,13 +104,13 @@ def download_pdf(page, name="PDF"):
 
 
 def test_the_dialog_offers_one_to_four_variants_and_the_pdf_holds_them_all(editor):
-    """A1: four choices, 2 picked at first; three picked, the PDF has three pages."""
+    """A1: four choices, 1 picked at first; three picked, the PDF has three pages."""
     client = user()
     page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
-    open_dialog(page)
+    open_dialog(page, count=None)
     for n in ("1", "2", "3", "4"):
         expect(page.get_by_role("radio", name=n, exact=True)).to_have_count(1)
-    expect(page.get_by_role("radio", name="2", exact=True)).to_be_checked()
+    expect(page.get_by_role("radio", name="1", exact=True)).to_be_checked()
     page.get_by_role("radio", name="3", exact=True).check()
     data = download_pdf(page)
     assert len(PdfReader(io.BytesIO(data)).pages) == 3
@@ -261,14 +263,13 @@ def test_keys_in_the_dialog_do_not_reach_the_sheet(editor):
 
 
 def test_the_varianten_button_opens_with_enter_and_space(editor):
-    """I3: Enter and Space open the dialog from the button in the panel Ansicht, the last stop of
-    the panel's tab order. The bar keeps its two buttons: it has no room for a third on an iPad."""
+    """I3: Enter and Space open the window from the arrow beside "Herunterladen", the bar's last
+    button."""
     client = user()
     page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
-    assert page.locator(".pdf button").all_inner_texts() == ["Lösungen", "PDF"]
-    page.get_by_role("tab", name="Ansicht").click()
+    names = page.locator(".pdf button").evaluate_all("els => els.map((el) => el.ariaLabel)")
+    assert names == ["Herunterladen", "Weitere Formate und Optionen"]
     button = opener(page)
-    assert page.locator(".panel button").last.inner_text().strip() == "Varianten drucken"
     button.focus()
     page.keyboard.press("Enter")
     expect(page.get_by_role("dialog")).to_be_visible()
@@ -287,7 +288,7 @@ def test_the_dialog_keeps_its_choice_while_the_editor_is_open(editor):
     page.get_by_role("radio", name="4", exact=True).check()
     page.get_by_role("switch", name="Buchstabe auf jedem Blatt").uncheck()
     page.get_by_role("button", name="Schließen").click()
-    open_dialog(page)
+    open_dialog(page, count=None)
     expect(page.get_by_role("radio", name="4", exact=True)).to_be_checked()
     expect(page.get_by_role("switch", name="Buchstabe auf jedem Blatt")).not_to_be_checked()
 
@@ -391,7 +392,9 @@ def test_a_second_try_after_a_failed_load_prints_and_shows_the_variants(editor):
     press(page, "PDF")
     # The alert's line stood before the press, so it says nothing of the press's end. A press still out at the unroute
     # loads the variants after all and builds a PDF, the button disabled meanwhile (#785): wait for the press to fail.
-    expect(page.get_by_role("dialog").get_by_role("button", name="PDF", exact=True)).to_be_enabled()
+    expect(
+        page.get_by_role("dialog").get_by_role("button", name="Herunterladen", exact=True)
+    ).to_be_enabled()
     expect(page.get_by_role("alert")).to_have_text(LOADING)
     page.unroute("**/api/sheets/*/variante/*")
     data = download_pdf(page)

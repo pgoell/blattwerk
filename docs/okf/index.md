@@ -16,7 +16,7 @@ Before you write a block, read its page under [blocks](blocks/index.md): it list
 
 Work like this: `create_sheet`; `add_block` for each block, or `replace_doc` with a recipe's doc; read the warnings in each answer (`overlaps block <id>`, `leaves the page's printable area`) and fix them with `move_block`; `render_preview` to look at the page before you say you are done. If Blattomat itself does something wrong (not your own mistake), tell its makers with `send_feedback`, without sheet text or names.
 
-You cannot print. When the teacher asks for answers or for variants, end by naming her button: "Lösungen zeigen" for the answers, "Varianten drucken" for variants ([what she does herself](teacher-does.md)).
+You cannot print. When the teacher asks for answers or for variants, end by naming her button: "Lösungen zeigen" for the answers on screen, and the arrow beside "Herunterladen" ("Weitere Formate und Optionen") for a file with the answers or for variants ([what she does herself](teacher-does.md)).
 
 # Explanation
 

@@ -38,7 +38,7 @@ def test_a_command_in_mehr_is_off_where_its_button_is_off(editor):
     more(page).click()
     for name in (*needs, "Gruppieren", "Gruppierung aufheben"):
         expect(item(page, name)).to_be_disabled()
-    for name in ("Lösungen zeigen", *ZOOM, *LAST):
+    for name in (*ZOOM, *LAST):
         expect(item(page, name)).to_be_enabled()
     page.keyboard.press("Escape")
     pick(page, "a")
@@ -59,7 +59,7 @@ def test_commands_run_from_mehr_do_what_their_buttons_do(editor):
     blocks = [text("a"), box("m", "maths", maths(client), z=2)]
     page = sized(editor, *blocks, client=client, width=768, height=1024, touch=True, theme="")
     expect_fitted(page)
-    assert "Kopieren" not in page.evaluate(BAR)["names"]
+    assert "Löschen" not in page.evaluate(BAR)["names"]
     at(page, "a").tap()
     expect_picked(page, "a")
     tool(page, "Kopieren").tap()
@@ -102,7 +102,7 @@ def test_format_uebertragen_from_mehr_stays_on_until_it_is_picked_again(editor):
     blocks = apart(
         box("a", "text", {**TEXT, "bold": True}), text("b", 2), text("c", 3), text("d", 4)
     )
-    page = editor(*blocks, client=client, touch=True, theme="")
+    page = sized(editor, *blocks, client=client, width=701, height=1000, touch=True, theme="")
     expect_fitted(page)
     assert "Format übertragen" not in page.evaluate(BAR)["names"]
     at(page, "a").tap()
@@ -170,12 +170,15 @@ def test_mehr_opens_and_runs_by_the_keys(editor):
         expect(more(page)).to_be_focused()
     # Enter runs the command the focus is on.
     page.keyboard.press("Enter")
-    expect(item(page, "Lösungen zeigen")).to_be_focused()
+    expect(item(page, "Kleiner")).to_be_focused()
+    width = page.locator(".sheet").first.bounding_box()["width"]
     page.keyboard.press("Enter")
     expect(menu(page)).to_have_count(0)
     expect(more(page)).to_be_focused()
-    page.keyboard.press("Enter")
-    expect(item(page, "Lösungen zeigen")).to_have_attribute("aria-checked", "true")
+    page.wait_for_function(
+        "(was) => document.querySelector('.sheet').getBoundingClientRect().width < was",
+        arg=width,
+    )
 
 
 def test_a_command_from_mehr_acts_on_the_whole_selection_as_one_step_of_undo(editor):
@@ -194,17 +197,21 @@ def test_a_command_from_mehr_acts_on_the_whole_selection_as_one_step_of_undo(edi
 def test_mehr_shows_what_is_on(editor):
     """I2"""
     blocks = [text("a"), text("b", 2, locked=True)]
-    page = sized(editor, *blocks, width=768, height=1024, touch=False, theme="")
+    page = sized(editor, *blocks, width=701, height=1000, touch=False, theme="")
     expect_fitted(page)
+    pick(page, "a")
     more(page).click()
-    expect(item(page, "Lösungen zeigen")).to_have_attribute("aria-checked", "false")
-    item(page, "Lösungen zeigen").click()
+    expect(item(page, "Format übertragen")).to_have_attribute("aria-checked", "false")
+    item(page, "Format übertragen").click()
     more(page).click()
-    expect(item(page, "Lösungen zeigen")).to_have_attribute("aria-checked", "true")
+    expect(item(page, "Format übertragen")).to_have_attribute("aria-checked", "true")
     # A tick stands at the end of its row.
     tick = "el => getComputedStyle(el, '::after').content"
-    assert item(page, "Lösungen zeigen").evaluate(tick) == '"✓"'
+    assert item(page, "Format übertragen").evaluate(tick) == '"✓"'
     assert item(page, "Kleiner").evaluate(tick) == "none"
+    # The brush goes down again before the next pick.
+    item(page, "Format übertragen").click()
+    more(page).click()
     expect(item(page, "Sperren")).to_be_visible()
     page.keyboard.press("Escape")
     pick(page, "b")

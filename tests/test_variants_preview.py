@@ -1,4 +1,4 @@
-"""The preview of "Varianten drucken" shows each page whole, not cut at the preview's edges.
+"""The preview of the download window shows each page whole, not cut at the preview's edges.
 
 The sheets here carry a wide text on each upright page, so that a page drawn too wide for its place
 shows at its right side. A Quer page is one the sheet has turned.
@@ -19,10 +19,10 @@ def wide(name, y=20):
 
 
 def open_preview(page):
-    """Opens the dialog Varianten drucken from the panel Ansicht."""
-    page.get_by_role("tab", name="Ansicht").click()
-    page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True).click()
+    """Opens the download window from the bar, with two variants."""
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     expect(page.get_by_role("dialog")).to_be_visible()
+    page.get_by_role("radio", name="2", exact=True).check()
 
 
 @pytest.mark.parametrize(

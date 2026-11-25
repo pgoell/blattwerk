@@ -71,7 +71,12 @@ CASES = [
     ("hilfslinien_spalten", "hilfslinien", "", no_guides),
     ("lernwoerter_verknuepft", "lernwoerter-verknuepfen", "", unlinked),
     ("silbenboegen_text", "silbenboegen", "", no_bows),
-    ("varianten_rechnen", "varianten", "Drücke „Varianten drucken“.", None),
+    (
+        "varianten_rechnen",
+        "varianten",
+        "Öffne mit dem Pfeil neben „Herunterladen“ das Fenster und wähle die Varianten.",
+        None,
+    ),
     ("luecken_loesungen", "loesungen", "Mit „Lösungen zeigen“ siehst du sie.", no_gaps),
     ("luecken_loesungen", "loesungen", "Mit „Lösungen zeigen“ siehst du sie.", no_bank),
 ]

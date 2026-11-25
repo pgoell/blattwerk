@@ -133,11 +133,10 @@ def test_dropping_with_no_connection_says_so_and_the_choice_stands(run):
     expect_list(page)
 
 
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "key"])
-def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run, button):
+def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run):
     """14"""
     page, _, _ = deleted(run)
-    page.get_by_role("button", name=button, exact=True).click()
+    page.get_by_role("button", name="Herunterladen", exact=True).click()
     line = page.locator(".notice.fault")
     expect(line).to_contain_text(PDF_GONE)
     expect(line.get_by_role("button", name="Erneut versuchen")).to_have_count(0)

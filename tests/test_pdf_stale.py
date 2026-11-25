@@ -18,7 +18,7 @@ from test_stale import TURNS
 from ui import FIELD, pick, unpick
 
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
-VARIANTS_STALE = "Die Varianten zeigen den zuletzt gespeicherten Stand"
+VARIANTS_STALE = "Die Datei zeigt den zuletzt gespeicherten Stand"
 # In a clash the PDF waits for the choice (#707).
 CLASH_LINE = "Danach kommt dein PDF."
 # The PDF's line, whichever it says.
@@ -26,7 +26,7 @@ PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
 
 
 def pdf_button(page):
-    return page.get_by_role("button", name="PDF", exact=True)
+    return page.get_by_role("button", name="Herunterladen", exact=True)
 
 
 def type_text(page, text):
@@ -163,14 +163,14 @@ def test_variants_pdf_is_off_in_a_clash_and_says_why(run):
     """#698: the dialog's PDF waits for the teacher's choice, and says so."""
     page, _ = start(run)
     clash(run)
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     dialog = page.locator("dialog.variants")
     expect(dialog).to_contain_text(
         "Dieses Blatt wurde auf einem anderen Gerät geändert. "
         "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
     )
     expect(dialog).not_to_contain_text("deine letzte Änderung")
-    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+    expect(dialog.get_by_role("button", name="Herunterladen", exact=True)).to_be_disabled()
 
 
 def clash_on_text(run, mine):
@@ -192,18 +192,18 @@ def test_variants_print_shows_and_prints_the_other_version_after_the_choice(run)
     PDF both hold `Vom Tool`, and not A's `Vom MCP`."""
     page, _ = start(run)
     clash_on_text(run, "Vom MCP")
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     dialog = page.locator("dialog.variants")
-    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+    expect(dialog.get_by_role("button", name="Herunterladen", exact=True)).to_be_disabled()
     expect(dialog.locator(".clash")).to_be_visible()
     dialog.get_by_role("button", name="Schließen").click()
 
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(".clash")).to_have_count(0)
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     expect(dialog.locator(".preview")).to_contain_text("Vom Tool")
     with page.expect_download() as got:
-        dialog.get_by_role("button", name="PDF", exact=True).click()
+        dialog.get_by_role("button", name="Herunterladen", exact=True).click()
     text = "".join(p.extract_text() for p in pypdf.PdfReader(got.value.path()).pages)
     assert "Vom Tool" in text
     assert "Vom MCP" not in text
@@ -245,13 +245,12 @@ def text_of(download):
     return "".join(p.extract_text() for p in pypdf.PdfReader(download.path()).pages)
 
 
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
-def test_main_pdf_waits_in_a_clash_and_says_why(run, button):
+def test_main_pdf_waits_in_a_clash_and_says_why(run):
     """#707: in a clash the PDF prints nothing, not the other device's sheet, and says to choose."""
     page, _ = start(run)
     clash_on_text(run, "Vom MCP")
     asked = pdf_asks(page)
-    page.locator("header .pdf").get_by_role("button", name=button, exact=True).click()
+    page.locator("header .pdf").get_by_role("button", name="Herunterladen", exact=True).click()
     expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
     expect(page.locator(ALERT, has_text="deine letzte Änderung")).to_have_count(0)
     page.evaluate(TURNS)
@@ -398,11 +397,11 @@ def test_variants_pdf_works_again_once_the_other_version_is_loaded(run):
     clash(run)
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(".clash")).to_have_count(0)
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     dialog = page.locator("dialog.variants")
-    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_enabled()
+    expect(dialog.get_by_role("button", name="Herunterladen", exact=True)).to_be_enabled()
     with page.expect_download() as got:
-        dialog.get_by_role("button", name="PDF", exact=True).click()
+        dialog.get_by_role("button", name="Herunterladen", exact=True).click()
     assert pypdf.PdfReader(got.value.path()).pages
     expect(dialog.locator(".clash")).to_have_count(0)
 
@@ -412,10 +411,10 @@ def test_variants_print_after_failed_save_says_so(editor):
     page.route(f"**/api/sheets/{sheet_id}", answer_with(500))
     type_text(page, "du")
 
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     dialog = page.locator("dialog[open]")
     with page.expect_download():
-        dialog.get_by_role("button", name="PDF", exact=True).click()
+        dialog.get_by_role("button", name="Herunterladen", exact=True).click()
     expect(dialog.locator(ALERT)).to_contain_text(VARIANTS_STALE)
 
 

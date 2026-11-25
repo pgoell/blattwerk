@@ -46,10 +46,10 @@ def test_varianten_pdf_on_a_sheet_deleted_elsewhere_says_so(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     sheet_id = int(page.url.rsplit("/", 1)[1])
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     assert client.delete(f"/api/sheets/{sheet_id}").status_code == 200
 
-    page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    page.locator("dialog.variants").get_by_role("button", name="Herunterladen", exact=True).click()
     line = page.locator("dialog.variants .clash")
     expect(line).to_contain_text("gelöscht")
     expect(line).to_contain_text("Als neues Blatt behalten")
@@ -68,13 +68,13 @@ def test_a_late_varianten_answer_for_a_deleted_sheet_keeps_saying_so(editor):
         page.expect_request("**/api/sheets/*/variante/C"),
         page.expect_request("**/api/sheets/*/variante/D"),
     ):
-        page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+        page.locator("header .top").get_by_label("Weitere Formate und Optionen", exact=True).click()
     # The request is seen before its route handler holds the route.
     page.evaluate(TURNS)
     assert len(held) == 3
     assert client.delete(f"/api/sheets/{sheet_id}").status_code == 200
 
-    page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    page.locator("dialog.variants").get_by_role("button", name="Herunterladen", exact=True).click()
     line = page.locator("dialog.variants .clash")
     expect(line).to_contain_text("gelöscht")
     with (

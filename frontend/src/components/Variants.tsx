@@ -1,7 +1,8 @@
-// Print variants: the sheet once per variant, so neighbours cannot copy. Nothing here is stored. The count and the
-// letters switch live in the editor, so they stay while it is open.
+// The download window: the sheet as a PDF, a Word or a PowerPoint file, with its answers, and as a PDF once per
+// variant, so neighbours cannot copy. The preview on the left shows what the choices on the right will give.
+// Nothing here is stored. The count and the letters switch live in the editor, so they stay while it is open.
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { FileDown, FileCheck } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { api } from "../api";
 import { ask, flush, isGone, signed } from "../saves";
 import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
@@ -32,6 +33,10 @@ export const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem
 const DELETED =
   "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät gelöscht. Schließe den Dialog und wähle „Als neues Blatt behalten“.";
 const LOAD_FAILED = "Die Varianten konnten nicht geladen werden.";
+// The files the window gives, by the ending of each.
+const FORMATS = [["pdf", "PDF"], ["docx", "Word"], ["pptx", "PowerPoint"]] as const;
+type Format = (typeof FORMATS)[number][0];
+export const OFFICE_HINT = "In Word und PowerPoint bleibt Text bearbeitbar. Aufgaben und Tabellen werden Bilder.";
 
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
@@ -92,13 +97,20 @@ function shorts(count: number, doc: Doc, got: Record<string, Variant>): Short[] 
   );
 }
 
-export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash, newer: loadNewer, print: printNow, fresh }: {
+export default function Variants({ id, title, doc, count, setCount, letters, setLetters, format, setFormat, solved, setSolved, opener, onClose, clash, newer: loadNewer, print: printNow, fresh }: {
   id: number;
+  // The sheet's name, which the file carries unless the teacher types another.
+  title: string;
   doc: Doc;
   count: number;
   setCount: (n: number) => void;
   letters: boolean;
   setLetters: (on: boolean) => void;
+  // The file's kind, and whether it holds the answers: kept in the editor as the count is.
+  format: Format;
+  setFormat: (format: Format) => void;
+  solved: boolean;
+  setSolved: (on: boolean) => void;
   opener: RefObject<HTMLElement | null>;
   onClose: () => void;
   // Another device's version waits for the teacher's choice: the preview would not be what prints.
@@ -112,6 +124,11 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [shown, setShown] = useState("A");
+  // The name the teacher typed. Until she does, the file has the sheet's name, and says when it holds the answers.
+  const [typed, setTyped] = useState<string>();
+  const name = typed ?? `${title}${solved ? " Lösungen" : ""}`;
+  // Only a PDF comes in variants, and only variants carry a letter.
+  const many = format === "pdf" ? count : 1;
   const [got, setGot] = useState<Record<string, Variant>>({});
   const [failed, setFailed] = useState("");
   const [busy, setBusy] = useState(false);
@@ -162,11 +179,12 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   }, []);
 
   // A preview of a letter the count has put away shows the last one left.
-  const letter = LETTERS[Math.min(LETTERS.indexOf(shown), count - 1)];
+  const letter = LETTERS[Math.min(LETTERS.indexOf(shown), many - 1)];
   const variant = letter === "A" ? doc : got[letter]?.doc;
-  const blocked = shorts(count, doc, got)[0];
+  const blocked = shorts(many, doc, got)[0];
   // The newer line comes last: a clash, a block or a failure is what the teacher must act on.
-  const line = clash ? CLASH : blocked ? message(blocked) : failed || (fresh ? NEWER : "");
+  // The plain sheet needs no variant: that they did not load is said once more than one is asked for.
+  const line = clash ? CLASH : blocked ? message(blocked) : (failed === LOAD_FAILED && many < 2 ? "" : failed) || (fresh ? NEWER : "");
 
   async function print(key: boolean) {
     // A newer version saved elsewhere is loaded first: this dialog goes, and the editor's new one takes over.
@@ -180,19 +198,21 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
     try {
       // A load that failed before is tried again here, and what it brings is shown from now on.
       // A lost session goes on to the login, as below.
-      const now = await load().catch((e) => {
+      // The plain sheet needs no variant.
+      const now = many < 2 ? got : await load().catch((e) => {
         if (e.message === "401" || e.message === "stale") throw e;
         miss();
         return null;
       });
       if (!now) return;
       setGot(now);
-      if (shorts(count, doc, now)[0]) return;
+      if (shorts(many, doc, now)[0]) return;
       // The variants were asked for once, at the load: the server may hold an older sheet than the editor shows now.
       const current = await flush(id);
       await ask("/me");
-      const query = `varianten=${count}&buchstaben=${letters}${key ? "&solved=true" : ""}`;
-      const res = await signed(fetch(`/api/sheets/${id}/pdf?${query}`));
+      // One variant of a PDF is the plain sheet, with no letter on it.
+      const query = many > 1 ? `varianten=${many}&buchstaben=${letters}${key ? "&solved=true" : ""}` : key ? "solved=true" : "";
+      const res = await signed(fetch(`/api/sheets/${id}/${format}${query && `?${query}`}`));
       // The server names the block it cannot fill.
       if (res.status === 409) {
         const { detail } = await res.json();
@@ -201,16 +221,16 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
       if (!res.ok) throw new Error(String(res.status));
       const link = document.createElement("a");
       link.href = URL.createObjectURL(await res.blob());
-      link.download = decodeURIComponent(/filename\*=UTF-8''(.+)/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "Blatt.pdf");
+      link.download = `${name.trim() || "Blatt"}.${format}`;
       link.click();
       // After the browser has taken the file.
       setTimeout(() => URL.revokeObjectURL(link.href), 60000);
       // Shown in the dialog, which stays open: the teacher can read it before shutting.
-      if (!current) setFailed("Die Varianten zeigen den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
+      if (!current) setFailed("Die Datei zeigt den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
     } catch (e) {
       // A lost session brings the login, which takes the dialog away.
       const s = (e as Error).message;
-      if (s !== "401" && s !== "stale") setFailed("Das PDF konnte nicht erstellt werden.");
+      if (s !== "401" && s !== "stale") setFailed(format === "pdf" ? "Das PDF konnte nicht erstellt werden." : "Die Datei konnte nicht erstellt werden.");
     } finally {
       setBusy(false);
     }
@@ -234,43 +254,66 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   }
 
   return (
-    <dialog className="variants" ref={ref} onKeyDown={key} onClose={() => { opener.current?.focus(); onClose(); }} {...backdrop}>
-      <h1>Varianten drucken</h1>
-      <fieldset>
-        <legend>Varianten</legend>
-        {[1, 2, 3, 4].map((n) => (
-          <label key={n}>
-            <input type="radio" name="varianten" checked={count === n} onChange={() => setCount(n)} />
-            {n}
+    <dialog className="variants" aria-label="Blatt herunterladen" ref={ref} onKeyDown={key} onClose={() => { opener.current?.focus(); onClose(); }} {...backdrop}>
+      <h1>Blatt herunterladen</h1>
+      <div className="sides">
+        <div className="look">
+          <div className="preview" data-variant={letter} data-solved={solved || undefined} ref={box}>
+            {variant
+              ? variant.pages.map((_, n) => (
+                  <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} solved={solved} letter={many > 1 && (letters || solved) ? letter : undefined} />
+                ))
+              : "Lädt …"}
+          </div>
+          {many > 1 && (
+            <fieldset>
+              <legend>Vorschau</legend>
+              {LETTERS.slice(0, many).map((l) => (
+                <label key={l}>
+                  <input type="radio" name="vorschau" checked={letter === l} onChange={() => setShown(l)} />
+                  {l}
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+        <div className="choices">
+          <fieldset>
+            <legend>Format</legend>
+            {FORMATS.map(([kind, label]) => (
+              <label key={kind}>
+                <input type="radio" name="format" checked={format === kind} onChange={() => setFormat(kind)} />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          <p className="lead">{OFFICE_HINT}</p>
+          <fieldset disabled={format !== "pdf"}>
+            <legend>Varianten</legend>
+            {[1, 2, 3, 4].map((n) => (
+              <label key={n}>
+                <input type="radio" name="varianten" checked={many === n} onChange={() => setCount(n)} />
+                {n}
+              </label>
+            ))}
+          </fieldset>
+          <Switch label="Buchstabe auf jedem Blatt" on={many > 1 && letters} disabled={many < 2} onChange={(on) => setLetters(on)} />
+          {many > 1 && <p className="lead">Die Lösungen tragen den Buchstaben immer.</p>}
+          <Switch label="Mit Lösungen" on={solved} onChange={setSolved} />
+          <label className="named">
+            Dateiname
+            <span>
+              <input type="text" value={name} onChange={(e) => setTyped(e.target.value)} />.{format}
+            </span>
           </label>
-        ))}
-      </fieldset>
-      <Switch label="Buchstabe auf jedem Blatt" on={letters} onChange={(on) => setLetters(on)} />
-      <p className="lead">Die Lösungen tragen den Buchstaben immer.</p>
-      <fieldset>
-        <legend>Vorschau</legend>
-        {LETTERS.slice(0, count).map((l) => (
-          <label key={l}>
-            <input type="radio" name="vorschau" checked={letter === l} onChange={() => setShown(l)} />
-            {l}
-          </label>
-        ))}
-      </fieldset>
-      <div className="preview" data-variant={letter} ref={box}>
-        {variant
-          ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} />)
-          : "Lädt …"}
+        </div>
       </div>
       {line && <div className="clash" role="alert">{line}</div>}
       <div className="row">
         <button type="button" onClick={shut}>Schließen</button>
-        <button type="button" disabled={busy || clash} onClick={() => { setBusy(true); print(true); }}>
-          <FileCheck size={14} aria-hidden />
-          Lösungen
-        </button>
-        <button type="button" className="primary" disabled={busy || clash} onClick={() => { setBusy(true); print(false); }}>
+        <button type="button" className="primary" disabled={busy || clash} onClick={() => { setBusy(true); print(solved); }}>
           <FileDown size={14} aria-hidden />
-          PDF
+          Herunterladen
         </button>
       </div>
     </dialog>

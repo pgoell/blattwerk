@@ -120,7 +120,7 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; office?: boolean; cells?: boolean; cell?: number; rule?: { axis: Axis; i: number; n?: number } }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; cell?: number; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number; up?: boolean }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);

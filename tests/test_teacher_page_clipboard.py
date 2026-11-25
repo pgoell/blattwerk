@@ -189,7 +189,7 @@ def test_pdf_in_a_clash_says_it_waits_and_the_choice_saves_the_file(editor, fold
     with pytest.raises(tool.Refused, match="waits for a choice"):
         tool.pdf(page)
     with pytest.raises(tool.Refused, match="waits for a choice"):
-        tool.pdf(page, "Lösungen")
+        tool.pdf(page, "Weitere Formate und Optionen")
     assert time.monotonic() - started < 10
     path = Path(tool.pdf(page, "Mit dieser überschreiben"))
     assert path.parent == folder and path.read_bytes().startswith(b"%PDF")

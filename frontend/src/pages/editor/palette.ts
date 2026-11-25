@@ -10,8 +10,6 @@ import { FRAMES as FRAME_KINDS } from "../../insert";
 
 // The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
 export const pdfFault = "Das PDF konnte nicht erstellt werden.";
-// The same for a PowerPoint or a Word file.
-export const officeFault = "Die Datei konnte nicht erstellt werden.";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 export const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
@@ -249,7 +247,8 @@ export const deadMark = (e: KeyboardEvent) =>
 
 // The print variants opened in an editor loaded anew: the dialog's choice as it was, and the press that loaded it.
 // `print` prints at once, Lösungen where true; `newer` says that a newer version was loaded for it.
-export type Opened = { count: number; letters: boolean; print?: boolean; newer?: boolean };
+// What the download window holds when the editor shows a newer sheet under it: its choices, and the press that waits.
+export type Opened = { count: number; letters: boolean; format?: "pdf" | "docx" | "pptx"; solved?: boolean; print?: boolean; newer?: boolean };
 
 // The clash bar. A PDF pressed in the clash adds its own sentence to it.
 export const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Wähle, welche Version gilt.";

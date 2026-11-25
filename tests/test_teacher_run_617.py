@@ -38,6 +38,6 @@ def test_617_an_umlaut_is_a_keydown_and_a_pdf_click_saves_the_file():
     assert "a picked block opens on it" in typed
     assert '`type "Übung"`' in typed
     pdf = next(line for line in rules.splitlines() if line.startswith("  - `pdf [TARGET]`"))
-    assert '`click "PDF"` and `click "Lösungen"` do the same' in pdf
+    assert '`click "Herunterladen"` does the same' in pdf
     assert "not left in Downloads" in pdf
     assert "take that dialog's button, not the bar's of the same name" in pdf

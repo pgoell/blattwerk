@@ -53,7 +53,7 @@ The `y` above is an example: if the maths block at `y` 57 came back with `h` 47,
 
 7. Tell the teacher these three things, in German:
 * In the editor, the button "Lösungen zeigen" shows the results on screen.
-* The PDF "Lösungen" prints the sheet with the results. The plain PDF has none.
-* The button "Varianten drucken" makes other versions of the sheet with other tasks, so neighbours cannot copy. Each answer key carries the letter of its variant.
+* The arrow beside "Herunterladen" opens the download window. With "Mit Lösungen" on, its PDF prints the sheet with the results. The plain PDF has none.
+* "Varianten" in the same window makes other versions of the sheet with other tasks, so neighbours cannot copy. Each answer key carries the letter of its variant.
 
 You never print or download. The sheet is under "Meine Blätter" in Blattomat.

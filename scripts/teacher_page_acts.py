@@ -23,12 +23,13 @@ from playwright.sync_api import TimeoutError as Late
 from teacher_page_name import read_value
 from teacher_page_ns import g
 
-# A PDF button. `click` on it used to return before the file arrived, and the browser then
-# wrote that file into Downloads (#617). `pdf` waits and saves it into the run folder.
+# A download button, in the bar or in the download window. `click` on it used to return before
+# the file arrived, and the browser then wrote that file into Downloads (#617). `pdf` waits and
+# saves it into the run folder.
 PRINTS = """([x, y]) => {
     const el = document.elementFromPoint(x, y)?.closest("button");
     const name = (el?.innerText ?? "").replace(/\\s+/g, " ").trim();
-    return name === "PDF" || name === "Lösungen";
+    return name === "Herunterladen";
 }"""
 
 
@@ -191,7 +192,7 @@ WAIT_REFUSAL = (
 )
 
 
-def pdf(page: Page, target: str = "PDF") -> str:
+def pdf(page: Page, target: str = "Herunterladen") -> str:
     x, y = g("point")(page, target)
     had = page.evaluate_handle("document.activeElement")
     downloads: list = []

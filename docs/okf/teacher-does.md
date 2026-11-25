@@ -4,7 +4,7 @@ title: What the teacher does herself
 description: What the teacher does herself, such as printing, PDFs, PowerPoint and Word files, the answer key, variants and locked blocks.
 tags: [editor, print, pdf, answers, variants, locked]
 covers: [text, selbstkontrolle, stellenwertbild, stellenwerttafel, zahlzerlegung]
-generated: { by: "human:pgoell", at: 2026-11-23T07:30:00Z }
+generated: { by: "human:pgoell", at: 2026-11-25T19:00:00Z }
 ---
 
 # What the teacher does herself
@@ -15,19 +15,21 @@ Claude makes and changes sheets. Claude never prints and never downloads a PDF, 
 
 The teacher prints the sheet herself.
 
-The download "PDF" saves the sheet as a PDF. The download "Lösungen" saves the same sheet with the answers. Its file name ends in " Lösungen.pdf". The plain PDF has no answers.
+The button "Herunterladen" saves the sheet as a PDF at once. The plain PDF has no answers.
 
-The button "Als PowerPoint oder Word laden" saves the sheet as a PowerPoint (.pptx) or a Word (.docx) file, plain or "mit Lösungen". There a plain text is a text box the teacher can type in, and every other block is a picture she can move, size and delete. A text box keeps the sheet's look only where its font (Andika, Fibel Nord or Fibel Sued) is installed on her computer.
+The arrow beside it, "Weitere Formate und Optionen", opens the download window. It shows a preview on the left and the choices on the right: "Format" (PDF, Word or PowerPoint), "Varianten" 1 to 4, "Buchstabe auf jedem Blatt", "Mit Lösungen" and "Dateiname". Its button "Herunterladen" saves what the preview shows. With "Mit Lösungen" on, the file holds the answers and its name ends in " Lösungen".
+
+Word (.docx) and PowerPoint (.pptx): the window says "In Word und PowerPoint bleibt Text bearbeitbar. Aufgaben und Tabellen werden Bilder." There a plain text is a text box the teacher can type in, and every other block is a picture she can move, size and delete. A text box keeps the sheet's look only where its font (Andika, Fibel Nord or Fibel Sued) is installed on her computer.
 
 ## The answers on screen
 
-The button "Lösungen zeigen" shows the answers on the sheet. Press it again to hide them.
+The switch "Lösungen zeigen" in the bar shows the answers on the sheet. It changes only what the screen shows: a download has the answers only when "Mit Lösungen" is on in the download window. Switch it off to hide them.
 
 The answers show: maths results, filled gaps, Zahlenmauer and Rechendreieck numbers (in red), Zahlenstrahl boxes, Uhr times, Suchsel words ringed and table cells. A text gap shows its word. A pupil sees a line there. A Textaufgabe fills a blank Frage, Rechnung or Antwort in red.
 
 ## Varianten
 
-The button "Varianten drucken" opens a dialog. The teacher picks how many variants to print, letters A to D, so neighbours cannot copy. The answers carry the letter: "Die Lösungen tragen den Buchstaben immer." Nothing is stored.
+In the download window ("Weitere Formate und Optionen", the arrow beside "Herunterladen") the teacher picks under "Varianten" how many variants the PDF holds, letters A to D, so neighbours cannot copy. Only a PDF comes in variants. The answers carry the letter: "Die Lösungen tragen den Buchstaben immer." Nothing is stored.
 
 Variant A is the stored sheet. Letters B to D draw new content from each block's own seed and the letter. The same letter gives the same content on every run.
 

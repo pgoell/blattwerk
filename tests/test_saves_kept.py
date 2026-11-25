@@ -355,7 +355,7 @@ def test_pdf_goes_on_once_a_save_that_never_answers_is_given_up(run):
     page.on("download", lambda download: got.append(download))
     page.on("dialog", lambda dialog: (asked.append(dialog.type), dialog.accept()))
     with page.expect_request(gate.asks("PATCH")):
-        page.get_by_role("button", name="PDF", exact=True).click()
+        page.get_by_role("button", name="Herunterladen", exact=True).click()
     page.evaluate(TURNS)
     gate.saves.pop()
     page.clock.run_for(19999)

@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState } from "react";
-import { Calculator, Shapes, Sigma, CircleHelp, Eye, Grid3x3, Fullscreen, Layers, Heading, ImagePlus, MessageSquare, Paintbrush, Presentation, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { Calculator, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -52,7 +52,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     ...copies,
     lockIt,
     ...groups,
-    { label: "Lösungen zeigen", icon: Eye, on: solved, run: () => setSolved(!solved) },
     ...(leaf
       ? []
       : [
@@ -74,16 +73,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
     // The form gives the focus back to what has it when it opens: "Mehr", as for the zoom.
     { label: "Feedback", icon: MessageSquare, run: () => (bar.current!.querySelector<HTMLElement>(".more")!.focus(), feedback.current!()) },
-    { label: "Varianten drucken", icon: Layers, run: () => openVariants(bar.current!.querySelector<HTMLElement>(".more")!) },
-    // The last, so the first to fold: its menu then opens where "Mehr" has just shut.
-    {
-      label: "Als PowerPoint oder Word laden",
-      icon: Presentation,
-      run: () => {
-        const box = bar.current!.querySelector<HTMLElement>(".more")!.getBoundingClientRect();
-        setMenu({ x: box.left, y: box.bottom + 4, office: true });
-      },
-    },
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
