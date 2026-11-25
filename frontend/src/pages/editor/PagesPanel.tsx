@@ -17,8 +17,8 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
   const addPage = session.addPage;
   const aim = session.aim;
   const apply = session.apply;
-  const asked = session.asked;
-  const setAsked = session.setAsked;
+  const tplAsk = session.tplAsk;
+  const setTplAsk = session.setTplAsk;
   const holds = session.holds;
   const replaceSheet = session.replaceSheet;
   const brand = session.brand;
@@ -285,8 +285,8 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
               Dieses Blatt als Vorlage
             </button>
           </div>
-          {asked && (
-            <Confirm title={`Vorlage „${asked.name}“ anwenden?`} yes="Blatt ersetzen" onYes={() => void replaceSheet(asked)} onClose={() => setAsked(undefined)}>
+          {tplAsk && (
+            <Confirm title={`Vorlage „${tplAsk.name}“ anwenden?`} yes="Blatt ersetzen" onYes={() => void replaceSheet(tplAsk)} onClose={() => setTplAsk(undefined)}>
               <p>
                 Die Vorlage ersetzt das ganze Blatt: {plural(holds().pages, "Seite", "Seiten")} mit {plural(holds().blocks, "Block", "Blöcken")}
                 {holds().ground ? " und der Hintergrund" : ""}. Der Titel bleibt.

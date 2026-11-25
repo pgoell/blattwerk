@@ -64,11 +64,11 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
     setIds([]);
   }
   // A sheet that holds something is not replaced without a word: the panel asks first, and says what goes.
-  const [asked, setAsked] = useState<Template>();
+  const [tplAsk, setTplAsk] = useState<Template>();
   const holds = () => ({ pages: pages.length, blocks: pages.reduce((n, p) => n + p.blocks.length, 0), ground: pages.some((p) => p.ground) });
   const apply = (t: Template) => {
     const { blocks, ground } = holds();
-    if (blocks || ground) setAsked(t);
+    if (blocks || ground) setTplAsk(t);
     else void replaceSheet(t);
   };
   async function forget(t: Template) {
@@ -80,5 +80,5 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
     });
   }
 
-    return Object.assign(session, { storing, store, applied, apply, replaceSheet, asked, setAsked, holds, forget });
+    return Object.assign(session, { storing, store, applied, apply, replaceSheet, tplAsk, setTplAsk, holds, forget });
 }
