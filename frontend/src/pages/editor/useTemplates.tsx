@@ -1,14 +1,14 @@
 // Saving the sheet as a template and applying one.
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { api, post, type Refusal } from "../../api";
 import { fresh } from "../../history";
 import { attempt } from "../../fault";
 import { signed } from "../../saves";
-import { mathsHeight, read, type Block } from "../../sheet";
+import { read } from "../../sheet";
+import { pagesOf } from "../../templates";
 import { followDoc } from "../../words";
 import { made } from "../../zahlenmauer";
 import { next } from "../../cells";
-import { generate, newSeed } from "../Maths";
 import type { Template } from "./palette";
 import { usePrint } from "./usePrint";
 
@@ -55,28 +55,22 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
   // Lernwörter unless the template brings some.
   // The last click wins: an apply still waiting for its exercises gives way to one started after it.
   const applied = useRef(0);
-  async function apply(t: Template) {
+  async function replaceSheet(t: Template) {
     const turn = ++applied.current;
     const doc = read(t.doc);
-    const pages = t.id > 0 ? doc.pages : await Promise.all(doc.pages.map(async (p) => ({
-      ...p,
-      blocks: await Promise.all(p.blocks.map(async (b): Promise<Block> => {
-        const props = b.props as Record<string, unknown>;
-        if (typeof props.seed !== "number") return b;
-        const limits = { ...props, seed: newSeed() };
-        if (b.type !== "maths") return { ...b, props: limits } as Block;
-        const made = await generate(limits as Parameters<typeof generate>[0]).catch(() => undefined);
-        if (!made) return b;
-        // New exercises may need more room than the template's block: it grows, to the page's foot at most.
-        const fresh = { ...limits, ...made };
-        const h = Math.min(Math.max(b.h, mathsHeight(fresh as Parameters<typeof mathsHeight>[0])), 297 - b.y);
-        return { ...b, h, props: fresh } as Block;
-      })),
-    })));
+    const pages = await pagesOf(t);
     if (turn !== applied.current) return;
     update((cur) => followDoc({ ...doc, words: doc.words ?? cur.words, pages }));
     setIds([]);
   }
+  // A sheet that holds something is not replaced without a word: the panel asks first, and says what goes.
+  const [asked, setAsked] = useState<Template>();
+  const holds = () => ({ pages: pages.length, blocks: pages.reduce((n, p) => n + p.blocks.length, 0), ground: pages.some((p) => p.ground) });
+  const apply = (t: Template) => {
+    const { blocks, ground } = holds();
+    if (blocks || ground) setAsked(t);
+    else void replaceSheet(t);
+  };
   async function forget(t: Template) {
     if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
     await attempt("Die Vorlage konnte nicht gelöscht werden.", async () => {
@@ -86,5 +80,5 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
     });
   }
 
-    return Object.assign(session, { storing, store, applied, apply, forget });
+    return Object.assign(session, { storing, store, applied, apply, replaceSheet, asked, setAsked, holds, forget });
 }

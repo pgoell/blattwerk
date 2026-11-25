@@ -14,6 +14,7 @@ import pytest
 from conftest import IPAD, MEASURED, WEBKIT
 from playwright.sync_api import expect
 from ui import PASSWORD, TEXT, box, expect_picked, sheet, user
+from ui_new import new_sheet
 
 # What a sheet waits for: the account first, then the editor's script and the sheet side by side
 # (#320).
@@ -153,7 +154,7 @@ def test_a_new_sheet_shows_its_page_while_it_loads(window, server):
     page, _ = window()
     page.goto(server)
     go = hold(page, SHEET)
-    page.get_by_role("button", name="Neues Blatt").click()
+    new_sheet(page)
     expect_loading(page)
     go()
     expect_ready(page)

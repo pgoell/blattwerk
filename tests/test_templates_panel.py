@@ -4,6 +4,7 @@ import time
 
 from playwright.sync_api import expect
 from ui import TEXT, at, box, doc, maths, reload, user
+from ui_new import apply_template
 
 ZAHL = {
     "base": 3,
@@ -74,7 +75,7 @@ def open_panel(page):
 
 
 def apply(page, name):
-    page.locator(".tpl button", has_text=name).click()
+    apply_template(page, name)
 
 
 def test_panel_groups_the_builtin_templates_under_headings(editor):
@@ -182,6 +183,10 @@ def test_enter_on_a_template_button_applies_it(editor):
     open_panel(page)
     page.locator(".tpl button", has_text="Enter-Stub").focus()
     page.keyboard.press("Enter")
+    # The sheet holds a text, so the template asks first; the focus starts on the way out.
+    question = page.locator("dialog.confirm")
+    expect(question.get_by_role("button", name="Abbrechen")).to_be_focused()
+    question.get_by_role("button", name="Blatt ersetzen").click()
     expect(at(page, "z")).to_be_visible()
     expect(
         page.get_by_role("group", name="Deutsch").locator(".tpl button", has_text="Enter-Stub")

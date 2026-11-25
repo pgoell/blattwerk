@@ -3,10 +3,13 @@ import { Copy, FolderInput, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, post, type Refusal } from "../api";
 import Failed from "../components/Failed";
+import NewSheet from "../components/NewSheet";
 import ShareDialog from "../components/ShareDialog";
 import { attempt } from "../fault";
 import { ask, forget, served, signed, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
+import { sheetOf } from "../templates";
+import type { Template } from "./editor/palette";
 import { type Folder, type FolderEntry } from "./FolderSheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
@@ -91,9 +94,12 @@ export default function SheetList() {
         return "Dieses Blatt wurde auf einem anderen Gerät gelöscht.";
       },
     );
-  const create = () =>
+  // "Neues Blatt" opens the chooser. A sheet made from a template takes the template's name as its title.
+  const [choosing, setChoosing] = useState(false);
+  const create = (t?: Template) =>
     act("Das neue Blatt konnte nicht angelegt werden.", undefined, async () => {
-      const sheet = await signed(post<Sheet>("/sheets", { title: "Unbenanntes Blatt", doc: EMPTY }));
+      const made = t ? { title: t.name, doc: await sheetOf(t) } : { title: "Unbenanntes Blatt", doc: EMPTY };
+      const sheet = await signed(post<Sheet>("/sheets", made));
       navigate(`/blatt/${sheet.id}`);
     });
   function rename(sheet: Sheet) {
@@ -150,7 +156,7 @@ export default function SheetList() {
       )}
       <h1>{tab === "ordner" ? "Schulordner" : "Meine Blätter"}</h1>
       {tab === "mine" && (
-        <button type="button" className="primary" onClick={create}>
+        <button type="button" className="primary" aria-haspopup="dialog" onClick={() => setChoosing(true)}>
           <Plus size={16} aria-hidden />
           Neues Blatt
         </button>
@@ -219,6 +225,7 @@ export default function SheetList() {
           </li>
         ))}
       </ul>
+      {choosing && <NewSheet onPick={create} onClose={() => setChoosing(false)} />}
       {sharing && <ShareDialog id={sharing.id} title={sharing.title} onClose={() => setSharing(undefined)} />}
     </main>
   );

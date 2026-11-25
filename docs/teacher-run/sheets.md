@@ -31,7 +31,7 @@ pdftoppm -png -r 60 "/tmp/teacher-run/TR3 Bild und Tabelle.pdf" /tmp/teacher-run
 
 ## The five sheets
 
-Build each one on a new sheet from `Meine Blätter`, in this order, with exactly this content. A sheet may be built in either window, as long as it is open in one window at a time. If a step cannot be done as written with clicks and keys, note it as a fault and go on.
+Build each one on a new sheet from `Meine Blätter` (`Neues Blatt`, then `Leeres Blatt` in the chooser), in this order, with exactly this content. A sheet may be built in either window, as long as it is open in one window at a time. If a step cannot be done as written with clicks and keys, note it as a fault and go on.
 
 ### 1. Maths sheet, title `TR1 Rechnen`
 
@@ -88,10 +88,10 @@ The tab `Vorlagen` lists the built-in templates for everyone, in the groups `All
 Only the four Rechenblätter draw new tasks each time you start from one: `Rechenblatt Klasse 1`, `Rechenblatt Klasse 2`, `Rechenblatt Klasse 3` and `Rechenblatt Klasse 4`. Where a pull request says to start from each twice and compare the tasks, start from those four twice and from every other built-in template once. `Schreibblatt Lineatur 1` is the same both times, and so is `Schreibblatt Lineatur 2`. To change the tasks on a sheet started from a Rechenblatt, pick the block and click `Neu würfeln`. That is one click, so it is not skipped for time.
 
 1. Open `TR1 Rechnen` from `Meine Blätter`. Click the tab `Vorlagen`. Under `Meine Vorlagen` it says `Noch keine`. Type `TR Vorlage` into `Name der Vorlage` and click `Dieses Blatt als Vorlage`. `TR Vorlage` now stands under `Meine Vorlagen`.
-2. Go back to `Meine Blätter`, click `Neues Blatt`, click the tab `Vorlagen`, click `TR Vorlage`. The new sheet shows the name line, the heading and the same 16 exercises with the same numbers as `TR1 Rechnen`. Set the title to `TR5 Kopie`.
+2. Go back to `Meine Blätter`, click `Neues Blatt`, click `Meine Vorlagen` in the chooser, click `TR Vorlage`. The new sheet has the title `TR Vorlage` and shows the name line, the heading and the same 16 exercises with the same numbers as `TR1 Rechnen`. Set the title to `TR5 Kopie`.
 3. Change the copy: click `Text` (tab `Start`), type `Nur in der Kopie`.
 4. Export and compare.
 5. Open `TR1 Rechnen` again: it must look as in your screenshot of sheet 1, without the new text.
-6. Open `TR5 Kopie`, click the tab `Vorlagen`, click `TR Vorlage` again: the sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
+6. Open `TR5 Kopie`, click the tab `Vorlagen`, click `TR Vorlage` again. A question names what the template replaces: click `Blatt ersetzen`. The sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
 7. On `Meine Blätter` there must be five sheets, each with its title and a small picture of its first page.
 

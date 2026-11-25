@@ -1,6 +1,6 @@
 ## How the editor works
 
-- `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
+- `Neues Blatt` on `Meine Blätter` opens a chooser: `Leeres Blatt` in it opens an empty sheet in the editor, and a template's card opens a sheet made from that template, with the template's name as its title. The logo at the top left leads back to `Meine Blätter`.
 - After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. The answer of `wait_for` is a snapshot of the whole page, and a long one: use it, and take no `take_snapshot` right after it. On a sheet with a Lernwörter list, that answer is very long (a row repeats each word some 20 times): there, `take_snapshot` with a `filePath` writes the page to a file, and `grep` searches the file. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
 - A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
 - The tour (`Rundgang`) opens the first time the editor opens on a device, as the app remembers that in the browser, not per teacher. Both windows start with an empty browser, so the tour opens in each on its first sheet. The second teacher's first sheet in the same window does not open it: the first teacher already closed it, and `click "Beenden"` then finds nothing. Close it with `Beenden` only when it is open. To see it again, click `Rundgang` in the bar (it may lie under `Mehr`).
@@ -41,7 +41,7 @@ What one account copied must not reach the next account on the same computer: no
 1. As the first teacher, on a sheet: pick a block, or words in an open text, and `key Control+c`. `paste-elsewhere` shows what the clipboard holds.
 2. `where "Gespeichert"` until it prints a match: before that, `open` meets the box that asks about unsaved work. Then `open /konto`, `click "Abmelden"`. The form `Anmelden` shows.
 3. Sign in as the second teacher: `click "E-Mail"`, `type "teacher-run-2@stage.invalid"`, `click "Passwort"`, `type "<the second password>"`, `key Enter`. The window stays on `/konto`: `open /`, `where "Neues Blatt"` until it prints a match.
-4. `click "Neues Blatt"`. The tour does not open in this same window, and `click "Beenden"` finds nothing: do not click it. Then paste each way a teacher would: `key Control+v` on the sheet, `click "Einfügen"`, `key Control+v` in an open text, and `paste-elsewhere`. None may bring what the first teacher copied.
+4. `click "Neues Blatt"`, then `click "Leeres Blatt"`. The tour does not open in this same window, and `click "Beenden"` finds nothing: do not click it. Then paste each way a teacher would: `key Control+v` on the sheet, `click "Einfügen"`, `key Control+v` in an open text, and `paste-elsewhere`. None may bring what the first teacher copied.
 5. Sign out and sign in as the first teacher again, the same way, and `open /`.
 
 The MCP page stays signed in as the first teacher all along.
