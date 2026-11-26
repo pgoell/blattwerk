@@ -261,10 +261,16 @@ def a6_blocks(client):
     ]
 
 
-def test_a6_every_room_column_count_and_format_stays_inside_on_screen(editor):
+# The grid is 125 blocks. On one sheet they took the editor 3 s to load on a free machine and over the 10 s
+# it has on a busy one, so they come as five sheets of 25.
+PARTS = 5
+
+
+@pytest.mark.parametrize("part", range(PARTS))
+def test_a6_every_room_column_count_and_format_stays_inside_on_screen(editor, part):
     """A6: every block of the grid of rooms, columns and formats has its tasks inside, on screen."""
     client = user()
-    blocks = a6_blocks(client)
+    blocks = a6_blocks(client)[part::PARTS]
     page = editor(*blocks, client=client)
     failures = {}
     for block in blocks:
@@ -274,8 +280,9 @@ def test_a6_every_room_column_count_and_format_stays_inside_on_screen(editor):
     assert not failures, f"blocks with tasks outside: {failures}"
 
 
-def test_a6_every_room_column_count_and_format_stays_inside_in_the_pdf(editor, server):
-    """A6: the same sheet, printed: no task past the page on any page."""
+@pytest.mark.parametrize("part", range(PARTS))
+def test_a6_every_room_column_count_and_format_stays_inside_in_the_pdf(editor, server, part):
+    """A6: the same sheets, printed: no task past the page on any page."""
     client = user()
-    page = editor(*a6_blocks(client), client=client)
+    page = editor(*a6_blocks(client)[part::PARTS], client=client)
     print_inside(server, client, sheet_id(page))
