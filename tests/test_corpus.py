@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from pixels import over, screen_and_print
 from playwright.sync_api import expect
-from ui import sheet, user
+from ui import seiten, sheet, user
 
 ROOT = Path(__file__).parent.parent
 CORPUS = Path(__file__).parent / "corpus"
@@ -354,6 +354,7 @@ def change(page, made):
     """What makes the editor save: a sheet gets another title, and a template takes the place of
     the empty sheet, which is how a template opens."""
     if "name" in made:
+        seiten(page)
         page.locator(".tpl button").get_by_text(made["name"], exact=True).click()
     else:
         page.get_by_label("Titel", exact=True).fill("Anders")

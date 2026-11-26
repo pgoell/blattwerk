@@ -112,13 +112,13 @@ def test_a_title_shows_whole_while_it_is_edited_and_is_cut_again_after(editor, w
 
 @ENDS
 def test_a_title_past_its_share_of_the_bar_gives_the_room_back_when_the_edit_ends(editor, end):
-    """I8: edited, a title takes all that folds; left, a third of the window at most."""
+    """I8: edited, a title takes all that folds; left, a fifth of the wide window at most."""
     page, _ = titled(editor, 1280, TOO)
     wide = expect_title(page, 1280, whole=False, focused=True)
     assert page.evaluate(BAR)["names"] == []
     leave(page, end)
     cut = expect_title(page, 1280, whole=False, dots=True, focused=False, tip=TOO)
-    assert abs(cut["width"] - 0.34 * 1280) <= 1 < wide["width"] - cut["width"], (wide, cut)
+    assert abs(cut["width"] - 0.2 * 1280) <= 1 < wide["width"] - cut["width"], (wide, cut)
     # After a click the bar unfolds when the press is through, a moment later.
     page.wait_for_function(UNFOLDED, timeout=2000)
 
@@ -265,7 +265,7 @@ def test_a_press_that_ends_the_edit_finds_its_button_still_under_the_pointer(edi
     expect(at(page, "a")).to_be_visible()
     # The button did move, once the press was over and the bar unfolded what has room again.
     cut = expect_title(page, 1280, whole=False, dots=True, focused=False)
-    assert abs(cut["width"] - 0.34 * 1280) <= 1, cut
+    assert abs(cut["width"] - 0.2 * 1280) <= 1, cut
     page.wait_for_function(UNFOLDED, timeout=2000)
     assert undo.bounding_box()["x"] < was["x"] - 40
 

@@ -21,10 +21,16 @@ WORDS = ["Hund", "Katze", "Igel"]
 
 @pytest.fixture
 def editor(editor):
-    """The editor as the tests of the word list open it."""
+    """The editor in a window under 1024 px: there the panel has the tabs Format, Ansicht and
+    Lernwörter, which these tests go by. `wide` keeps the window as it opens."""
 
     def start(*blocks, **more):
-        return editor(*blocks, **more)
+        wide = more.pop("wide", False)
+        page = editor(*blocks, **more)
+        if not wide and not more.get("touch"):
+            page.set_viewport_size({"width": 1000, "height": 900})
+            expect(page.get_by_role("tab", name="Lernwörter")).to_be_visible()
+        return page
 
     return start
 

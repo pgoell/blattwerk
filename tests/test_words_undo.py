@@ -24,6 +24,7 @@ from ui import (
     box,
     doc,
     pick,
+    seiten,
     sheet,
     thumb,
     unpick,
@@ -175,6 +176,7 @@ def test_a_reload_a_duplicate_and_a_template_keep_the_list(editor):
     assert copied["words"] == ["Hund", "Katze"]
     assert rulings(copied)[0]["props"]["list"] == "copy"
 
+    seiten(page)
     page.get_by_label("Name der Vorlage").fill("Lernwörter-Vorlage")
     page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
     # The template is there once the server has answered: a page that leaves before then never
@@ -234,6 +236,7 @@ def test_a_duplicated_block_and_a_copied_page_stay_linked(editor):
     pick(page, "r")
     page.keyboard.press("Control+d")
     expect(page.locator(".sheet .block")).to_have_count(2)
+    seiten(page)
     thumb(page, 0).focus()
     page.keyboard.press("Control+d")
     stored = doc(page, client)

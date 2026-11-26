@@ -41,7 +41,7 @@ from ui import (
 def test_a_merged_cell_spans_on_screen_thumb_and_pdf(editor, browser, server):
     client = user()
     # With the panel Seiten open, which holds the thumbnails.
-    page = editor(box("t", "table", MERGED), client=client)
+    page = editor(box("t", "table", MERGED), client=client, seiten=True)
     merged_box_ok(page, "t")
     for n in (1, 3, 4):
         expect(at(page, "t").locator(f'.table > div[data-cell="{n}"]')).to_have_count(0)

@@ -175,6 +175,7 @@ def test_900_a_kind_change_after_bis_seitenende_ends_where_bis_seitenende_stops_
             }
         ],
         client=client,
+        seiten=True,
     )
     thumb(page, 1).click()
     pick(page, "l")

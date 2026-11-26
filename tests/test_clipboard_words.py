@@ -10,6 +10,7 @@ from test_clipboard import (
     fresh,
     ready,
 )
+from test_words import list_tab
 from ui import (
     BROWSER,
     FIELD,
@@ -163,7 +164,7 @@ def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
         page.keyboard.press("Enter")
         field = page.locator(".block textarea:focus")
     elif kind == "list":
-        page.get_by_role("tab", name="Lernwörter").click()
+        list_tab(page)
         field = page.get_by_role("textbox", name="Lernwörter", exact=True)
     else:
         pick(page, "a")

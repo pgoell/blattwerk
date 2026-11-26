@@ -7,7 +7,7 @@ from playwright.sync_api import expect
 from test_delete_page_zoom import quer
 from test_words import list_tab, rulings
 from test_zoom import wheel
-from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, user
+from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, seiten, user
 
 # A name line at the top, and a heading under it: the new block goes under the heading, 5 mm lower.
 NAME = box("name", "name", {}, y=15, h=10, w=180)
@@ -242,6 +242,7 @@ def test_a_quer_page_puts_a_kreis_in_its_free_third(editor):
     body = box("body", "text", TEXT, x=15, y=40, h=150, w=150)
     page = editor(head, body, client=client, seiten=True)
     quer(page, 0)
+    seiten(page, False)
     dock(page, "Kreis").click()
     block = new_block(page, client, {"head", "body"})
     assert page_of(client, page, block["id"]) == 0

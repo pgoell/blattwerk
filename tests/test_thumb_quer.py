@@ -1,7 +1,7 @@
 """#633: a Quer page's thumbnail in the panel Seiten lies whole inside the panel, on its side."""
 
 from playwright.sync_api import expect
-from ui import TEXT, box, thumb, user
+from ui import TEXT, box, seiten, thumb, user
 
 
 def paper(page, n):
@@ -17,9 +17,9 @@ def open_panel(page, width, height):
     """
     page.set_viewport_size({"width": width, "height": height})
     page.add_style_tag(content="aside.left { border-right: 16px solid transparent }")
-    if width < 1100:
-        # The wide window keeps the panel open; only a drawer has the button.
-        page.get_by_role("button", name="Seiten und Vorlagen").click()
+    # The window's layout goes by its size: the green panel from 1024 px on.
+    expect(page.locator("main.editor.leaf")).to_have_count(int(width >= 1024))
+    seiten(page)
     expect(page.locator("aside.left")).to_be_visible()
 
 
