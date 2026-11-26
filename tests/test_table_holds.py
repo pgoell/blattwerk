@@ -7,6 +7,8 @@ from test_cells import GRID, MERGED, open_cell, props
 from test_sizes import EDGE, H, W, block, typed, widths_mm
 from ui import box, user
 
+# Put in with `keyboard.insert_text`, in one step: typed key by key its 170 letters took WebKit 9 s on a free
+# machine, and twice the text ran into the suite's 60 s on a busy one.
 LONG = " ".join(f"wort{n}" for n in range(25))
 
 
@@ -144,7 +146,7 @@ def test_typing_and_deleting_adds_no_step_of_undo(editor):
     page = editor(box("t", "table", GRID, h=H), client=client)
     was = props(page, client)["cells"][1][1]
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert block(page, client)["h"] > H + 20
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
