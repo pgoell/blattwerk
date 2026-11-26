@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState, type MouseEvent } from "react";
-import { Calculator, Files, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { BookA, Calculator, Files, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -24,6 +24,8 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const showLeft = session.showLeft;
   const setLens = session.setLens;
   const leaf = session.leaf;
+  const tab = session.tab;
+  const setTab = session.setTab;
   const bar = session.bar;
   const fits = session.fits;
   const feedback = session.feedback;
@@ -115,6 +117,14 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       <Tool icon={SquareSlash} label="Punkte" onClick={() => addInsert(INSERTS.points())} />
       <Tool icon={Grid3x3} label="Suchsel" onClick={() => addInsert(INSERTS.suchsel(newSeed()))} />
       {/* What makes exercises, a group to a subject. */}
+      {/* The sheet's list of words is no block, so its tool opens the list in the panel at the right. Blattform has
+          no tab for it; the plain look has. */}
+      {leaf && (
+        <>
+          <i className="sep" data-name="Deutsch" />
+          <Tool icon={BookA} label="Lernwörter" className={tab === "Lernwörter" ? "on" : ""} aria-pressed={tab === "Lernwörter"} onClick={() => setTab(tab === "Lernwörter" ? "Format" : "Lernwörter")} />
+        </>
+      )}
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
       <Tool

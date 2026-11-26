@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Copy, Ellipsis, FolderInput, Pencil, Plus, Search, Share2, Trash2 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, post, type Refusal } from "../api";
@@ -175,8 +175,18 @@ export default function SheetList() {
   });
   // The row whose "Weitere Aktionen" is open, and where its menu lies.
   const [more, setMore] = useState<{ sheet: Sheet; x: number; y: number }>();
+  // The button stands over the list, or in the empty list's own words once the sheets have come and there are none.
+  // It is another element there, so the one that leaves hands the focus it held on to the one that comes.
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const held = useRef(false);
+  const stand = useCallback((el: HTMLButtonElement | null) => {
+    if (!el) return void (held.current = document.activeElement === opener.current);
+    opener.current = el;
+    if (held.current) el.focus();
+    held.current = false;
+  }, []);
   const newSheet = (
-    <button type="button" className="primary" aria-haspopup="dialog" onClick={() => setChoosing(true)}>
+    <button ref={stand} type="button" className="primary" aria-haspopup="dialog" onClick={() => setChoosing(true)}>
       <Plus size={16} aria-hidden />
       Neues Blatt
     </button>
@@ -327,7 +337,7 @@ export default function SheetList() {
           <p>Das Blatt verschwindet für alle aus dem Schulordner.</p>
         </Confirm>
       )}
-      {choosing && <NewSheet onPick={create} onClose={() => setChoosing(false)} />}
+      {choosing && <NewSheet onPick={create} onClose={() => setChoosing(false)} back={() => opener.current} />}
       {sharing && <ShareDialog id={sharing.id} title={sharing.title} onClose={() => setSharing(undefined)} />}
     </main>
   );

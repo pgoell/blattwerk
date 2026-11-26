@@ -213,11 +213,11 @@ def test_a_word_stands_where_a_typed_text_stands(editor, kind, font):
 
 
 def test_the_default_layout_reaches_the_list_from_the_bar(editor):
-    """Blattform has no tabs in its panel: a button there leads to the list, with nothing picked
-    and from a linked Lineatur, and Start in the bar leads back."""
+    """Blattform has no tabs in its panel: the tool under "Deutsch" at the left and a linked Lineatur
+    lead to the list, and Start in the bar leads back."""
     page = editor(linked("a", "l4", "copy", h=40))
-    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
-    field = page.get_by_label("Lernwörter", exact=True)
+    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
+    field = page.get_by_role("textbox", name="Lernwörter", exact=True)
     field.press_sequentially("Hund")
     expect(at(page, "a").locator(".listed .row span")).to_have_text("Hund")
     page.locator(".modes").get_by_role("tab", name="Start").click()

@@ -130,8 +130,8 @@ def copy_in_text(page):
 
 def open_list(page):
     """Opens the Lernwörter panel with nothing picked and gives its field."""
-    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
-    return page.get_by_label("Lernwörter", exact=True)
+    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
+    return page.get_by_role("textbox", name="Lernwörter", exact=True)
 
 
 def the_text_box():
