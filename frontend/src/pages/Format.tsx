@@ -127,7 +127,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       <RulingPanel sel={sel} style={style} place={place} words={words} lineaturen={lineaturen} list={list} listing={listing} part={part} look={look} mendWord={mendWord} doc={doc} traced={traced} W={W} H={H} />
       <TablePanel sel={sel} style={style} part={part} look={look} mendWord={mendWord} doc={doc} words={words} cell={cell} reach={reach} rank={rank} merge={merge} unmerge={unmerge} laid={laid} sizeCells={sizeCells} evenCells={evenCells} lines={lines} cutting={cutting} border={border} cellLook={cellLook} traced={traced} gap={gap} every={every} />
       <Pane tab="Aufgaben">
-      <SchoolPanels {...schools} style={style} doc={doc} words={words} owe={owe} H={H} markEven={markEven} />
+      <SchoolPanels {...schools} style={style} doc={doc} words={words} listing={listing} owe={owe} H={H} markEven={markEven} />
       {points && (
         <>
           <h2>Punkte</h2>

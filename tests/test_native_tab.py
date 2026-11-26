@@ -104,11 +104,11 @@ ORDER = {
             *DASH[1:],
         ],
     ),
-    # "Lernwörter übernehmen" is off in this sheet, which has no Lernwörter, so Tab skips it.
     "suchsel": (
         SUCHSEL,
         [
             *START,
+            "Lernwörter des Blatts",
             "Wörter des Suchsels",
             "Eine Spalte weniger",
             "Eine Spalte mehr",

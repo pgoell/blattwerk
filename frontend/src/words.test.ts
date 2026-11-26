@@ -244,6 +244,15 @@ describe("landed", () => {
     expect(out.words).toBeUndefined();
   });
 
+  it("cuts a Suchsel that hides the list loose with the copied words when the sheet has other words", () => {
+    const props = { words: ["Esel"], cols: 10, rows: 10, ways: "down" as const, caps: true, umlauts: true, show: "words" as const, seed: 1 };
+    const grid: Block = { id: "s", type: "suchsel", x: 15, y: 15, w: 120, h: 140, z: 3, locked: false, props: { ...props, list: true } };
+    const out = landed([grid], ["Hund", "Maus"], doc(["Katze"]));
+    expect(out.blocks).toEqual([{ ...grid, props: { ...props, words: ["Hund", "Maus"] } }]);
+    expect(out.words).toBeUndefined();
+    expect(landed([grid], ["Hund"], doc()).words).toEqual(["Hund"]);
+  });
+
   it("brings the copied list along when the sheet has no words", () => {
     const from = ["Hund, Katze", "Maus"];
     const out = landed(blocks, from, doc());

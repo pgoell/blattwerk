@@ -3316,6 +3316,10 @@
           },
           "description": "The words to hide in the grid, one entry per word, as the teacher typed them."
         },
+        "list": {
+          "type": "boolean",
+          "description": "True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown."
+        },
         "cols": {
           "type": "number",
           "description": "Number of squares across the grid.",

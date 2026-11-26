@@ -32,6 +32,7 @@ import Loesungsfeld from "../Loesungsfeld";
 import Uhr from "../Uhr";
 import Selbstkontrolle from "../Selbstkontrolle";
 import { FormulaPanel } from "./formula";
+import type { Listing } from "./wordlist";
 
 export function useSchools({
   sel, style, place, H,
@@ -112,11 +113,12 @@ export function useSchools({
 }
 
 export function SchoolPanels({
-  maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, loesung, calc, grows, swb, zz, stafel, style, doc, words, owe, H, markEven,
+  maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, textaufgabe, dreieck, strahl, feld, brett, karo, diagramm, uhr, skb, loesung, calc, grows, swb, zz, stafel, style, doc, words, listing, owe, H, markEven,
 }: ReturnType<typeof useSchools> & {
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   doc: Doc;
   words: string[];
+  listing: Listing;
   owe: (entry: Owed) => void;
   H: number;
   markEven: (on: boolean) => void;
@@ -125,7 +127,7 @@ export function SchoolPanels({
     <>
       {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} owe={owe} />}
       {formula && <FormulaPanel key={formula.id} block={formula} apply={(props, key) => style("formula", props, key)} />}
-      {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
+      {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} doc={doc} listing={listing} apply={(props, key) => style("suchsel", props, key)} />}
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => grows("zahlenmauer", props, key)} />}
       {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => grows("zahlenhaus", props, key)} />}
       {kette && <Zahlenkette key={kette.id} block={kette} apply={(props, key) => grows("zahlenkette", props, key)} />}

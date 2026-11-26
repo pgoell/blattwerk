@@ -8,9 +8,10 @@ from collections import Counter
 
 import pytest
 from playwright.sync_api import expect
+from test_feed_print import printed, sheet_id
 from test_gaps import panel, step
 from test_words import ready, redo, undo
-from ui import TEXT, at, box, doc, expect_lit, knob, pick, tool, user
+from ui import TEXT, at, box, doc, expect_lit, pick, tool, user
 
 # A Suchsel on the sheet: the thumbnails of the panel Seiten draw every block too, without its id.
 ON_SHEET = ".block[data-id] .suchsel"
@@ -146,24 +147,58 @@ def test_the_words_field_takes_one_word_to_a_line(editor):
     expect(at(page, "s").locator("ul.found li")).to_have_text(["Hund", "Katze"])
 
 
-def test_lernwoerter_uebernehmen_copies_the_sheets_words(editor):
-    """A3: one click copies the sheet's Lernwörter into the field, as a copy and not a link."""
+def lernen(page):
+    return page.locator(".panel").get_by_role("switch", name="Lernwörter des Blatts")
+
+
+def test_the_switch_makes_the_grid_hide_the_sheets_words_and_follow_them(editor):
+    """A3: with "Lernwörter des Blatts" on, the grid hides the sheet's list, the list stands in the
+    panel in place of the block's own field, and a word typed there is hidden too."""
     client = user()
-    page = editor(sq("s", {**SUCHSEL, "words": []}), client=client, words=LERN)
+    page = editor(sq("s", {**SUCHSEL, "words": ["Esel"]}), client=client, words=LERN)
     pick(page, "s")
-    knob(page, "Lernwörter übernehmen").click()
+    step(page, lambda: lernen(page).click())
+    expect(lernen(page)).to_have_attribute("aria-checked", "true")
+    props = suchsel_props(doc(page, client))
+    assert props["list"] is True and props["words"] == ["Esel"]
+    expect(page.get_by_label("Wörter des Suchsels")).to_have_count(0)
+    words = page.get_by_role("textbox", name="Lernwörter", exact=True)
+    expect(words).to_have_value("Reh\nFuchs")
+    found = at(page, "s").locator("ul.found li")
+    expect(found).to_have_count(2)
+    assert sorted(found.all_inner_texts()) == ["Fuchs", "Reh"]
+    words.press("Control+End")
+    words.press_sequentially("\nIgel")
+    expect(found).to_have_count(3)
+    assert doc(page, client)["words"] == [*LERN, "Igel"]
+    undo(page)
+    expect(found).to_have_count(2)
+
+
+def test_a_suchsel_cut_loose_keeps_the_words_as_its_own(editor):
+    """A3: the switch off again leaves the sheet's words in the block's own field, and a change
+    there leaves the sheet's list as it is."""
+    client = user()
+    page = editor(sq("s", {**SUCHSEL, "words": [], "list": True}), client=client, words=LERN)
+    pick(page, "s")
+    expect(at(page, "s").locator("ul.found li")).to_have_count(2)
+    step(page, lambda: lernen(page).click())
+    props = suchsel_props(doc(page, client))
+    assert props["words"] == LERN and "list" not in props
     field = page.get_by_label("Wörter des Suchsels")
     expect(field).to_have_value("Reh\nFuchs")
-    assert suchsel_props(doc(page, client))["words"] == LERN
     field.fill("Hund")
     assert doc(page, client)["words"] == LERN
+    expect(at(page, "s").locator("ul.found li")).to_have_text(["Hund"])
 
 
-def test_lernwoerter_uebernehmen_is_off_without_lernwoerter(editor):
-    """A3: with no Lernwörter in the sheet the button "Lernwörter übernehmen" is off."""
-    page = editor(sq("s", SUCHSEL))
-    pick(page, "s")
-    expect(panel(page, "Lernwörter übernehmen")).to_be_disabled()
+def test_a_linked_suchsel_prints_the_sheets_words(editor, browser, server):
+    """The print draws the grid from the sheet's list, as the editor does."""
+    page = editor(sq("s", {**SUCHSEL, "words": [], "list": True}), words=LERN)
+    shown = grid(at(page, "s"))
+    paper = printed(browser, server, sheet_id(page))
+    expect(paper.locator(".suchsel ul.found li")).to_have_count(2)
+    assert grid(paper.locator(".block").first) == shown
 
 
 @pytest.mark.parametrize(
@@ -320,7 +355,7 @@ def test_every_setting_undoes_and_redoes(editor, what):
         "umlauts": lambda: panel(page, "Umlaute und ß behalten").click(),
         "show": lambda: panel(page, "Nur Anzahl").click(),
         "seed": lambda: panel(page, "Neu würfeln").click(),
-        "words": lambda: panel(page, "Lernwörter übernehmen").click(),
+        "words": lambda: page.get_by_label("Wörter des Suchsels").fill("Reh"),
     }
     client = user()
     page = editor(sq("s", SUCHSEL), client=client, words=LERN)
