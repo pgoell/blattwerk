@@ -278,10 +278,18 @@ def test_a_turned_block_turns_its_numbers_with_it(editor):
     turned = box("b", "text", {**TEXT, "text": LONG, "lines": 1}, w=80, h=40, angle=30)
     page = editor(*apart(turned, level))
     assert at(page, "b").locator(":scope > svg.numbers").count() == 1
-    svg_y = "els => els.map((el) => [el.textContent, el.getAttribute('y')])"
-    assert at(page, "a").locator(".ln").evaluate_all(svg_y) == at(page, "b").locator(
-        ".ln"
-    ).evaluate_all(svg_y)
+    # The numbers are measured anew, a frame later, when a font comes in, and each block measures for
+    # itself: read between the two, one block has the old places and the other the new (seen in WebKit).
+    # So the two are read in one step, once neither says `unsplit`.
+    page.wait_for_function(
+        """() => {
+            const numbers = (id) => document.querySelector(`.block[data-id="${id}"] > svg.numbers`);
+            const places = (id) =>
+                [...numbers(id).querySelectorAll('.ln')].map((el) => el.textContent + ' ' + el.getAttribute('y'));
+            if (document.querySelector('svg.numbers.unsplit')) return false;
+            return places('a').length > 0 && places('a').join() === places('b').join();
+        }"""
+    )
     assert at(page, "b").evaluate("el => el.style.transform").startswith("rotate")
 
 
