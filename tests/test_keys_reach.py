@@ -133,11 +133,10 @@ def test_shift_f6_with_nothing_picked(editor):
     page = opened(editor, None, theme="")
     page.keyboard.press("Shift+F6")
     expect(page.locator(".panel").get_by_role("tab", name="Format")).to_be_focused()
-    # Blattform has no tabs there: the button that leads to the Lernwörter is its panel's stop.
+    # Blattform has no tabs there, and with nothing picked its panel holds a hint only: the keys pass it.
     page = opened(editor, None)
     page.keyboard.press("Shift+F6")
-    assert part(page) == "panel"
-    expect(page.locator(".panel").get_by_role("button", name="Lernwörter")).to_be_focused()
+    assert part(page) == "header"
 
 
 @pytest.mark.parametrize("theme", [None, ""], ids=["leaf", "plain"])

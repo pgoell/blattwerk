@@ -37,7 +37,7 @@ def list_tab(page):
 
 
 def field(page):
-    return page.get_by_label("Lernwörter", exact=True)
+    return page.get_by_role("textbox", name="Lernwörter", exact=True)
 
 
 def undo(page):
