@@ -4,7 +4,7 @@ title: "Suchsel mit Tieren"
 description: A heading, a name line, and a word search of five animal words, running down, with the words printed under the grid.
 tags: [deutsch, suchsel, tiere, klasse-2]
 covers: [text, name, suchsel]
-generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
+generated: { by: "human:pgoell", at: 2026-11-26T16:34:02Z }
 ---
 
 # Suchsel mit Tieren
@@ -14,6 +14,7 @@ When a teacher asks for: "Ein Suchsel mit Tieren, die Wörter stehen darunter."
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The suchsel block hides five animal words in a grid of 12 by 10 squares. The words run down, and the list under the grid gives them in capitals. The seed sets the letters, so the sheet prints the same way each time.
 * In the editor the word search is the button "Suchsel" in the insert bar, group "Deutsch".
+* To hide the sheet's Lernwörter instead of words of its own, give the block `list: true` and set the words with `set_words`: the grid then follows the list.
 * See [suchsel](../blocks/suchsel.md) for the other props.
 
 # Doc

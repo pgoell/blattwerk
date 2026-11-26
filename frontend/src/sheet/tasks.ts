@@ -31,11 +31,13 @@ import type { Box } from "./box";
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
 // too, the diagonals too, backwards too. `caps` shows every letter as a capital, else every letter small. With
 // `umlauts` ä, ö, ü and ß stay; else they become AE, OE, UE and SS. `show` prints the hidden words under the grid,
-// or only how many there are. The layout comes from `seed` alone (suchsel.ts), so every draw gives the same grid.
+// or only how many there are. With `list` the words are the sheet's Lernwörter, and `words` rests. The layout comes from `seed` alone (suchsel.ts), so every draw gives the same grid.
 export type Ways = "across" | "down" | "diag" | "back";
 export type SuchselProps = {
   /** The words to hide in the grid, one entry per word, as the teacher typed them. */
   words: string[];
+  /** True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown. */
+  list?: boolean;
   /** Number of squares across the grid.
    * @minimum 6
    * @maximum 20

@@ -80,7 +80,7 @@ export const startOf = (b: RulingBlock): number => {
 export const listOf = (b: RulingBlock): ListMode | undefined =>
   b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" || b.props.list === "fold" ? b.props.list : undefined;
 // Whether a block draws the sheet's Lernwörter: a Lineatur with a list mode, or a text or shape with `list: true`.
-export const tied = (b: Block) => (b.type === "ruling" ? listOf(b) !== undefined : boxed(b)?.list === true);
+export const tied = (b: Block) => (b.type === "ruling" ? listOf(b) !== undefined : b.type === "suchsel" ? b.props.list === true : boxed(b)?.list === true);
 // The empty columns of a Knickblatt: 3 when `folds` says so, else 2.
 export const foldsOf = (b: RulingBlock): 2 | 3 => (b.props.folds === 3 ? 3 : 2);
 // The square each character of a Karo's text stands in, as [column, row, character, offset]: a row is filled, then the

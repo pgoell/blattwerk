@@ -5646,6 +5646,10 @@
               "minimum": 6,
               "type": "number"
             },
+            "list": {
+              "description": "True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown.",
+              "type": "boolean"
+            },
             "rows": {
               "description": "Number of squares down the grid.",
               "maximum": 20,
@@ -14839,6 +14843,10 @@
               "minimum": 6,
               "type": "number"
             },
+            "list": {
+              "description": "True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown.",
+              "type": "boolean"
+            },
             "rows": {
               "description": "Number of squares down the grid.",
               "maximum": 20,
@@ -23083,6 +23091,10 @@
               "maximum": 20,
               "minimum": 6,
               "type": "number"
+            },
+            "list": {
+              "description": "True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown.",
+              "type": "boolean"
             },
             "rows": {
               "description": "Number of squares down the grid.",

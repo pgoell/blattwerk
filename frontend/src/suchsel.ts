@@ -41,6 +41,9 @@ export function sane(p: SuchselProps): SuchselProps {
   };
 }
 
+// The settings with the words the grid hides: the sheet's Lernwörter where the block takes them, else its own.
+export const fed = (p: SuchselProps, words: string[]): SuchselProps => (p.list === true ? { ...p, words } : p);
+
 // A word as the grid shows it, a square to an entry: letters only, capitals or small, ä, ö, ü and ß kept or spelt out.
 export function letters(word: string, caps: boolean, umlauts: boolean): string[] {
   const text = word.normalize("NFC").replace(/ẞ/g, "ß");

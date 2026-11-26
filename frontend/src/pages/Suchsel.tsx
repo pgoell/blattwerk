@@ -1,7 +1,8 @@
 // The format panel's settings for a word search block: its words, its grid, its directions and its letters.
 import { draw } from "../bank";
-import type { SuchselBlock, SuchselProps, Ways } from "../sheet";
-import { laid, sane, type Loosen } from "../suchsel";
+import type { Doc, SuchselBlock, SuchselProps, Ways } from "../sheet";
+import { fed, laid, sane, type Loosen } from "../suchsel";
+import { WordList, type Listing } from "./format/wordlist";
 import { Switch } from "../components/Switch";
 
 const WAYS: [Ways, string][] = [
@@ -12,25 +13,32 @@ const WAYS: [Ways, string][] = [
 ];
 const LOOSEN: Record<Loosen, string> = { size: "mehr Spalten oder Zeilen", ways: "mehr Richtungen", words: "weniger Wörtern" };
 
-export default function Suchsel({ block, words, apply }: { block: SuchselBlock; words: string[]; apply: (props: Partial<SuchselProps>, key?: string) => void }) {
-  const p = sane(block.props);
-  const made = laid(block.props);
+export default function Suchsel({ block, words, doc, listing, apply }: { block: SuchselBlock; words: string[]; doc: Doc; listing: Listing; apply: (props: Partial<SuchselProps>, key?: string) => void }) {
+  const linked = block.props.list === true;
+  const p = sane(fed(block.props, words));
+  const made = laid(p);
 
   return (
     <>
       <h2>Suchsel</h2>
-      <textarea
-        className="wordlist"
-        aria-label="Wörter des Suchsels"
-        rows={6}
-        spellCheck={false}
-        value={p.words.join("\n")}
-        onChange={(e) => apply({ words: e.target.value === "" ? [] : e.target.value.split("\n") }, "words")}
-      />
-      <p className="hint">Ein Wort pro Zeile.</p>
-      <button disabled={!words.length} onClick={() => apply({ words: [...words] })}>
-        Lernwörter übernehmen
-      </button>
+      {/* The grid hides the sheet's Lernwörter and follows them, or words of its own. Cut loose, it keeps the words
+          it showed. */}
+      <Switch label="Lernwörter des Blatts" on={linked} onChange={() => apply(linked ? { list: undefined, words: [...words] } : { list: true })} />
+      {linked ? (
+        <WordList doc={doc} listing={listing} />
+      ) : (
+        <>
+          <textarea
+            className="wordlist"
+            aria-label="Wörter des Suchsels"
+            rows={6}
+            spellCheck={false}
+            value={p.words.join("\n")}
+            onChange={(e) => apply({ words: e.target.value === "" ? [] : e.target.value.split("\n") }, "words")}
+          />
+          <p className="hint">Ein Wort pro Zeile.</p>
+        </>
+      )}
       <div className="seg">
         <button aria-label="Eine Spalte weniger" disabled={p.cols === 6} onClick={() => apply({ cols: p.cols - 1 })}>
           −

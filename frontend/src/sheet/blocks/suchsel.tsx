@@ -1,7 +1,9 @@
 // Draws one Suchsel block.
 
 import { PT } from "../../height";
-import { sane, laid } from "../../suchsel";
+import { useContext } from "react";
+import { fed, sane, laid } from "../../suchsel";
+import { Words } from "../context";
 import type { SuchselBlock } from "../tasks";
 
 // A word search: squared paper with a letter to a square, the hidden words ringed once solved, and the words or
@@ -9,7 +11,7 @@ import type { SuchselBlock } from "../tasks";
 // `S` units wide: with a square of one unit the letters are under a unit high, and Chromium sets so small a type a
 // whole square too high.
 export function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved: boolean }) {
-  const p = sane(block.props);
+  const p = sane(fed(block.props, useContext(Words)));
   const { grid, hidden } = laid(p);
   const S = 10;
   const [wide, high] = [p.cols * S, p.rows * S];

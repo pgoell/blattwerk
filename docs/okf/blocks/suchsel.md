@@ -4,7 +4,7 @@ title: "Block: suchsel"
 description: "The word search's settings: the grid, the words and how they run."
 tags: [block, suchsel]
 covers: [suchsel]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-26T16:33:52Z }
 ---
 
 # suchsel
@@ -38,6 +38,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
 | words | list of string |  | yes | The words to hide in the grid, one entry per word, as the teacher typed them. |
+| list | boolean |  | no | True makes the grid hide the sheet's words to learn (Lernwörter) and follow them when they change. Its own `words` stay as they are and are not shown. |
 | cols | number | 6 to 20 | yes | Number of squares across the grid. |
 | rows | number | 6 to 20 | yes | Number of squares down the grid. |
 | ways | string | `across`, `down`, `diag`, `back` | yes | The directions the words may run: "across" only, "down" too, "diag" (diagonal) too, or "back" (backwards) too. Each level includes the ones before. |

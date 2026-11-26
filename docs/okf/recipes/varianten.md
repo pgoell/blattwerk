@@ -4,7 +4,7 @@ title: "Varianten zum Drucken"
 description: A maths block and a suchsel with seeds, so each printed variant gets its own tasks and grid.
 tags: [varianten, maths, suchsel, abschreiben, klasse-2]
 covers: [text, name, maths, suchsel]
-generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
+generated: { by: "human:pgoell", at: 2026-11-26T16:34:02Z }
 ---
 
 # Varianten zum Drucken
@@ -14,7 +14,7 @@ When a teacher asks for: "Ein Blatt mit Plusaufgaben und einem Suchsel, mehrere 
 * Each block with a `seed` changes from letter to letter. Variant A is the stored sheet. Letters B to D get new tasks and a new grid from the same seed and the letter.
 * A block without a `seed` prints the same on every variant. Give every block that should change a whole-number seed.
 * The maths block takes its tasks from its limits and `seed`. Its `exercises` is what the server made for those limits, so keep them with the seed.
-* The suchsel draws its grid from `seed`. Its `words` stay the same on every variant.
+* The suchsel draws its grid from `seed`. Its words stay the same on every variant, its own `words` and the sheet's Lernwörter alike.
 * Claude cannot print. The teacher opens the download window with the button "Weitere Formate und Optionen", the arrow beside "Herunterladen", picks under "Varianten" how many variants to print (letters A to D), and the solutions carry the letter. Nothing is stored.
 * See [maths](../blocks/maths.md) and [suchsel](../blocks/suchsel.md) for the other props.
 

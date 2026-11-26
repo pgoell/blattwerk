@@ -5,9 +5,9 @@ import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 
 import { FileDown } from "lucide-react";
 import { api } from "../api";
 import { ask, flush, isGone, signed } from "../saves";
-import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
+import { Paper, read, sizeOf, wordsIn, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
 import { checked, sane as saneSelbst } from "../selbstkontrolle";
-import { laid } from "../suchsel";
+import { fed, laid } from "../suchsel";
 import { useBackdrop } from "./useBackdrop";
 import { Switch } from "./Switch";
 
@@ -72,7 +72,7 @@ function suchselShort(letter: string, variant: Doc, stored: Doc): Short[] {
   for (const { block, page } of blocks(variant)) {
     if (block.type !== "suchsel") continue;
     const was = blocks(stored).find((s) => s.block.id === block.id)?.block as SuchselBlock | undefined;
-    if (was && laid(block.props).missed.length > laid(was.props).missed.length) found.push({ letter, page, id: block.id, type: block.type });
+    if (was && laid(fed(block.props, wordsIn(variant))).missed.length > laid(fed(was.props, wordsIn(stored))).missed.length) found.push({ letter, page, id: block.id, type: block.type });
   }
   return found;
 }
