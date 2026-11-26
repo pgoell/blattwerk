@@ -1,9 +1,8 @@
-"""The chooser of "Neues Blatt" on the sheet list, and the question before a template replaces a sheet."""
+"""The chooser of "Neues Blatt" on the sheet list, and a sheet made from a template there."""
 
 from playwright.sync_api import expect
 
 EMPTY = "Leeres Blatt"
-REPLACE = "Blatt ersetzen"
 
 
 def chooser(page):
@@ -23,13 +22,14 @@ def new_sheet(page, name=EMPTY):
     card(chooser(page), name).click()
 
 
-def apply_template(page, name):
-    """Clicks a template in the editor's panel, and says yes where the sheet holds something."""
-    held = page.locator(".block[data-id]").count() > 0
-    page.locator(".tpl button", has_text=name).click()
-    if held:
-        page.locator("dialog.confirm").get_by_role("button", name=REPLACE, exact=True).click()
-    expect(page.locator("dialog.confirm")).to_have_count(0)
+def from_template(page, name):
+    """Leaves the editor for the list, makes a sheet from the template of that name under
+    "Neues Blatt", and waits until the editor stands with it. A template is picked nowhere else."""
+    old = page.url
+    page.goto(old.split("/blatt/")[0] + "/")
+    new_sheet(page, name)
+    page.wait_for_url(lambda url: "/blatt/" in url and url != old)
+    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
 
 
 def more(page, title, item):

@@ -6,7 +6,16 @@ import httpx
 import pypdfium2
 from playwright.sync_api import expect
 from test_grounds import jpeg, pdf_of
-from ui import RECT, TEXT, box, doc, pick, png, user
+from ui import (
+    RECT,
+    TEXT,
+    blatt,
+    box,
+    doc,
+    pick,
+    png,
+    user,
+)
 
 
 def ground(page):
@@ -14,8 +23,8 @@ def ground(page):
 
 
 def open_pages(page):
-    """Blattform starts with the page panel shut. Vorlagen opens it."""
-    page.get_by_role("tab", name="Vorlagen").click()
+    """The background is set in the right panel's tab "Blatt"."""
+    blatt(page)
     expect(page.get_by_role("heading", name="Hintergrund")).to_be_visible()
 
 
@@ -97,6 +106,8 @@ def test_a_photo_is_the_ground_under_the_blocks_and_undo_takes_it_back(editor):
     page.get_by_label("Rückgängig", exact=True).click()
     back = "(before) => { const el = document.querySelector('.sheet .ground'); return !!el && el.getBoundingClientRect().left === before; }"
     page.wait_for_function(back, arg=before, timeout=5000)
+    # The picked block has turned the panel to its own settings.
+    blatt(page)
     page.get_by_role("button", name="Zuschneiden", exact=True).click()
     expect(page.locator(".sheet .ground-handle")).to_have_count(4)
     page.get_by_role("button", name="Hintergrund entfernen", exact=True).click()
@@ -125,8 +136,10 @@ def test_one_pdf_page_or_every_page_becomes_a_ground(editor):
     page.get_by_role("button", name="Hintergrund entfernen", exact=True).click()
     expect(ground(page)).to_have_count(0)
     give(page, "buch.pdf", "application/pdf", data)
-    expect(page.get_by_role("button", name="Alle Seiten", exact=True)).to_be_visible()
-    page.get_by_role("button", name="Alle Seiten", exact=True).click()
+    expect(
+        page.locator(".ground-box").get_by_role("button", name="Alle Seiten", exact=True)
+    ).to_be_visible()
+    page.locator(".ground-box").get_by_role("button", name="Alle Seiten", exact=True).click()
     expect(ground(page)).to_have_count(2)
     page.wait_for_function(SHEET, arg="all", timeout=8000)
     pages = doc(page, client)["pages"]

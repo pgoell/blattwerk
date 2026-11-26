@@ -6,9 +6,8 @@ The docstrings name the checklist line that each test proves.
 
 from playwright.sync_api import expect
 from test_stellenwerttafel import SWT as SW
-from test_templates_panel import apply as apply_template
-from test_templates_panel import open_panel
 from ui import TEXT, at, box, doc, drawer, expect_picked, pick, reload, saved, thumb, user
+from ui_new import from_template
 
 ODD = {
     "count": -3,
@@ -161,8 +160,7 @@ def test_a_template_with_a_stellenwerttafel_gives_a_sheet_with_the_same_block(ed
     made = client.post("/api/templates", json={"name": "Stellenwerttafel", "doc": body})
     assert made.status_code == 200, made.text
     page = editor(box("a", "text", TEXT), client=client)
-    open_panel(page)
-    apply_template(page, "Stellenwerttafel")
+    from_template(page, "Stellenwerttafel")
     expect(page.locator(".stellenwerttafel").first).to_be_visible()
     found = sws(client, page)
     assert [b["props"] for b in found] == [SW]

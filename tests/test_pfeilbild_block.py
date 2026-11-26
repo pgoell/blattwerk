@@ -5,8 +5,6 @@ draws or what its panel offers.
 """
 
 from playwright.sync_api import expect
-from test_templates_panel import apply as apply_template
-from test_templates_panel import open_panel
 from ui import (
     TEXT,
     angle,
@@ -23,6 +21,7 @@ from ui import (
     thumb,
     user,
 )
+from ui_new import from_template
 
 PF = {
     "count": 4,
@@ -277,8 +276,7 @@ def test_a_template_with_a_pfeilbild_gives_a_sheet_with_the_same_pfeilbild(edito
     made = client.post("/api/templates", json={"name": "Pfeile", "doc": body})
     assert made.status_code == 200, made.text
     page = editor(box("a", "text", TEXT), client=client)
-    open_panel(page)
-    apply_template(page, "Pfeile")
+    from_template(page, "Pfeile")
     expect(page.locator(".pfeilbild").first).to_be_visible()
     found = pfeilbilds(client, page)
     assert [b["props"] for b in found] == [PF]

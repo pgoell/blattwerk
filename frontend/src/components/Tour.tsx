@@ -12,7 +12,7 @@ type Step = {
   rail?: string;
   // The element the ring goes round.
   find?: string;
-  // The panel the step needs open: a tab of the right one, or Vorlagen for the left one.
+  // The panel the step needs open: a tab of the right one, or Seiten for the left one.
   tab?: string;
   // True once the step's task is done, from the editor now and as the step began; the tour then moves on by itself.
   done?: (now: Seen, start: Seen) => boolean;
@@ -49,11 +49,11 @@ const STEPS: Step[] = [
     done: (now, start) => !now.editing && now.doc !== start.doc,
   },
   {
-    title: "Format",
+    title: "Auswahl",
     text: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Der Knopf oben rechts blendet die Leiste ein und aus.",
     rail: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Die Leiste kommt von unten, sobald du etwas antippst, und „Fertig“ schließt sie.",
     find: ".panel",
-    tab: "Format",
+    tab: "Auswahl",
   },
   {
     title: "Rechenaufgaben",
@@ -66,7 +66,7 @@ const STEPS: Step[] = [
     title: "Aufgaben einstellen",
     text: "Im Format legst du Rechenart, Zahlenraum, die Ziffern jeder Stelle und den Übertrag fest. Probier es aus: „Neu würfeln“ bringt neue Zahlen in denselben Grenzen.",
     find: ".panel",
-    tab: "Format",
+    tab: "Auswahl",
   },
   {
     title: "Mehrere Felder auswählen",
@@ -81,7 +81,7 @@ const STEPS: Step[] = [
     title: "Ausrichten, kopieren, löschen",
     text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren, Löschen und Gruppieren stehen oben in der Leiste oder dort unter „Mehr“: gruppierte Felder bleiben beisammen.",
     find: ".panel",
-    tab: "Format",
+    tab: "Auswahl",
   },
   {
     title: "Rückgängig",
@@ -89,25 +89,25 @@ const STEPS: Step[] = [
     find: "[data-tour=undo]",
   },
   {
-    title: "Ansicht",
-    text: ["Klicke auf den Reiter Ansicht.", "Tippe auf den Reiter Ansicht."],
-    find: "[data-tour=Ansicht]",
-    done: (now) => now.tab === "Ansicht",
+    title: "Blatt",
+    text: ["Klicke auf den Reiter Blatt.", "Tippe auf den Reiter Blatt."],
+    find: "[data-tour=Blatt]",
+    done: (now) => now.tab === "Blatt",
   },
   {
-    title: "Zoom, Raster und Hilfslinien",
+    title: "Das ganze Blatt",
     text: [
-      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Die Lupen zoomen das Blatt, das Auge oben zeigt die Ergebnisse der Rechenaufgaben. Fehlt der Leiste der Platz, steht beides unter „Mehr“.",
-      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Das Auge, oben in der Leiste oder dort unter „Mehr“, zeigt die Ergebnisse der Rechenaufgaben. Mit zwei Fingern zoomst du das Blatt.",
+      "Hier steht, was für das ganze Blatt gilt: Hoch oder Quer, Seitenzahlen, ein Hintergrund, die Farbe der Lösungen. Raster und Hilfslinien liegen neben dem Zoom. Das Auge oben zeigt die Ergebnisse der Rechenaufgaben.",
+      "Hier steht, was für das ganze Blatt gilt: Hoch oder Quer, Seitenzahlen, ein Hintergrund, die Farbe der Lösungen. Raster und Hilfslinien liegen neben dem Zoom. Mit zwei Fingern zoomst du das Blatt.",
     ],
     find: ".panel",
-    tab: "Ansicht",
+    tab: "Blatt",
   },
   {
-    title: "Seiten und Vorlagen",
-    text: "Links stehen die Seiten des Blatts und die Vorlagen. Eine Vorlage ersetzt das Blatt durch einen fertigen Anfang, etwa für eine Klassenarbeit. Jedes deiner Blätter kannst du hier als eigene Vorlage speichern. Eine Seite verschiebst du, indem du ihre Vorschau ziehst.",
+    title: "Seiten",
+    text: "Links stehen die Seiten des Blatts. Eine Seite verschiebst du, indem du ihre Vorschau ziehst. Vorlagen für einen fertigen Anfang findest du unter „Neues Blatt“; im Reiter Blatt speicherst du dein Blatt als eigene Vorlage.",
     find: ".left",
-    tab: "Vorlagen",
+    tab: "Seiten",
   },
   {
     title: "Drucken",

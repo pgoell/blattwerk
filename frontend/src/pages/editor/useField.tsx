@@ -42,7 +42,6 @@ export function useField(session: ReturnType<typeof useTextFit>) {
   const last = session.last;
   const cell = session.cell;
   const sel = session.sel;
-  const kept = session.kept;
   const line = session.line;
   const table = session.table;
   const across = session.across;

@@ -5,13 +5,31 @@ import pytest
 from playwright.sync_api import expect
 from test_insert_place import INSERTS, add_by_button
 from test_pages_many import menu_item
-from ui import LINE, RECT, TEXT, box, doc, pick, thumb, user
+from ui import (
+    LINE,
+    RECT,
+    TEXT,
+    blatt,
+    box,
+    doc,
+    pick,
+    seiten,
+    thumb,
+    user,
+)
 
 ARROW = {**RECT, "kind": "arrow"}
 
 
 def kinds(saved):
     return [[b["type"] for b in p["blocks"]] for p in saved["pages"]]
+
+
+def new_page(page):
+    """A new page from the tab "Seiten" of the left panel, and back to the tools."""
+    seiten(page)
+    page.locator(".pages").get_by_role("button", name="Neue Seite").click()
+    seiten(page, False)
 
 
 def insert(page, label):
@@ -21,7 +39,7 @@ def insert(page, label):
 
 def thumbs(page):
     """Opens the thumbnails, in the tab Vorlagen of the panel, as test_pages_drag does."""
-    page.get_by_role("tab", name="Vorlagen").click()
+    seiten(page)
     expect(thumb(page, 0)).to_be_visible()
 
 
@@ -95,7 +113,7 @@ def test_a_block_lands_on_page_1_scrolled_back_to_after_a_new_page(editor):
     count as hers (here set by a script): the arrow lands on page 1, not on the new page."""
     client = user()
     page = two(editor, client)
-    page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
+    new_page(page)
     expect(page.locator(".sheet[data-page]")).to_have_count(3)
     # The editor's smooth scroll has brought the new page to the top: a scroll set before then
     # races it on a slow runner, which may carry the view back to the new page.
@@ -128,11 +146,11 @@ def test_a_thumbnail_click_puts_the_next_block_on_its_page(editor):
     """Control: a click on page 1's thumbnail after a new page brings page 1 back into use."""
     client = user()
     page = two(editor, client)
-    page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
+    new_page(page)
     thumbs(page)
     expect(thumb(page, 2)).to_be_visible()
     thumb(page, 0).click()
-    page.get_by_role("tab", name="Start").click()
+    seiten(page, False)
     insert(page, "Pfeil")
     assert kinds(doc(page, client)) == [["shape", "shape"], [], ["text"]]
 
@@ -168,9 +186,7 @@ def lines(editor, client):
 
 
 WAYS = {
-    "neue Seite": lambda page: (
-        page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
-    ),
+    "neue Seite": lambda page: new_page(page),
     "eingefügte Seite": lambda page: (
         thumbs(page),
         thumb(page, 0).click(button="right"),
@@ -211,7 +227,7 @@ def test_quer_and_hoch_leave_every_arrow_and_line_on_its_page_and_place(editor, 
     if chosen:
         pick(page, chosen)
     stored, _ = places(page, client)
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     panel.get_by_role("button", name=scope, exact=True).click()
     panel.get_by_role("button", name="Quer", exact=True).click()

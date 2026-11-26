@@ -57,7 +57,7 @@ def test_a_middle_page_stays_whole_when_the_panel_hides_and_shows(editor):
     window(page, 1280, 1024)
     open_in_use(page, 1)
     expect_whole_in_view(page, 1)
-    panel = page.get_by_label("Format und Ansicht", exact=True).first
+    panel = page.get_by_label("Auswahl und Blatt", exact=True).first
     shut = page.locator(".desk").evaluate("el => el.clientWidth")
     panel.click()
     page.wait_for_function(

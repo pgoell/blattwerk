@@ -2,7 +2,18 @@
 
 from playwright.sync_api import expect
 from test_pages import DRAG, expect_in_use, expect_no_drag, expect_order, half, lift, pull
-from ui import TEXT, box, centre, doc, drawer, finger, pick, thumb, user
+from ui import (
+    TEXT,
+    box,
+    centre,
+    doc,
+    drawer,
+    finger,
+    pick,
+    seiten,
+    thumb,
+    user,
+)
 
 NAMES = "abcdefghijklmnop"
 # The panel that holds the thumbnails. A drag at its lower or upper edge scrolls it.
@@ -15,7 +26,7 @@ def blatt(editor, names="abc"):
     """Blattform, the tab Vorlagen open, one block on each page named by `names`."""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in names[1:]]
     page = editor(box(names[0], "text", TEXT), pages=rest)
-    page.get_by_role("tab", name="Vorlagen").click()
+    seiten(page)
     expect(thumb(page, 0)).to_be_visible()
     return page
 
@@ -141,13 +152,13 @@ def test_a9_the_tour_says_a_page_moves_by_dragging_its_thumbnail(editor):
     tour = page.locator(".tour")
     # Some steps move on by themselves once a task is done, so each round reads the step first.
     for _ in range(15):
-        if tour.locator("h2").text_content() == "Seiten und Vorlagen":
+        if tour.locator("h2").text_content() == "Seiten":
             break
         shown = tour.locator("small")
         before = shown.text_content()
         tour.locator(".primary").click()
         expect(shown).not_to_have_text(before)
-    expect(tour.locator("h2")).to_have_text("Seiten und Vorlagen")
+    expect(tour.locator("h2")).to_have_text("Seiten")
     expect(tour.locator("p")).to_contain_text("verschiebst du, indem du ihre Vorschau ziehst")
 
 

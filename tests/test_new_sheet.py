@@ -1,13 +1,12 @@
-"""#1184: "Neues Blatt" opens a chooser with the templates, and a template asks before it replaces a sheet."""
+"""#1184: "Neues Blatt" opens a chooser with the templates."""
 
 import itertools
 import re
 
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
-from test_templates_panel import open_panel
-from ui import TEXT, at, box, user
-from ui_new import EMPTY, REPLACE, card, chooser, new_sheet
+from ui import TEXT, at, box
+from ui_new import EMPTY, card, chooser, new_sheet
 
 FILTERS = ["Alle", "Mathe", "Deutsch", "Meine Vorlagen"]
 OWN = {
@@ -135,39 +134,16 @@ def test_the_chooser_still_gives_an_empty_sheet_when_the_templates_do_not_load(w
     assert sheet_of(page, client)["title"] == "Unbenanntes Blatt"
 
 
-def test_a_template_asks_before_it_replaces_a_sheet_that_holds_something(editor):
-    client = user()
-    page = editor(box("a", "text", TEXT), box("b", "text", TEXT, y=80), client=client)
-    open_panel(page)
-    page.locator(".tpl button", has_text="Wochenplan").click()
-    question = page.locator("dialog.confirm")
-    expect(question.get_by_role("heading")).to_have_text("Vorlage „Wochenplan“ anwenden?")
-    expect(question).to_contain_text("Die Vorlage ersetzt das ganze Blatt: 1 Seite mit 2 Blöcken.")
-    expect(question).to_contain_text("Mit „Rückgängig“ kommt das Blatt zurück.")
-
-    # Abbrechen and Escape leave the sheet as it is.
-    question.get_by_role("button", name="Abbrechen").click()
-    expect(question).to_have_count(0)
-    expect(page.locator(".block[data-id]")).to_have_count(2)
-    page.locator(".tpl button", has_text="Wochenplan").click()
-    page.keyboard.press("Escape")
-    expect(question).to_have_count(0)
-    expect(page.locator(".block[data-id]")).to_have_count(2)
-
-    page.locator(".tpl button", has_text="Wochenplan").click()
-    question.get_by_role("button", name=REPLACE, exact=True).click()
-    expect(question).to_have_count(0)
-    expect(at(page, "a")).to_have_count(0)
-    expect(page.locator(".block[data-id]").first).to_be_visible()
-    # One step of undo brings the old sheet back.
-    page.get_by_label("Rückgängig", exact=True).click()
-    expect(at(page, "a")).to_be_visible()
-    expect(page.locator(".block[data-id]")).to_have_count(2)
-
-
-def test_a_template_takes_an_empty_sheet_without_a_question(editor):
-    page = editor(client=user())
-    open_panel(page)
-    page.locator(".tpl button", has_text="Wochenplan").click()
-    expect(page.locator(".block[data-id]").first).to_be_visible()
-    expect(page.locator("dialog.confirm")).to_have_count(0)
+def test_an_own_template_that_cannot_be_deleted_stays_and_the_chooser_says_so(window, server):  # noqa: F811
+    page, _ = listed(window, server, own=True)
+    shelf = chooser(page)
+    page.on("dialog", lambda asked: asked.accept())
+    page.route(re.compile(r"/api/templates/\d+$"), lambda route: route.fulfill(status=500))
+    shelf.get_by_label("Vorlage Meine Eigene löschen").click()
+    said = "Die Vorlage „Meine Eigene“ konnte nicht gelöscht werden. Versuch es gleich noch einmal."
+    expect(shelf.get_by_role("alert")).to_have_text(said)
+    expect(card(shelf, "Meine Eigene")).to_be_visible()
+    page.unroute(re.compile(r"/api/templates/\d+$"))
+    shelf.get_by_label("Vorlage Meine Eigene löschen").click()
+    expect(card(shelf, "Meine Eigene")).to_have_count(0)
+    expect(shelf.get_by_role("alert")).to_have_count(0)

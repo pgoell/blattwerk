@@ -71,9 +71,9 @@ Build each one on a new sheet from `Meine Blätter` (`Neues Blatt`, then `Leeres
 ### 4. Two pages, title `TR4 Zwei Seiten`
 
 1. Click `Überschrift`, type `Seite eins`. Click `Text`, type `Lies den Text und male ein Bild dazu.`
-2. Click `Neue Seite`. A second, empty page comes and is the one in use.
+2. Click the tab `Seiten` of the left panel and there `Neue Seite`. A second, empty page comes and is the one in use.
 3. On page 2: click `Überschrift`, type `Seite zwei`. Click `Punktefeld`.
-4. Click the tab `Ansicht`. Under `Format, Raster und Hilfslinien für` pick `Nur diese Seite`, then under `Format` pick `Quer`. Page 2 now lies on its side and page 1 stands upright.
+4. Click the tab `Blatt` of the right panel. Under `Format` pick `Nur diese Seite`, then `Quer`. Page 2 now lies on its side and page 1 stands upright.
 5. Set the title in the window that built the sheet, before you change windows:
    - built in the MCP page: `take_snapshot`, click `Titel` by its uid, `press_key` Control+A, `type_text` `TR4 Zwei Seiten`, `press_key` Enter, then `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. Remember that the MCP page cannot scroll back to page 1: it has no wheel and `PageUp` does nothing there.
    - built in the tool's window: `click "Titel"`, `key Control+a`, `type "TR4 Zwei Seiten"`, `key Enter`, then `where "Gespeichert"` until it prints a match.
@@ -83,15 +83,15 @@ Build each one on a new sheet from `Meine Blätter` (`Neues Blatt`, then `Leeres
 
 ### 5. Copy of a template, title `TR5 Kopie`
 
-The tab `Vorlagen` lists the built-in templates for everyone, in the groups `Allgemein`, `Mathe`, `Deutsch` and `Organisation`. Among them are `Arbeitsblatt`, `Klassenarbeit` and `Beschriftungsblatt`. A teacher's own templates stand under `Meine Vorlagen`, and only that teacher sees them. A click on a template puts it in place of the whole sheet; `Rückgängig` brings the sheet back. That is how the app is meant to work.
+The chooser of `Neues Blatt` on `Meine Blätter` lists the built-in templates for everyone; `Mathe` and `Deutsch` filter them. Among them are `Arbeitsblatt`, `Klassenarbeit` and `Beschriftungsblatt`. A teacher's own templates stand under `Meine Vorlagen`, and only that teacher sees them. A click on a template makes a new sheet from it. The editor itself lists no templates: a sheet is stored as one in the right panel's tab `Blatt`. That is how the app is meant to work.
 
 Only the four Rechenblätter draw new tasks each time you start from one: `Rechenblatt Klasse 1`, `Rechenblatt Klasse 2`, `Rechenblatt Klasse 3` and `Rechenblatt Klasse 4`. Where a pull request says to start from each twice and compare the tasks, start from those four twice and from every other built-in template once. `Schreibblatt Lineatur 1` is the same both times, and so is `Schreibblatt Lineatur 2`. To change the tasks on a sheet started from a Rechenblatt, pick the block and click `Neu würfeln`. That is one click, so it is not skipped for time.
 
-1. Open `TR1 Rechnen` from `Meine Blätter`. Click the tab `Vorlagen`. Under `Meine Vorlagen` it says `Noch keine`. Type `TR Vorlage` into `Name der Vorlage` and click `Dieses Blatt als Vorlage`. `TR Vorlage` now stands under `Meine Vorlagen`.
+1. Open `TR1 Rechnen` from `Meine Blätter`. Click the tab `Blatt` of the right panel. Type `TR Vorlage` into `Name der Vorlage` and click `Als Vorlage speichern`. The panel says that `TR Vorlage` is stored.
 2. Go back to `Meine Blätter`, click `Neues Blatt`, click `Meine Vorlagen` in the chooser, click `TR Vorlage`. The new sheet has the title `TR Vorlage` and shows the name line, the heading and the same 16 exercises with the same numbers as `TR1 Rechnen`. Set the title to `TR5 Kopie`.
-3. Change the copy: click `Text` (tab `Start`), type `Nur in der Kopie`.
+3. Change the copy: click `Text` (tab `Einfügen` of the left panel), type `Nur in der Kopie`.
 4. Export and compare.
 5. Open `TR1 Rechnen` again: it must look as in your screenshot of sheet 1, without the new text.
-6. Open `TR5 Kopie`, click the tab `Vorlagen`, click `TR Vorlage` again. A question names what the template replaces: click `Blatt ersetzen`. The sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
+6. On `Meine Blätter` click `Neues Blatt` and `Meine Vorlagen` again: `TR Vorlage` shows the template as you saved it, without `Nur in der Kopie`. Click `Abbrechen`.
 7. On `Meine Blätter` there must be five sheets, each with its title and a small picture of its first page.
 

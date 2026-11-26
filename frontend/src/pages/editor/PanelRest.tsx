@@ -1,15 +1,30 @@
-// The Ansicht of the format panel.
-import { Eraser, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
+// The right panel's tab "Blatt": what holds for the whole sheet.
+import { Plus, Wallpaper } from "lucide-react";
+import { FADES, GROUND_HINT } from "../../ground";
 import { RULINGS, type PageNumbers } from "../../sheet";
 import { MONTESSORI, NAMES, storedPlaces, type PlaceName } from "../../places";
 import { KEY_RED } from "../../sheet/doc";
 import Format from "../Format";
-import { GRIDS, NONE } from "./palette";
 import { useTools } from "./useTools";
 import { Switch } from "../../components/Switch";
 
 export default function PanelRest({ s: session }: { s: ReturnType<typeof useTools> }) {
   const at = session.at;
+  const chooseGround = session.chooseGround;
+  const clearGround = session.clearGround;
+  const fadeGround = session.fadeGround;
+  const groundFile = session.groundFile;
+  const name = session.name;
+  const setName = session.setName;
+  const store = session.store;
+  const pdfAsk = session.pdfAsk;
+  const setPdfAsk = session.setPdfAsk;
+  const setShaping = session.setShaping;
+  const setTrimming = session.setTrimming;
+  const shaping = session.shaping;
+  const takeAsked = session.takeAsked;
+  const trimming = session.trimming;
+  const turnGround = session.turnGround;
   const field = session.field;
   const folio = session.folio;
   const from = session.from;
@@ -74,14 +89,9 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   };
   return (
     <>
-          {tab === "Ansicht" && (
+          {tab === "Blatt" && (
             <>
-              <h2>Format, Raster und Hilfslinien für</h2>
-              <div className="seg">
-                <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
-                <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
-              </div>
-              {/* A page's own format or grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
+              {/* A page's own format stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
               <h2>Format</h2>
               <div className="seg">
                 {(own ? [undefined, false, true] : [false, true]).map((c) => {
@@ -93,42 +103,10 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                   );
                 })}
               </div>
-              <h2>Raster</h2>
               <div className="seg">
-                {(own ? [undefined, ...GRIDS] : GRIDS).map((c) => {
-                  const on = (own ? pages[page].grid : grid) === c;
-                  return (
-                    <button
-                      key={c ?? "sheet"}
-                      className={on ? "on" : ""}
-                      aria-pressed={on}
-                      onClick={() => (own ? turn((p) => ({ ...p, grid: c })) : update((doc) => ({ ...doc, grid: c! })))}
-                    >
-                      {c === undefined ? "Wie Blatt" : c ? `${c} mm` : "Aus"}
-                    </button>
-                  );
-                })}
+                <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
+                <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
               </div>
-              <h2>Hilfslinien</h2>
-              <div className="acts">
-                <button onClick={() => rule("x")}>
-                  <SeparatorVertical size={14} aria-hidden />
-                  Senkrecht
-                </button>
-                <button onClick={() => rule("y")}>
-                  <SeparatorHorizontal size={14} aria-hidden />
-                  Waagerecht
-                </button>
-              </div>
-              <button
-                className="wide"
-                disabled={!(own ? mine : guides).x.length && !(own ? mine : guides).y.length}
-                onClick={() => rules(own ? page : undefined, () => NONE)}
-              >
-                <Eraser size={14} aria-hidden />
-                Alle entfernen
-              </button>
-              <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               <h2>Seitenzahlen</h2>
               <Switch label="Seitenzahlen" on={folio.on} onChange={(on) => numbering({}, on)} />
               {folio.on && (
@@ -167,6 +145,64 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                   </div>
                 </>
               )}
+              <h2>Hintergrund</h2>
+              <div className="ground-box">
+                <p className="hint">{GROUND_HINT}</p>
+                <button onClick={() => groundFile.current?.click()}>
+                  <Wallpaper size={16} aria-hidden />
+                  Hintergrund wählen
+                </button>
+                <input
+                  ref={groundFile}
+                  type="file"
+                  aria-label="Hintergrunddatei"
+                  accept="image/jpeg,image/png,application/pdf,.pdf"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) void chooseGround(file);
+                  }}
+                />
+                {pages[page].ground && (
+                  <>
+                    <button aria-pressed={shaping} className={shaping ? "on" : undefined} onClick={() => (setShaping((on) => !on), setTrimming(false))}>
+                      Hintergrund bearbeiten
+                    </button>
+                    <div className="seg" role="group" aria-label="Deckkraft">
+                      {FADES.map((opacity) => (
+                        <button key={opacity} aria-pressed={(pages[page].ground?.opacity ?? 1) === opacity} className={(pages[page].ground?.opacity ?? 1) === opacity ? "on" : undefined} onClick={() => fadeGround(opacity)}>
+                          {opacity * 100} %
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={turnGround}>Drehen</button>
+                    <button aria-pressed={trimming} className={trimming ? "on" : undefined} onClick={() => setTrimming((on) => !on)}>
+                      Zuschneiden
+                    </button>
+                    <button onClick={clearGround}>Hintergrund entfernen</button>
+                  </>
+                )}
+                {pdfAsk && (
+                  <>
+                    <p className="hint">Die PDF hat {pdfAsk.pages} Seiten.</p>
+                    <label className="tick">
+                      Seite
+                      <input
+                        type="number"
+                        aria-label="Seite der PDF"
+                        min={1}
+                        max={pdfAsk.pages}
+                        value={pdfAsk.page}
+                        onChange={(e) => setPdfAsk({ ...pdfAsk, page: Math.min(pdfAsk.pages, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}
+                      />
+                    </label>
+                    <button onClick={() => void takeAsked(String(pdfAsk.page))}>Diese Seite</button>
+                    <button onClick={() => void takeAsked("all")}>Alle Seiten</button>
+                    <button onClick={() => setPdfAsk(undefined)}>Abbrechen</button>
+                  </>
+                )}
+              </div>
               <h2>Lösungsfarbe</h2>
               <div className="seg" role="group" aria-label="Lösungsfarbe">
                 <button className={keyAsText ? "" : "on"} aria-pressed={!keyAsText} onClick={() => answers(keyColor, false)}>Farbe</button>
@@ -201,6 +237,16 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                   <p className="hint">Einer, Zehner, Hunderter und Tausender in jedem Mathe-Block. Text und Dezimalzahlen bleiben schwarz.</p>
                 </>
               )}
+              {/* A template is a sheet to begin a new one from: it is picked under "Neues Blatt". */}
+              <h2>Vorlage</h2>
+              <input type="text" aria-label="Name der Vorlage" placeholder="Name der Vorlage" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+              <button className="wide" disabled={!name.trim()} onClick={store}>
+                <Plus size={14} aria-hidden />
+                Als Vorlage speichern
+              </button>
+              <p className="hint" role="status">
+                {session.stored ? `„${session.stored}“ ist gespeichert. Du findest die Vorlage unter „Neues Blatt“.` : "Eine Vorlage findest du unter „Neues Blatt“ wieder."}
+              </p>
             </>
           )}
     </>

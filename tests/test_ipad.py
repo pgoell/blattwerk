@@ -42,7 +42,7 @@ DESKTOP = {
     ".stage": [236, 44, 900, 956],
     ".panel": [1136, 44, 264, 956],
     ".sheet": [268, 76, 821, 1161.1],
-    ".dock": [252, 938, 166, 46],
+    ".dock": [252, 938, 213, 46],
 }
 PHONE = {
     "header": [0, 0, 600, 67],
@@ -61,7 +61,7 @@ ON_ITS_SIDE = {
     ".stage": [236, 49, 694, 785],
     ".panel": [930, 49, 264, 785],
     ".sheet": [268, 81, 615, 869.8],
-    ".dock": [252, 760, 202, 58],
+    ".dock": [252, 760, 261, 58],
 }
 
 
@@ -118,7 +118,7 @@ def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor):
         expect_lit(bar(page, side), "false")
     # Blattform's own layout is for a wide window: here the tools stand in a rail at the left (#1187).
     expect(page.locator(".rail[role=toolbar]")).to_be_visible()
-    expect(page.locator(".insert, .modes, .dock")).to_have_count(0)
+    expect(page.locator(".insert, .dock")).to_have_count(0)
 
 
 @pytest.mark.parametrize("side", ["left", "right"])

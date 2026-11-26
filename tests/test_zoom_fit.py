@@ -112,7 +112,7 @@ def test_the_fit_follows_the_panel_beside_the_desk(editor):
     page = editor(box("a", "shape", RECT, **PLACE))
     fit(page).click()
     expect_whole(page, 0, 210, 297)
-    panel = page.get_by_label("Format und Ansicht", exact=True).first
+    panel = page.get_by_label("Auswahl und Blatt", exact=True).first
     shut = desk_width(page)
     pick(page, "a")
     panel.click()

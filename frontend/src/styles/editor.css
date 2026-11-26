@@ -101,17 +101,8 @@
 .pages .mark { position: absolute; top: 0; bottom: 0; left: -8px; width: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; }
 .pages .mark.end { left: auto; right: -8px; }
 .pages i { display: grid; place-items: center; width: var(--thumb); border: 1px dashed var(--edge); border-radius: 2px; color: var(--faint); }
-.tpl { display: flex; align-items: center; padding-right: 8px; }
-.tpl button:first-child { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; padding: 0 6px 0 14px; border: 0; border-radius: 0; background: none; font-weight: 400; text-align: left; }
-.tpl .lucide { color: var(--muted); }
-.tpl small { flex: none; white-space: nowrap; padding-right: 6px; font-size: 11px; color: var(--faint); }
-.tpl-name { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
-.tpl-group h3 { margin: 10px 14px 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
-.tpl-thumb { flex: none; width: 48px; }
-.tpl-thumb svg { display: block; width: 100%; height: auto; }
 .foot { display: grid; gap: 8px; margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--line); }
 /* The field to store a template stays in view under a long list of templates. */
-.left .foot { position: sticky; bottom: 0; background: var(--panel); }
 
 /* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
 .stage { grid-area: 2 / 2; position: relative; display: grid; min-width: 0; min-height: 0; }

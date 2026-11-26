@@ -8,6 +8,7 @@ from playwright.sync_api import expect
 from test_bar import (
     BAR,
     EDITS,
+    GRID,
     LAST,
     ZOOM,
     expect_fitted,
@@ -80,7 +81,7 @@ def test_a_turn_of_the_ipad_shuts_mehr_and_fits_the_bar_anew(editor):
         expect_fitted(page)
         expect(more(page)).to_have_attribute("aria-expanded", "false")
     assert page.evaluate(BAR)["names"] == upright
-    assert listed(page) == [*EDITS, *ZOOM, *LAST][len(upright) :]
+    assert listed(page) == [*EDITS, *ZOOM, GRID, *LAST][len(upright) :]
 
 
 @pytest.mark.parametrize("size", [(834, 1194), (768, 1024)], ids=["ipad", "small-ipad"])

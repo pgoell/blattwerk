@@ -1,6 +1,6 @@
 // What can be inserted, and the commands the bar folds under Mehr.
 import { useState, type MouseEvent } from "react";
-import { BookA, Calculator, Files, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { BookA, Calculator, Files, Shapes, Sigma, CircleHelp, Grid2x2, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { RULINGS } from "../../sheet";
@@ -74,6 +74,17 @@ export function useTools(session: ReturnType<typeof useMenus>) {
           },
           { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
+          // Its list opens below "Mehr", as the zoom's does.
+          {
+            label: "Raster und Hilfslinien",
+            icon: Grid2x2,
+            run: () => {
+              const more = bar.current!.querySelector<HTMLElement>(".more")!;
+              more.focus();
+              const box = more.getBoundingClientRect();
+              session.setRaster({ x: box.left, y: box.bottom + 4, up: false });
+            },
+          },
         ]),
     { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
     // The form gives the focus back to what has it when it opens: "Mehr", as for the zoom.

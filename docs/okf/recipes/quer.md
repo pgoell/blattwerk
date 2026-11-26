@@ -14,7 +14,7 @@ When a teacher asks for: "Ein Blatt quer mit einer Tabelle über die ganze Breit
 * `landscape: true` on the doc turns every page to 297 by 210 mm. A page can turn alone with `landscape` on its own entry, or `set_page` with `landscape: true` on that page.
 * The heading and the table run from x 15 to x 282 mm, so the width is 267 mm.
 * The table's `cells` hold the text row by row, and `cols` the width share of each column. `head` true sets the first row in bold.
-* In the editor the teacher turns the sheet with the button "Format und Ansicht": in the tab "Ansicht", under "Format, Raster und Hilfslinien für", she picks the sheet or one page, then "Hoch" or "Quer". A page on "Wie Blatt" follows the sheet.
+* In the editor the teacher turns the sheet in the right panel, which the button "Auswahl und Blatt" opens: in its tab "Blatt", under "Format", she picks "Hoch" or "Quer", for all pages or with "Nur diese Seite" for one. A page on "Wie Blatt" follows the sheet.
 * When a page turns Quer and already holds blocks, `set_page` warns of the blocks that leave the page. Move them with `move_block`.
 * See [table](../blocks/table.md) for the other props.
 

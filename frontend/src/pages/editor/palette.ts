@@ -177,7 +177,8 @@ export function pickName(sel: Block[], blocks: Block[]): string {
   return loose.every((b) => b.type === type) ? `${loose.length} ${PLURALS[type] ?? "Blöcke"}` : `${loose.length} Blöcke`;
 }
 // The right panel's tabs.
-export const TABS = ["Format", "Ansicht"];
+// The right panel: what is picked, and what holds for the whole sheet.
+export const TABS = ["Auswahl", "Blatt"];
 export const whenTurned = (heard: () => void) => {
   DRAWERS.addEventListener("change", heard);
   return () => DRAWERS.removeEventListener("change", heard);

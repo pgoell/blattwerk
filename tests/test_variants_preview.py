@@ -6,7 +6,12 @@ shows at its right side. A Quer page is one the sheet has turned.
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, box, user
+from ui import (
+    TEXT,
+    blatt,
+    box,
+    user,
+)
 
 UPRIGHT = 210 / 297
 QUER = 297 / 210
@@ -56,7 +61,7 @@ def test_each_page_of_the_preview_shows_whole(editor, landscapes):
 # Own case: one Quer page alone shows whole too.
 def test_one_quer_page_alone_shows_whole(editor):
     page = editor(box("a", "text", {**TEXT, "text": WIDE}, x=15, y=20, w=260, h=40))
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     panel.get_by_role("button", name="Nur diese Seite").click()
     panel.get_by_role("button", name="Quer", exact=True).click()

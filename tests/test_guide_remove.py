@@ -7,7 +7,17 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, at, box, doc, expect_picked, pick, user
+from ui import (
+    TEXT,
+    at,
+    box,
+    doc,
+    expect_picked,
+    guide,
+    pick,
+    raster,
+    user,
+)
 
 HINT = (
     "Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen "
@@ -34,11 +44,8 @@ def sheet_with_guides(editor, thing, axes):
     """The block "a" picked, and a guide line for each letter of `axes`: `x` upright, `y` level."""
     page = editor(box("a", "text", TEXT, x=60, w=60))
     at(page, "a").click()
-    page.get_by_role("tab", name="Ansicht").click()
-    if thing == "own guide":
-        page.get_by_role("button", name="Nur diese Seite").click()
     for axis in axes:
-        page.get_by_role("button", name="Senkrecht" if axis == "x" else "Waagerecht").click()
+        guide(page, axis, "Nur diese Seite" if thing == "own guide" else None)
     return page
 
 
@@ -101,11 +108,8 @@ def test_a_guide_dragged_off_the_right_edge_is_gone_from_the_sheet(editor, thing
     client = user()
     page = editor(box("a", "text", TEXT, x=60, w=60), client=client)
     at(page, "a").click()
-    page.get_by_role("tab", name="Ansicht").click()
-    if thing == "own guide":
-        page.get_by_role("button", name="Nur diese Seite").click()
     for _ in range(2):
-        page.get_by_role("button", name="Senkrecht").click()
+        guide(page, "x", "Nur diese Seite" if thing == "own guide" else None)
     all_tabs = tabs(page, thing)
     expect(all_tabs).to_have_count(2)
     x, y = centre(all_tabs.nth(1))
@@ -153,15 +157,14 @@ def test_a_right_click_on_a_guide_keeps_the_selection_and_escape_keeps_the_guide
 def test_alle_entfernen_still_removes_every_guide(editor):
     page = sheet_with_guides(editor, "guide", "xy")
     expect(tabs(page, "guide")).to_have_count(2)
-    page.get_by_role("button", name="Alle entfernen").click()
+    raster(page).get_by_role("button", name="Alle entfernen").click()
     expect(tabs(page, "guide")).to_have_count(0)
 
 
-def test_the_panel_says_how_to_remove_one_guide(editor):
+def test_the_list_of_guides_says_how_to_remove_one(editor):
     page = editor(box("a", "text", TEXT, x=60, w=60))
     at(page, "a").click()
-    page.get_by_role("tab", name="Ansicht").click()
-    expect(page.get_by_text(HINT, exact=True)).to_be_visible()
+    expect(raster(page).get_by_text(HINT, exact=True)).to_be_visible()
 
 
 def test_a_right_click_beside_the_menu_on_another_guide_opens_that_one(editor):

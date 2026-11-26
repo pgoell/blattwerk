@@ -23,7 +23,6 @@ export function usePointers(session: ReturnType<typeof useKeyCommands>) {
   const showLeft = session.showLeft;
   const showRight = session.showRight;
   const setMod = session.setMod;
-  const setTemplates = session.setTemplates;
   const zoomNow = session.zoomNow;
   const sizeNow = session.sizeNow;
   const thumb = session.thumb;
@@ -92,10 +91,6 @@ useEffect(() => {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("pointerdown", onPress, true);
     };
-  }, []);
-
-  useEffect(() => {
-    attempt("Die Vorlagen konnten nicht geladen werden.", () => signed(api<Template[]>("/templates")).then(setTemplates));
   }, []);
 
   // The sheet's saver (saves.ts) saves a change two seconds after the last one, tries a failed save again, and goes

@@ -343,7 +343,7 @@ def test_564_thumbnails_are_under_vorlagen_and_the_badge_opens_nothing():
     # "Seite 2 von 3" opened nothing. Start has no thumbnails. The badge is a label.
     how = section("## How the editor works")
     bullet = next(line for line in how.splitlines() if line.startswith("- The page thumbnails"))
-    assert "tab `Vorlagen`" in bullet
+    assert "tab `Seiten`" in bullet
     assert "heading `Seiten`" in bullet
     assert "has no thumbnails" in bullet
     assert "`key Control+ArrowDown`" in bullet
@@ -352,9 +352,9 @@ def test_564_thumbnails_are_under_vorlagen_and_the_badge_opens_nothing():
     assert "`key Control+Shift+ArrowUp`" in bullet
     assert "badge `Seite 2 von 3`" in bullet
     assert "a click on it opens nothing" in bullet
-    assert "`Seiten und Vorlagen`" in bullet
+    assert "the button `Seiten` in the bar" in bullet
     source = frontend()
-    for label in ("Vorlagen", "Seiten"):
+    for label in ("Einfügen", "Seiten"):
         assert on_screen(label, source), label
     stage = (REPO / "frontend/src/pages/editor/Stage.tsx").read_text()
     badge = re.search(r'<div className="dock at">.*?</div>', stage, re.S)

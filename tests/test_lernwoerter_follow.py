@@ -3,10 +3,9 @@
 from itertools import pairwise
 
 from playwright.sync_api import expect
-from test_templates_panel import apply as apply_template
-from test_templates_panel import open_panel
 from test_words import blatt, doc, field, rulings, undo
 from ui import TEXT, at, box, user
+from ui_new import from_template
 
 SIX = ["Hund", "Katze", "Maus", "Reh", "Igel", "Fuchs"]
 FOURTEEN = [f"Wort{i}" for i in range(14)]
@@ -50,13 +49,18 @@ def test_the_ruling_stops_at_the_margin_and_warns(editor):
     )
 
 
-def test_a_template_applied_over_a_longer_list_shows_every_word(editor):
+def write_list(page, words):
+    """Writes the list in the panel of the page's first block that shows it."""
+    page.locator(".sheet .block:has(.listed)").first.click()
+    field(page).fill("\n".join(words))
+
+
+def test_a_sheet_from_the_template_shows_every_word_of_a_longer_list(editor):
     """The template's page holds six words; the two more go on a second page, for each exercise."""
     client = user()
-    words = [f"Wort{i}" for i in range(8)]
-    page = editor(box("a", "text", TEXT), client=client, words=words)
-    open_panel(page)
-    apply_template(page, "Lernwörter")
+    page = editor(box("a", "text", TEXT), client=client)
+    from_template(page, "Lernwörter")
+    write_list(page, [f"Wort{i}" for i in range(8)])
     stored = doc(page, client)
     assert len(stored["pages"]) == 2
     assert [rows_of(b) for b in linked(stored)] == [6, 6, 6]
@@ -147,9 +151,9 @@ def test_a_locked_ruling_keeps_its_rows_when_a_word_comes(editor):
     assert linked(doc(page, client))[0]["h"] == 120
 
 
-def test_a_template_over_two_words_keeps_its_six_rows(editor):
+def test_a_sheet_from_the_template_keeps_its_six_rows_over_two_words(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=["Hund", "Katze"])
-    open_panel(page)
-    apply_template(page, "Lernwörter")
+    page = editor(box("a", "text", TEXT), client=client)
+    from_template(page, "Lernwörter")
+    write_list(page, ["Hund", "Katze"])
     assert [b["h"] for b in linked(doc(page, client))] == [69, 69, 69]

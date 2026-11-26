@@ -4,23 +4,13 @@ import pytest
 from playwright.sync_api import expect
 from test_templates_print import printed, template
 from ui import sheet, user
-from ui_new import apply_template
-
-
-def open_panel(page):
-    page.get_by_role("tab", name="Vorlagen").click()
-    expect(page.get_by_role("heading", name="Vorlagen", exact=True)).to_be_visible()
-
-
-def apply(page, name):
-    apply_template(page, name)
+from ui_new import from_template
 
 
 @pytest.mark.parametrize("name", ["Elternbrief", "Klassenarbeit Deckblatt"])
 def test_template_shows_the_date_once_on_screen(editor, name):
     page = editor()
-    open_panel(page)
-    apply(page, name)
+    from_template(page, name)
     sheet_page = page.locator(".sheet").first
     expect(sheet_page.get_by_text("Datum").first).to_be_visible()
     shown = sheet_page.inner_text()
@@ -29,8 +19,7 @@ def test_template_shows_the_date_once_on_screen(editor, name):
 
 def test_deckblatt_keeps_its_name_line_on_screen(editor):
     page = editor()
-    open_panel(page)
-    apply(page, "Klassenarbeit Deckblatt")
+    from_template(page, "Klassenarbeit Deckblatt")
     fields = page.locator(".sheet").first.locator(".fields > span")
     expect(fields).to_have_text(["Name:", "Klasse:"])
 

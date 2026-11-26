@@ -37,14 +37,6 @@ def test_seite_duplizieren_puts_a_copy_right_after_the_page_in_use(editor):
     expect(page.locator(".pages button[data-thumb]")).to_have_count(4)
 
 
-def test_the_left_bar_of_a_wide_window_copies_the_page_too(editor):
-    """A3"""
-    rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest)
-    page.locator("aside.left .insert").get_by_role("button", name="Seite duplizieren").click()
-    expect_order(page, "a+b")
-
-
 def test_the_copy_holds_every_block_of_every_type_under_new_names(editor):
     """A4"""
     client = user()

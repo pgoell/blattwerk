@@ -6,6 +6,7 @@ import { newSeed } from "../Maths";
 import ZoomList from "../../components/ZoomList";
 import Tour from "../../components/Tour";
 import type { Axis } from "../../sheet";
+import RasterMenu from "./RasterMenu";
 import { useTools } from "./useTools";
 
 export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTools> }) {
@@ -57,7 +58,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
         <Tour
           seen={{ doc: hist.doc, blocks: blocks.length, sel: sel.length, editing: !!editing, tab }}
           show={(t) => {
-            if (t === "Vorlagen") return showLeft(true);
+            if (t === "Seiten") return showLeft(true);
             setTab(t);
             showRight(true);
           }}
@@ -79,6 +80,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
           onClose={() => setLens(undefined)}
         />
       )}
+      {session.raster && <RasterMenu s={session} />}
       {mathMenu && (
         <Library x={mathMenu.x} y={mathMenu.y} up={mathMenu.up} lead={drawers ? mathLead : undefined} onPick={(make) => addInsert(make(newSeed()))} onClose={() => setMathMenu(undefined)} />
       )}

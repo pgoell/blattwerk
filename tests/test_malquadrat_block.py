@@ -5,8 +5,6 @@ draws or what its panel offers.
 """
 
 from playwright.sync_api import expect
-from test_templates_panel import apply as apply_template
-from test_templates_panel import open_panel
 from ui import (
     TEXT,
     angle,
@@ -23,6 +21,7 @@ from ui import (
     thumb,
     user,
 )
+from ui_new import from_template
 
 MQ = {
     "count": 2,
@@ -272,8 +271,7 @@ def test_a_template_with_a_malquadrat_gives_a_sheet_with_the_same_malquadrat(edi
     made = client.post("/api/templates", json={"name": "Malquadrate", "doc": body})
     assert made.status_code == 200, made.text
     page = editor(box("a", "text", TEXT), client=client)
-    open_panel(page)
-    apply_template(page, "Malquadrate")
+    from_template(page, "Malquadrate")
     expect(page.locator(".malquadrat").first).to_be_visible()
     found = quadrate(client, page)
     assert [b["props"] for b in found] == [MQ]

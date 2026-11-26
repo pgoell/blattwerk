@@ -2,96 +2,72 @@
 import type { CSSProperties } from "react";
 import { CopyPlus, FilePlus, FileX, Wallpaper, LayoutTemplate, Plus, X } from "lucide-react";
 import { sizeOf } from "../../sheet";
-import { FADES, GROUND_HINT } from "../../ground";
 import { next } from "../../cells";
 import { holdName, Tool } from "./Tool";
 import { span, Thumb } from "./palette";
 import { useTools } from "./useTools";
-import Confirm from "../../components/Confirm";
-import { Switch } from "../../components/Switch";
 
-// A count with its noun: 1 Seite, 2 Seiten.
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export default function PagesPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   const addPage = session.addPage;
   const aim = session.aim;
-  const apply = session.apply;
-  const tplAsk = session.tplAsk;
-  const setTplAsk = session.setTplAsk;
-  const holds = session.holds;
-  const replaceSheet = session.replaceSheet;
   const brand = session.brand;
-  const builtIn = session.builtIn;
-  const chooseGround = session.chooseGround;
   const chosenNow = session.chosenNow;
-  const clearGround = session.clearGround;
   const copyPages = session.copyPages;
   const ctrl = session.ctrl;
   const ctrlMenu = session.ctrlMenu;
   const dragged = session.dragged;
-  const fadeGround = session.fadeGround;
   const file = session.file;
-  const folio = session.folio;
-  const forget = session.forget;
   const from = session.from;
-  const groundFile = session.groundFile;
   const group = session.group;
   const haul = session.haul;
   const k = session.k;
-  const kept = session.kept;
   const landing = session.landing;
   const leaf = session.leaf;
   const left = session.left;
-  const name = session.name;
-  const numbering = session.numbering;
   const page = session.page;
   const pageKey = session.pageKey;
   const pages = session.pages;
-  const pdfAsk = session.pdfAsk;
   const pressed = session.pressed;
   const quit = session.quit;
   const release = session.release;
   const removePages = session.removePages;
   const scrollEdge = session.scrollEdge;
   const setChosen = session.setChosen;
-  const setName = session.setName;
-  const setPdfAsk = session.setPdfAsk;
-  const setShaping = session.setShaping;
-  const setTrimming = session.setTrimming;
-  const shaping = session.shaping;
   const side = session.side;
   const small = session.small;
-  const store = session.store;
   const strip = session.strip;
   const style = session.style;
-  const takeAsked = session.takeAsked;
   const thumb = session.thumb;
   const thumbMenu = session.thumbMenu;
   const title = session.title;
   const tools = session.tools;
   const touch = session.touch;
-  const trimming = session.trimming;
   const tug = session.tug;
-  const turnGround = session.turnGround;
   const visit = session.visit;
   return (
     <>
-      {leaf && !side && (
-        <aside className="left">
-          {brand}
-          <div className="insert" role="toolbar" aria-label="Einfügen" onPointerOver={(e) => holdName(e, e.currentTarget.parentElement!)}>
-            {tools}
-            <i className="sep" data-name="Seite" />
-            <Tool icon={FilePlus} label="Neue Seite" onClick={() => addPage()} />
-            <Tool icon={CopyPlus} label="Seite duplizieren" onClick={() => copyPages()} />
-            <Tool icon={FileX} label="Seite löschen" disabled={chosenNow.length >= pages.length} onClick={() => removePages()} />
-          </div>
-        </aside>
-      )}
-      {left && (
+      {/* A wide window's left panel has two tabs: what can go on the page, and the pages. A narrower one has the
+          pages alone, behind the bar's button, and the tools at the desk's foot. */}
+      {(leaf || left) && (
         <aside className="left">
           {leaf && brand}
+          {leaf && (
+            <div className="tabs sides" role="tablist">
+              {["Einfügen", "Seiten"].map((t) => (
+                <button key={t} role="tab" data-tour={t} aria-selected={(t === "Seiten") === side} onClick={() => session.showLeft(t === "Seiten")}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+          {leaf && !side && (
+            <div className="insert" role="toolbar" aria-label="Einfügen" onPointerOver={(e) => holdName(e, e.currentTarget.parentElement!)}>
+              {tools}
+            </div>
+          )}
+          {left && (
+          <>
           <div className="head">
             Seiten
             <span>
@@ -188,111 +164,7 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
               Neue Seite
             </button>
           </div>
-          <Switch label="Seitenzahlen" on={folio.on} onChange={(on) => numbering({}, on)} />
-          <div className="ground-box">
-            <h2>Hintergrund</h2>
-            <p className="hint">{GROUND_HINT}</p>
-            <button onClick={() => groundFile.current?.click()}>
-              <Wallpaper size={16} aria-hidden />
-              Hintergrund wählen
-            </button>
-            <input
-              ref={groundFile}
-              type="file"
-              aria-label="Hintergrunddatei"
-              accept="image/jpeg,image/png,application/pdf,.pdf"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) void chooseGround(file);
-              }}
-            />
-            {pages[page].ground && (
-              <>
-                <button aria-pressed={shaping} className={shaping ? "on" : undefined} onClick={() => (setShaping((on) => !on), setTrimming(false))}>
-                  Hintergrund bearbeiten
-                </button>
-                <div className="seg" role="group" aria-label="Deckkraft">
-                  {FADES.map((opacity) => (
-                    <button key={opacity} aria-pressed={(pages[page].ground?.opacity ?? 1) === opacity} className={(pages[page].ground?.opacity ?? 1) === opacity ? "on" : undefined} onClick={() => fadeGround(opacity)}>
-                      {opacity * 100} %
-                    </button>
-                  ))}
-                </div>
-                <button onClick={turnGround}>Drehen</button>
-                <button aria-pressed={trimming} className={trimming ? "on" : undefined} onClick={() => setTrimming((on) => !on)}>
-                  Zuschneiden
-                </button>
-                <button onClick={clearGround}>Hintergrund entfernen</button>
-              </>
-            )}
-            {pdfAsk && (
-              <>
-                <p className="hint">Die PDF hat {pdfAsk.pages} Seiten.</p>
-                <label className="tick">
-                  Seite
-                  <input
-                    type="number"
-                    aria-label="Seite der PDF"
-                    min={1}
-                    max={pdfAsk.pages}
-                    value={pdfAsk.page}
-                    onChange={(e) => setPdfAsk({ ...pdfAsk, page: Math.min(pdfAsk.pages, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}
-                  />
-                </label>
-                <button onClick={() => void takeAsked(String(pdfAsk.page))}>Diese Seite</button>
-                <button onClick={() => void takeAsked("all")}>Alle Seiten</button>
-                <button onClick={() => setPdfAsk(undefined)}>Abbrechen</button>
-              </>
-            )}
-          </div>
-          <h2>Vorlagen</h2>
-          {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
-            const group = builtIn.filter((t) => t.group === g);
-            return group.length ? (
-              <div role="group" aria-label={g} className="tpl-group" key={g}>
-                <h3>{g}</h3>
-                {group.map((t) => (
-                  <div key={t.id} className="tpl">
-                    <button onClick={() => apply(t)}>
-                      <span className="tpl-thumb" aria-hidden>
-                        <Thumb doc={t.shown} k={48 / 210} page={0} />
-                      </span>
-                      <span className="tpl-name">{t.name}</span>
-                    </button>
-                    <small>eingebaut</small>
-                  </div>
-                ))}
-              </div>
-            ) : null;
-          })}
-          <h2>Meine Vorlagen</h2>
-          {kept.map((t) => (
-            <div key={t.id} className="tpl">
-              <button onClick={() => apply(t)}>
-                <LayoutTemplate size={14} aria-hidden />
-                <span className="tpl-name">{t.name}</span>
-              </button>
-              <Tool icon={X} label={`Vorlage ${t.name} löschen`} title="Löschen" onClick={() => forget(t)} />
-            </div>
-          ))}
-          {!kept.length && <p className="hint">Noch keine</p>}
-          <div className="foot">
-            <input type="text" aria-label="Name der Vorlage" placeholder="Name der Vorlage" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-            <button disabled={!name.trim()} onClick={store}>
-              <Plus size={14} aria-hidden />
-              Dieses Blatt als Vorlage
-            </button>
-          </div>
-          {tplAsk && (
-            <Confirm title={`Vorlage „${tplAsk.name}“ anwenden?`} yes="Blatt ersetzen" onYes={() => void replaceSheet(tplAsk)} onClose={() => setTplAsk(undefined)}>
-              <p>
-                Die Vorlage ersetzt das ganze Blatt: {plural(holds().pages, "Seite", "Seiten")} mit {plural(holds().blocks, "Block", "Blöcken")}
-                {holds().ground ? " und der Hintergrund" : ""}. Der Titel bleibt.
-              </p>
-              <p>Mit „Rückgängig“ kommt das Blatt zurück.</p>
-            </Confirm>
+          </>
           )}
         </aside>
       )}

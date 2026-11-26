@@ -14,7 +14,16 @@ from test_rechendreieck import DREIECK
 from test_selbstkontrolle_block import SK
 from test_suchsel import SUCHSEL
 from test_zahlenmauer_size import MAUER
-from ui import RULING, TABLE, TEXT, box, doc, pick, user
+from ui import (
+    RULING,
+    TABLE,
+    TEXT,
+    blatt,
+    box,
+    doc,
+    pick,
+    user,
+)
 
 # The types that stretch across when the page turns: a block spanning the width gets the new width.
 STRETCH = {"text", "shape", "line", "ruling", "table", "name", "maths"}
@@ -24,7 +33,7 @@ RIGHT = 282
 
 def turn(page, to="Quer", scope=None):
     """The Ansicht panel: the sheet, or only this page, turned to `to`."""
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     if scope:
         panel.get_by_role("button", name=scope).click()
@@ -339,7 +348,6 @@ def test_a_margin_wide_circle_keeps_its_shape_and_stays_centred(editor):
 def fields(page, name, labels=("X", "Breite")):
     """The block's X and Breite, or the labels given, in the right panel as a teacher reads them."""
     pick(page, name)
-    page.locator(".modes").get_by_role("tab", name="Start").click()
     geo = page.locator(".geo")
     expect(geo).to_be_visible()
     return {

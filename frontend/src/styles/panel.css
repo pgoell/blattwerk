@@ -1,8 +1,11 @@
-/* The right panel: what is selected under Format, the grid and the guide lines under Ansicht. */
+/* The right panel: what is selected under Auswahl, what holds for the whole sheet under Blatt. */
 .panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); }
 .tabs { position: sticky; top: 0; z-index: 1; display: flex; gap: 14px; height: 38px; margin: 0 -14px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .tabs button { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
 .tabs [aria-selected=true] { color: var(--ink); box-shadow: inset 0 -2px var(--accent); }
+/* The wide window's left panel has the same tabs: what can be inserted, and the pages. */
+.tabs.sides { position: static; margin: 0 0 6px; }
+.panel .ground-box { padding: 0 0 4px; border: 0; }
 /* What is selected. */
 .what { display: flex; align-items: center; justify-content: space-between; min-height: 38px; margin: 0 -14px; padding: 0 14px; border-bottom: 1px solid var(--line); font-weight: 500; }
 /* The fields for place, size and angle, two to a row, each under its name. The lock stands beside the angle. */
@@ -117,9 +120,6 @@
 .left .brand .lucide { display: none; }
 .left .logo { font-size: 20px; }
 .left .logo svg { width: 28px; height: 28px; }
-.modes { display: inline-flex; gap: 2px; margin-right: 6px; }
-.modes button { border-color: transparent; background: none; color: var(--muted); }
-.modes [aria-selected=true] { background: #0d3b2a; color: #fff; }
 .insert { display: grid; gap: 2px; padding: 0 14px 14px; }
 .insert .ib { width: auto; min-height: 36px; justify-content: flex-start; gap: 12px; padding: 0 4px; color: var(--ink); }
 .insert .ib::after { content: attr(aria-label); }
@@ -136,7 +136,9 @@
 .insert .shapes .ib::after { content: none; }
 .leaf .dock { left: 16px; translate: none; }
 .leaf .dock.at { left: auto; right: 28px; min-height: 40px; padding: 0 14px; border-color: transparent; background: #0d3b2a; color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; }
-.leaf .what { min-height: 56px; border-bottom: 0; font-size: 20px; }
+/* Under the tabs "Auswahl" and "Blatt" the name is one short row: the tabs took a row of the small window. */
+.leaf .what { min-height: 28px; padding-top: 6px; border-bottom: 0; font-size: 16px; }
+.leaf .panel > .tabs:not(.panes) { height: 32px; }
 /* A narrow window stacks the panels: pages and templates over the desk, the format under it. */
 @media (max-width: 700px) {
   .editor { grid-template: auto auto minmax(0, 1fr) auto / minmax(0, 1fr); }

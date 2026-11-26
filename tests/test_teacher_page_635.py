@@ -3,7 +3,15 @@
 import pytest
 from playwright.sync_api import expect
 from test_teacher_page import folder, pytestmark, tool  # noqa: F401
-from ui import FIELD, TEXT, box, maths, pick, user
+from ui import (
+    FIELD,
+    TEXT,
+    blatt,
+    box,
+    maths,
+    pick,
+    user,
+)
 
 
 def test_635_a_scrolled_zahlenraum_is_turned_back_into_the_window(editor):
@@ -36,21 +44,19 @@ def test_635_value_uebertrag_reads_the_lit_button(editor):
         tool.value(page, "Nein")
 
 
-def test_635_click_klassenarbeit_takes_the_button_and_turns_the_panel(editor):
-    # Three matches lay outside the window: the button, and the word in two little pages.
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    page.get_by_role("tab", name="Vorlagen").click()
-    button = page.get_by_role("button", name="Klassenarbeit", exact=True)
-    expect(button).to_be_visible()
-    page.locator("aside.left").evaluate("el => { el.scrollTop = 0 }")
+def test_635_click_gefaerbt_takes_the_button_and_turns_the_panel(editor):
+    # The match lay outside the window, further down its panel.
+    page = editor(box("a", "text", TEXT))
+    page.set_viewport_size({"width": 1400, "height": 420})
+    blatt(page)
+    button = page.get_by_role("button", name="Gefärbt", exact=True)
+    page.locator(".panel").evaluate("el => { el.scrollTop = 0 }")
     assert button.bounding_box()["y"] >= page.evaluate("innerHeight")
-    lines = tool.where(page, "Klassenarbeit").splitlines()
-    assert len(lines) >= 3
-    assert all("(outside the window)" in line for line in lines), lines
-    said = tool.click(page, "Klassenarbeit")
+    lines = tool.where(page, "Gefärbt").splitlines()
+    assert lines and all("(outside the window)" in line for line in lines), lines
+    said = tool.click(page, "Gefärbt")
     assert "(turned the page to it)" in said, said
-    expect(page.get_by_text("/ 60 Punkte").first).to_be_visible()
+    expect(page.get_by_label("Farbe der Einer")).to_be_visible()
 
 
 def test_635_click_ganze_seite_in_the_open_list_fits_the_page(editor):

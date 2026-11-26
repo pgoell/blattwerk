@@ -5,8 +5,6 @@ props, not what it draws or what its panel offers.
 """
 
 from playwright.sync_api import expect
-from test_templates_panel import apply as apply_template
-from test_templates_panel import open_panel
 from ui import (
     TEXT,
     angle,
@@ -23,6 +21,7 @@ from ui import (
     thumb,
     user,
 )
+from ui_new import from_template
 
 KETTE = {
     "count": 4,
@@ -273,8 +272,7 @@ def test_a_template_with_a_chain_gives_a_sheet_with_the_same_chain(editor):
     made = client.post("/api/templates", json={"name": "Ketten", "doc": body})
     assert made.status_code == 200, made.text
     page = editor(box("a", "text", TEXT), client=client)
-    open_panel(page)
-    apply_template(page, "Ketten")
+    from_template(page, "Ketten")
     expect(page.locator(".zahlenkette").first).to_be_visible()
     chains = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zahlenkette"]
     assert [b["props"] for b in chains] == [KETTE]

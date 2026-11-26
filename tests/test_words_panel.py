@@ -25,6 +25,7 @@ from ui import (
     TABLE,
     TEXT,
     at,
+    blatt,
     box,
     doc,
     expect_picked,
@@ -120,13 +121,13 @@ def test_an_undo_in_the_list_stays_on_the_list(editor):
     expect_picked(page, "r")
 
 
-def test_a_pick_on_the_ansicht_tab_stays_on_ansicht(editor):
+def test_a_pick_turns_the_panel_from_blatt_to_auswahl(editor):
     page = editor(box("a", "text", TEXT), words=WORDS)
-    # A window under 1024 px has the panel's tabs Format and Ansicht.
-    page.set_viewport_size({"width": 1000, "height": 900})
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
+    expect(page.locator(".what")).to_have_count(0)
     pick(page, "a")
-    expect(page.get_by_role("tab", name="Ansicht")).to_have_attribute("aria-selected", "true")
+    expect(page.get_by_role("tab", name="Auswahl")).to_have_attribute("aria-selected", "true")
+    expect(page.locator(".what")).to_be_visible()
 
 
 def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor):

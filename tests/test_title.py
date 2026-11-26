@@ -100,8 +100,11 @@ def test_a_title_shows_whole_while_it_is_edited_and_is_cut_again_after(editor, w
     during = page.evaluate(BAR)["names"]
     if width > 700:
         # What lost its room to the title lies under "Mehr".
-        assert len(during) < len(before) and during == before[: len(during)]
-        expect(more(page)).to_be_visible()
+        assert during == before[: len(during)]
+        # Blattform's own bar, without the panel's tabs in it, has room for this title and every command.
+        assert len(during) < len(before) or width == 1280
+        if len(during) < len(before):
+            expect(more(page)).to_be_visible()
     leave(page, end)
     cut = expect_title(page, width, focused=False, dots=True)
     assert cut["width"] <= wide["width"]
@@ -127,7 +130,7 @@ def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(
     """I8: the buttons the bar unfolds when the edit ends move the one under the pointer."""
     page, field = titled(editor, 1280, TOO)
     expect_title(page, 1280, focused=True)
-    pin = page.get_by_label("Format und Ansicht", exact=True)
+    pin = page.get_by_label("Auswahl und Blatt", exact=True)
     expect_lit(pin, "true")
     pin.click()
     expect_lit(pin, "false")

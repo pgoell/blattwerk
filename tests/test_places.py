@@ -8,7 +8,16 @@ decimal.
 from playwright.sync_api import expect
 from test_hunderterfeld import TAFEL
 from test_selbstkontrolle import SK
-from ui import TEXT, at, box, doc, expect_lit, maths, user
+from ui import (
+    TEXT,
+    at,
+    blatt,
+    box,
+    doc,
+    expect_lit,
+    maths,
+    user,
+)
 
 from blattwerk import pdf
 
@@ -47,7 +56,7 @@ def test_a_sheet_colours_digits_by_place(editor, browser, server):
     )
     expect(page.locator("[data-place]")).to_have_count(0)
 
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     group = page.get_by_role("group", name="Stellenwerte")
     expect_lit(group.get_by_role("button", name="Ungefärbt", exact=True), "true")
     group.get_by_role("button", name="Gefärbt", exact=True).click()
@@ -102,7 +111,7 @@ def test_selbstkontrolle_colours_its_answers_in_the_list_the_sum_and_a_shape(edi
         ),
         client=client,
     )
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     group = page.get_by_role("group", name="Stellenwerte")
     group.get_by_role("button", name="Gefärbt", exact=True).click()
 

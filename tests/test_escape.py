@@ -13,6 +13,7 @@ from ui import (
     box,
     centre,
     expect_picked,
+    guide,
     maths,
     pick,
     picture,
@@ -246,10 +247,7 @@ def laid(editor, thing):
         return page
     page = editor(box("a", "text", TEXT, x=60, w=60))
     at(page, "a").click()
-    page.get_by_role("tab", name="Ansicht").click()
-    if thing == "own guide":
-        page.get_by_role("button", name="Nur diese Seite").click()
-    page.get_by_role("button", name="Senkrecht").click()
+    guide(page, "x", "Nur diese Seite" if thing == "own guide" else None)
     expect(page.locator(GRIPS[thing])).to_have_count(1)
     return page
 

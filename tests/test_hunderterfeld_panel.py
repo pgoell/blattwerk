@@ -52,7 +52,7 @@ def test_the_grid_fits_the_panel_with_ausschnitt_ticked_and_a_click_on_100_takes
 
 
 def test_the_grid_fits_a_narrow_window_with_the_panel_opened_by_format_und_ansicht(editor):
-    """At 820 by 1180 the panel, opened with Format und Ansicht, shows squares 10 and 100 within its
+    """At 820 by 1180 the panel, opened with Auswahl und Blatt, shows squares 10 and 100 within its
     box and no sideways scroll bar."""
     client = user()
     page = editor(feld("h", {**TAFEL, "cut": True}), client=client)

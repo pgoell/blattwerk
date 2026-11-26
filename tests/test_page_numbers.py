@@ -9,7 +9,19 @@ from pypdf import PdfReader
 from test_clipboard import button
 from test_pages import copy as duplicate
 from test_pages import pull, three, thumb
-from ui import TEXT, at, box, centre, doc, expect_lit, knob, reload, seiten, user
+from ui import (
+    TEXT,
+    at,
+    blatt,
+    box,
+    centre,
+    doc,
+    expect_lit,
+    knob,
+    reload,
+    seiten,
+    user,
+)
 
 FOLIO = ".sheet[data-page] .scaled .folio"
 MM = {"upright": 210, "landscape": 297}
@@ -35,7 +47,7 @@ def click_on(page, n):
 
 def numbers(page, at_=None, form=None):
     """Turns the numbers on in the Ansicht tab, then picks a place and a form if asked."""
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     switch(page).click()
     expect(switch(page)).to_be_checked()
     if at_:
@@ -48,7 +60,7 @@ def test_a_sheet_without_page_numbers_shows_none_on_screen_or_in_the_pdf(editor,
     """Off by default: the Ansicht tab says Aus, and no page has a number."""
     client = user()
     page = three(editor, client=client)
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     expect(page.get_by_role("heading", name="Seitenzahlen", exact=True)).to_be_visible()
     expect(switch(page)).not_to_be_checked()
     expect(page.locator(FOLIO)).to_have_count(0)
@@ -68,15 +80,6 @@ def test_turning_numbers_on_numbers_each_of_three_pages_and_a_reload_keeps_them(
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
     reload(page, page.url)
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
-
-
-def test_the_page_panel_checkbox_turns_the_numbers_on(editor, server):
-    """The checkbox under the thumbnails does what the Ansicht tab does."""
-    client = user()
-    page = three(editor, client=client)
-    page.locator("aside.left").get_by_label("Seitenzahlen", exact=True).check()
-    expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
-    assert doc(page, client)["pageNumbers"]["on"] is True
 
 
 @pytest.mark.parametrize(
@@ -123,7 +126,7 @@ def test_the_numbers_run_one_to_m_after_a_page_is_added_deleted_moved_or_copied(
 def test_undo_and_redo_take_turning_on_and_a_form_change_as_one_step_each(editor):
     """Each change is one undo step: the switch on, then the form."""
     page = three(editor)
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     switch(page).click()
     expect(page.locator(FOLIO)).to_have_text(["1", "2", "3"])
     page.keyboard.press("Control+z")
