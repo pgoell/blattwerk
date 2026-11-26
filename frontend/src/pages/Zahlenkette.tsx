@@ -21,7 +21,6 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
   const p = sane(block.props);
   const m = made(p);
   const free = p.free ?? startFlags(p.rings);
-  const [which, setWhich] = useState(0);
   // "Fest" chosen while no step is stored yet: the input shows until a step is stored.
   const [fixed, setFixed] = useState(false);
   // The number field with focus keeps its own text, so that typing is not fought by the re-render.
@@ -31,7 +30,6 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
   // Set by Escape in the step field, until the blur that follows has passed.
   const dropped = useRef(false);
 
-  const c = Math.min(which, m.chains.length - 1);
   const fixedShown = fixed || p.step !== undefined;
 
   function toggleFree(r: number) {
@@ -43,15 +41,6 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
     setDraft(null);
     if (stepWrong(text, p.op)) return;
     if (Number(text) !== p.step) apply({ step: Number(text) }, "step");
-  }
-
-  function setTyped(ring: number, text: string) {
-    // The stored entries as they are, so that the chains beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== ring));
-    const key = `typed:${c}:${ring}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [c, ring, Number(text)]] }, key);
   }
 
   return (
@@ -198,53 +187,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
           </div>
         </div>
       )}
-      <label>
-        Eigene Zahlen
-        <select aria-label="Kette für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.chains.map((_, i) => (
-            <option key={i} value={i}>
-              {`Kette ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        <div className="mauer-row">
-          {m.chains[c].numbers.map((n, r) => {
-            const key = `${c},${r}`;
-            return (
-              <input
-                key={r}
-                className="typed"
-                inputMode="numeric"
-                aria-label={`Zahl in Ring ${r + 1}`}
-                value={draft?.key === key ? draft.text : String(n)}
-                onFocus={() => {
-                  fresh.current = true;
-                  setDraft({ key, text: String(n) });
-                }}
-                // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-                onMouseUp={(e) => {
-                  if (!fresh.current) return;
-                  fresh.current = false;
-                  e.preventDefault();
-                  e.currentTarget.select();
-                }}
-                onBlur={() => setDraft(null)}
-                onKeyDown={(e) => {
-                  // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                  if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                }}
-                onChange={(e) => {
-                  if (!/^\d{0,4}$/.test(e.target.value)) return;
-                  setDraft({ key, text: e.target.value });
-                  setTyped(r, e.target.value);
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.chains.map((ch, i) =>
         ch.wrong ? (
           <p key={i} className="hint" role="status">{`Kette ${i + 1}: die Zahlen passen nicht zum Schritt.`}</p>

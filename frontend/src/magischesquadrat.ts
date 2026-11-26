@@ -70,8 +70,8 @@
 // vorgegebene Zahl weniger/mehr" ("4 Zahlen vorgegeben"); select "Größe" ("3 × 3", "5 × 5"; a change sets `given` to
 // the size's default, drops `typed` and with 5 and max below 25 sets max 100, in one undo step); select "Zahlenraum"
 // ("bis 20" (disabled with 5 × 5), "bis 100", "bis 1000", "Eigener"; Eigener sets max 50) and, with Eigener, a number
-// field "Eigener Zahlenraum"; switch "Zielzahl anzeigen"; select "Magisches Quadrat für eigene Zahlen"; number fields
-// "Zeile i, Spalte j" (from 1) showing the given numbers (typed or drawn), the other boxes empty. Hints (p.hint,
+// field "Eigener Zahlenraum"; switch "Zielzahl anzeigen"; own numbers are typed on the sheet:
+// a box opens a field "Eigene Zahl" on a double click, showing its given number (typed or drawn). Hints (p.hint,
 // role=status): per wrong square "Magisches Quadrat i: Die Zahlen passen nicht zusammen."; per square with many and
 // not wrong "Magisches Quadrat i: Es gibt mehr als eine Lösung." Buttons "Eigene Zahlen entfernen" (with typed),
 // "Neu würfeln".

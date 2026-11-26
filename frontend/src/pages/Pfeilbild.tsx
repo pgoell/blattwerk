@@ -1,8 +1,7 @@
 // The format panel's settings for a Pfeilbild block: its pictures, columns, boxes, Zahlenraum and Rechenarten, its arrows, the given parts and the numbers typed in.
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { PfeilbildBlock } from "../sheet";
 import { draw } from "../bank";
-import { fitColumns, made, opLabel, sane, type PfeilbildProps } from "../pfeilbild";
+import { fitColumns, made, sane, type PfeilbildProps } from "../pfeilbild";
 import { Switch } from "../components/Switch";
 import { Pane } from "./format/pane";
 
@@ -16,9 +15,6 @@ const RECHENART = [
   ["*", "Mal"],
   [":", "Geteilt"],
 ] as const;
-// What an operator field reads: a sign (or none) and up to four digits. "" and "+" are plus, the minus sign is minus, and "x", "×", "·" are times; "/" and "÷" are geteilt.
-const OP_TEXT = /^([+\-−*x×·:\/÷]?)(\d{0,4})$/;
-const TYPED_OP: Record<string, Op> = { "": "+", "+": "+", "-": "-", "−": "-", "*": "*", x: "*", "×": "*", "·": "*", ":": ":", "/": ":", "÷": ":" };
 const PFEILE = { one: "In eine Richtung", both: "In beide Richtungen" } as const;
 const GEGEBEN = { start: "Startzahl und Operatoren", ends: "Start und Ziel, Operatoren fehlen", mixed: "Gemischt" } as const;
 
@@ -28,55 +24,10 @@ const cells = (boxes: PfeilbildProps["boxes"]) => (boxes === "random" ? 8 : boxe
 export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; apply: (props: Partial<PfeilbildProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, m.pictures.length - 1);
 
   function toggleOp(op: Op, on: boolean) {
     apply({ ops: ORDER.filter((o) => (o === op ? on : p.ops.includes(o))) });
-  }
-
-  function setTyped(box: number, text: string) {
-    // The stored entries as they are, so that the pictures beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== box));
-    const key = `typed:${c}:${box}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [c, box, Number(text)]] }, key);
-  }
-
-  function setTypedOp(arrow: number, entry: [number, number, Op, number] | null) {
-    const raw = block.props.typedOps;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== arrow));
-    const list = entry ? [...others, entry] : others;
-    apply({ typedOps: list.length ? list : undefined }, `typedOps:${c}:${arrow}`);
-  }
-
-  // The handlers that every number field of the panel shares: focus takes the shown text as a draft, a click selects all of it, and blur, Ctrl+Z or Ctrl+Y drop the draft.
-  function fieldOf(key: string, shown: string) {
-    return {
-      value: draft?.key === key ? draft.text : shown,
-      onFocus: () => {
-        fresh.current = true;
-        setDraft({ key, text: shown });
-      },
-      // The click that focuses the field also places the caret; this mouseup selects the whole text instead.
-      onMouseUp: (e: MouseEvent<HTMLInputElement>) => {
-        if (!fresh.current) return;
-        fresh.current = false;
-        e.preventDefault();
-        e.currentTarget.select();
-      },
-      onBlur: () => setDraft(null),
-      onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
-        // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-        if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-      },
-    };
   }
 
   return (
@@ -168,55 +119,7 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
         </select>
       </label>
       <Switch label="Operatoren zeichnen" on={p.drawOps} onChange={(drawOps) => apply({ drawOps })} />
-      <label>
-        Eigene Zahlen
-        <select aria-label="Pfeilbild für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.pictures.map((_, i) => (
-            <option key={i} value={i}>
-              {`Pfeilbild ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        <div className="mauer-row">
-          {m.pictures[c].numbers.map((n, r) => {
-            return (
-              <input
-                key={r}
-                className="typed"
-                inputMode="numeric"
-                aria-label={`Zahl in Kästchen ${r + 1}`}
-                {...fieldOf(`${c},${r}`, String(n))}
-                onChange={(e) => {
-                  if (!/^\d{0,4}$/.test(e.target.value)) return;
-                  setDraft({ key: `${c},${r}`, text: e.target.value });
-                  setTyped(r, e.target.value);
-                }}
-              />
-            );
-          })}
-        </div>
-        <div className="mauer-row">
-          {m.pictures[c].steps.map((step, j) => (
-            <input
-              key={j}
-              className="typed"
-              aria-label={`Operator an Pfeil ${j + 1}`}
-              {...fieldOf(`op:${c},${j}`, opLabel(step))}
-              onChange={(e) => {
-                const hit = OP_TEXT.exec(e.target.value);
-                if (!hit) return;
-                const text = e.target.value;
-                setDraft({ key: `op:${c},${j}`, text });
-                const n = Number(hit[2]);
-                if (text === "") setTypedOp(j, null);
-                else if (n >= 1) setTypedOp(j, [c, j, TYPED_OP[hit[1]], n]);
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.pictures.map((pic, i) =>
         pic.wrong ? (
           <p key={i} className="hint" role="status">
@@ -232,7 +135,6 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
       {(p.typed || p.typedOps) && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined, typedOps: undefined });
           }}
         >

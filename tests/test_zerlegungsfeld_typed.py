@@ -21,7 +21,7 @@ from test_zerlegungsfeld import (
     zf,
 )
 from test_zerlegungsfeld import editor as editor
-from ui import at, doc, pick, reload, user
+from ui import at, doc, open_own, pick, reload, user
 
 
 def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(editor):
@@ -30,8 +30,7 @@ def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(edi
     client = user()
     page = editor(zf("d", ZF), client=client)
     pick(page, "d")
-    number = field(page, "Erste Zahl")
-    number.click()
+    number = open_own(page, "d", "0,0")
     number.press("Control+A")
     step(page, lambda: page.keyboard.type("12"))
     expect(number).to_be_focused()
@@ -132,11 +131,11 @@ def test_the_first_typed_number_keeps_the_drawn_given_numbers_as_typed_entries(e
     drawn = given_positions(at(page, "d").locator(".zerlegungsfeld")).get(0, set())
     assert drawn == {0, 1}
     b = values(at(page, "d").locator(".zerlegungsfeld"), 0)[1]
-    field(page, "Erste Zahl").click()
+    open_own(page, "d", "0,0")
     step(page, lambda: page.keyboard.type("7"))
     stored = [e for e in props_of(doc(page, client))["typed"] if e[0] == 0]
     assert sorted(stored) == [[0, 0, 7], [0, 1, b]], (b, stored)
-    expect(field(page, "Zweite Zahl")).to_have_value(str(b))
+    expect(open_own(page, "d", "0,1")).to_have_value(str(b))
     assert values(at(page, "d").locator(".zerlegungsfeld"), 0)[1] == b
 
 

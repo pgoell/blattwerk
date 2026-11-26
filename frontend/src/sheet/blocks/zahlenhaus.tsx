@@ -25,7 +25,7 @@ export function Zahlenhaus({ block, solved }: { block: ZahlenhausBlock; k: numbe
           };
           return (
             <g key={i} className={`house${h.wrong.some(Boolean) ? " wrong" : ""}`} data-house={i}>
-              <g className="box" data-box={0}>
+              <g className="box" data-own={`${i},0`} data-box={0}>
                 <polygon points={`${x0},${y0 + S} ${x0 + S},${y0} ${x0 + 2 * S},${y0 + S}`} fill="white" stroke="#222" strokeWidth={0.4} />
                 {h.given[0] || solved ? (
                   <text x={x0 + S} y={y0 + 0.65 * S} fontSize={numberSize(String(h.numbers[0]).length, S, 0.45 * S)} textAnchor="middle" dominantBaseline="central"
@@ -35,11 +35,11 @@ export function Zahlenhaus({ block, solved }: { block: ZahlenhausBlock; k: numbe
               {h.wrong.map((wrong, f) => {
                 const [yf, left, right] = [y0 + (f + 1) * S, 1 + 2 * f, 2 + 2 * f];
                 return [
-                  <g key={left} className={`box${wrong ? " wrong" : ""}`} data-box={left}>
+                  <g key={left} className={`box${wrong ? " wrong" : ""}`} data-own={`${i},${left}`} data-box={left}>
                     <rect x={x0} y={yf} width={S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
                     {numberOf(left, f, x0 + S / 2, yf + S / 2)}
                   </g>,
-                  <g key={right} className={`box${wrong ? " wrong" : ""}`} data-box={right}>
+                  <g key={right} className={`box${wrong ? " wrong" : ""}`} data-own={`${i},${right}`} data-box={right}>
                     <rect x={x0 + S} y={yf} width={S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
                     {numberOf(right, f, x0 + 1.5 * S, yf + S / 2)}
                   </g>,

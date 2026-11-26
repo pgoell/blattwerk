@@ -26,7 +26,7 @@ export function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: num
             const [x, y] = [x0 + r * S + c * 2 * S, y0 + (p.base - 1 - r) * S];
             const shows = !p.empty && (w.given[s] || (solved && !w.wrong));
             return (
-              <g key={s} className="stone" data-stone={s} data-row={r} data-col={c}>
+              <g key={s} className="stone" data-own={`${i},${s}`} data-stone={s} data-row={r} data-col={c}>
                 <rect x={x} y={y} width={2 * S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
                 {shows && (
                   <text x={x + S} y={y + S / 2} fontSize={0.6 * S} textAnchor="middle" dominantBaseline="central"

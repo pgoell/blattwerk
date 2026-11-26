@@ -36,7 +36,7 @@ export function Malquadrat({ block, solved }: { block: MalquadratBlock; solved: 
                   const sum = r === far || c === far;
                   const state = s.given[r][c] ? "given" : open ? "answer" : null;
                   return (
-                    <g key={`${r}:${c}`} className="cell" data-row={r} data-col={c}>
+                    <g key={`${r}:${c}`} className="cell" data-own={`${i},${r},${c}`} data-row={r} data-col={c}>
                       <rect x={x} y={y} width={CELL} height={CELL} fill={r === 0 || c === 0 ? "#eeeeee" : "white"} stroke="#222" strokeWidth={sum ? 0.8 : 0.4} />
                       {state && (
                         <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(v).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"

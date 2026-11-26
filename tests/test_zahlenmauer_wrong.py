@@ -9,7 +9,7 @@ from test_feed_print import sheet_id
 from test_gaps import step
 from test_suchsel_print import key_print
 from test_zahlenmauer import props_of
-from ui import box, doc, pick, user
+from ui import at, box, doc, open_own, pick, type_own, user
 
 WALL = {
     "base": 3,
@@ -23,8 +23,8 @@ WALL = {
 }
 # The first wall's three base stones 1, 1, 1 and its top 5 allow no wall (#559).
 WRONG = [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 5, 5]]
-ONE_STONE = "Zahl im Stein 1 der Reihe 1"
-TOP = "Zahl im Stein 1 der Reihe 3"
+# Stones as the sheet marks them: wall, then stone. The top of a wall of three is stone 5.
+TOP = "0,5"
 
 
 def zw(name, props):
@@ -35,8 +35,9 @@ def hint(page):
     return page.locator(".panel p.hint[role=status]")
 
 
-def field(page, label):
-    return page.locator(".panel").get_by_label(label, exact=True)
+def stone(page, cell):
+    """The number a stone shows on the sheet."""
+    return at(page, "w").locator(f'[data-own="{cell}"] text').text_content()
 
 
 def test_the_key_prints_no_made_up_numbers_for_a_wall_that_allow_none(editor, browser, server):
@@ -70,21 +71,21 @@ def test_one_undo_brings_back_the_base_stones_after_a_typed_top(editor):
     client = user()
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
-    base = [field(page, f"Zahl im Stein {c} der Reihe 1").input_value() for c in (1, 2, 3)]
-    step(page, lambda: field(page, TOP).fill("159"))
+    base = [stone(page, f"0,{c}") for c in (0, 1, 2)]
+    step(page, lambda: type_own(page, "w", TOP, "159"))
     expect(hint(page)).to_have_text("Mauer 1 geht über den Zahlenraum bis 20 hinaus.")
-    page.locator(".panel").get_by_role("heading", name="Zahlenmauer", exact=True).click()
     page.keyboard.press("Control+z")
-    assert [field(page, f"Zahl im Stein {c} der Reihe 1").input_value() for c in (1, 2, 3)] == base
+    expect(at(page, "w").locator('[data-own="0,0"] text')).to_have_text(base[0])
+    assert [stone(page, f"0,{c}") for c in (0, 1, 2)] == base
     assert "typed" not in props_of(doc(page, client))
 
 
 def test_a_click_into_a_stone_selects_its_whole_number(editor):
-    """#560 (PR #548): 19 in a stone, a click into it and 5 typed give 5, not 195."""
+    """#560 (PR #548): 19 in a stone, a double click on it and 5 typed give 5, not 195."""
     client = user()
     page = editor(zw("w", {**WALL, "typed": [[0, 5, 19]]}), client=client)
     pick(page, "w")
-    expect(field(page, TOP)).to_have_value("19")
-    field(page, TOP).click()
+    top = open_own(page, "w", TOP)
+    expect(top).to_have_value("19")
     step(page, lambda: page.keyboard.type("5"))
-    expect(field(page, TOP)).to_have_value("5")
+    expect(top).to_have_value("5")

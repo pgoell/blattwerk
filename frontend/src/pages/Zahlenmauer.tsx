@@ -1,5 +1,4 @@
 // The format panel's settings for a Zahlenmauer block: its walls, its numbers and which stones are given.
-import { useRef, useState } from "react";
 import type { ZahlenmauerBlock, ZahlenmauerProps } from "../sheet";
 import { draw } from "../bank";
 import { at, fixes, made, sane, stones } from "../zahlenmauer";
@@ -13,24 +12,9 @@ const LOOSEN = { max: "größerem Zahlenraum", base: "weniger Grundsteinen" } as
 export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock; apply: (props: Partial<ZahlenmauerProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const w = Math.min(which, m.walls.length - 1);
   const free = p.free ?? Array.from({ length: stones(p.base) }, (_, i) => i < p.base);
   const rows = Array.from({ length: p.base }, (_, i) => p.base - 1 - i);
-
-  function setTyped(stone: number, text: string) {
-    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== w || t[1] !== stone));
-    const key = `typed:${w}:${stone}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [w, stone, Number(text)]] }, key);
-  }
 
   return (
     <>
@@ -118,56 +102,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
         </>
       )}
       <Switch label="Leer" on={p.empty} onChange={() => apply({ empty: !p.empty })} />
-      <label>
-        Eigene Zahlen
-        <select aria-label="Mauer für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.walls.map((_, i) => (
-            <option key={i} value={i}>
-              {`Mauer ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        {rows.map((r) => (
-          <div key={r} className="mauer-row">
-            {Array.from({ length: p.base - r }, (_, c) => {
-              const i = at(p.base, r, c);
-              const key = `${w},${i}`;
-              return (
-                <input
-                  key={c}
-                  className="typed"
-                  inputMode="numeric"
-                  aria-label={`Zahl im Stein ${c + 1} der Reihe ${r + 1}`}
-                  value={draft?.key === key ? draft.text : String(m.walls[w].numbers[i])}
-                  onFocus={() => {
-                    fresh.current = true;
-                    setDraft({ key, text: String(m.walls[w].numbers[i]) });
-                  }}
-                  // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-                  onMouseUp={(e) => {
-                    if (!fresh.current) return;
-                    fresh.current = false;
-                    e.preventDefault();
-                    e.currentTarget.select();
-                  }}
-                  onBlur={() => setDraft(null)}
-                  onKeyDown={(e) => {
-                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                  }}
-                  onChange={(e) => {
-                    if (!/^\d{0,4}$/.test(e.target.value)) return;
-                    setDraft({ key, text: e.target.value });
-                    setTyped(i, e.target.value);
-                  }}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.walls.map((mw, i) =>
         mw.wrong ? (
           <p key={i} className="hint" role="status">{`Mauer ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>
@@ -178,7 +113,6 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined });
           }}
         >

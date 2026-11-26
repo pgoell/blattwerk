@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import at, box, doc, insert, pick, reload, user
+from ui import at, box, doc, insert, open_own, pick, reload, user
 
 RR = {
     "count": 2,
@@ -264,11 +264,11 @@ def test_each_segments_chain_holds_on_screen(editor, op, task, rings, max_):
 
 
 def test_typing_a_number_into_the_centre_is_one_undo_step_and_changes_the_wheel(editor):
-    """Eigene Zahlen: typing 9 into "Zahl im Zentrum" stores [0, 0, 0, 9], the centre shows "+9", and one Ctrl+Z removes it."""
+    """Eigene Zahlen: typing 9 into the centre stores [0, 0, 0, 9], the centre shows "+9", and one Ctrl+Z removes it."""
     client = user()
     page = editor(rr("d", RR), client=client)
     pick(page, "d")
-    centre = field(page, "Zahl im Zentrum")
+    centre = open_own(page, "d", "0,0,0")
 
     def type_nine():
         centre.press("Control+a")
@@ -282,11 +282,11 @@ def test_typing_a_number_into_the_centre_is_one_undo_step_and_changes_the_wheel(
 
 
 def test_typing_into_ring_one_stores_the_number_and_the_outer_box_follows(editor):
-    """Eigene Zahlen: typing 5 into "Ring 1, Feld 1" stores [0, 1, 0, 5], and the outer box of that segment shows 5 plus the centre."""
+    """Eigene Zahlen: typing 5 into ring 1, box 1 stores [0, 1, 0, 5], and the outer box of that segment shows 5 plus the centre."""
     client = user()
     page = editor(rr("d", {**RR, "task": "inner"}), client=client)
     pick(page, "d")
-    number = field(page, "Ring 1, Feld 1")
+    number = open_own(page, "d", "0,1,0")
 
     def type_five():
         number.press("Control+a")
@@ -298,12 +298,11 @@ def test_typing_into_ring_one_stores_the_number_and_the_outer_box_follows(editor
 
 
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
-    """Eigene Zahlen: typing "17" into "Ring 1, Feld 3" keeps the focus and the digits, and stores [0, 1, 2, 17]."""
+    """Eigene Zahlen: typing "17" into ring 1, box 3 keeps the focus and the digits, and stores [0, 1, 2, 17]."""
     client = user()
     page = editor(rr("d", RR), client=client)
     pick(page, "d")
-    number = field(page, "Ring 1, Feld 3")
-    number.click()
+    number = open_own(page, "d", "0,1,2")
     step(page, lambda: page.keyboard.type("17"))
     expect(number).to_be_focused()
     expect(number).to_have_value("17")
@@ -356,8 +355,8 @@ def test_a_typed_number_that_does_not_fit_shows_as_typed(editor):
     page = editor(rr("d", {**RR, "typed": [[0, 0, 0, 7], [0, 1, 0, 5], [0, 2, 0, 99]]}))
     pick(page, "d")
     expect(hint(page)).to_have_text("Rechenrad 1: Die Zahlen passen nicht zum Zentrum.")
-    expect(field(page, "Ring 1, Feld 1")).to_have_value("5")
-    expect(field(page, "Ring 2, Feld 1")).to_have_value("99")
+    expect(open_own(page, "d", "0,1,0")).to_have_value("5")
+    expect(open_own(page, "d", "0,2,0")).to_have_value("99")
 
 
 def test_neu_wuerfeln_changes_only_the_seed(editor):

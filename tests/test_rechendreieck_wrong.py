@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 from test_feed_print import sheet_id
 from test_gaps import step
 from test_suchsel_print import key_print
-from ui import box, pick, user
+from ui import at, box, open_own, pick, type_own, user
 
 DREIECK = {
     "count": 4,
@@ -20,7 +20,8 @@ DREIECK = {
 }
 # The first triangle's three inner numbers 1, 1, 1 and its outer 5 allow no triangle (#559).
 WRONG = [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 5, 5]]
-INNER_TOP = "Zahl im Feld innen oben"
+# Fields as the sheet marks them: triangle, then field (0 to 2 inside, 3 to 5 outside).
+INNER_TOP = "0,0"
 
 
 def dz(name, props):
@@ -29,10 +30,6 @@ def dz(name, props):
 
 def hint(page):
     return page.locator(".panel p.hint[role=status]")
-
-
-def field(page, label):
-    return page.locator(".panel").get_by_label(label, exact=True)
 
 
 def test_the_key_prints_no_made_up_numbers_for_a_triangle_that_allows_none(editor, browser, server):
@@ -65,23 +62,25 @@ def test_one_undo_brings_back_the_inner_numbers_after_a_typed_outer_one(editor):
     after leaving the field brings them back."""
     page = editor(dz("d", DREIECK))
     pick(page, "d")
-    names = ["Zahl im Feld innen oben", "Zahl im Feld innen links", "Zahl im Feld innen rechts"]
-    inner = [field(page, n).input_value() for n in names]
-    step(page, lambda: field(page, "Zahl im Feld außen links").fill("159"))
+
+    def inner():
+        return [at(page, "d").locator(f'[data-own="0,{j}"] text').text_content() for j in range(3)]
+
+    before = inner()
+    step(page, lambda: type_own(page, "d", "0,3", "159"))
     expect(hint(page)).to_have_text("Dreieck 1 geht über den Zahlenraum bis 20 hinaus.")
-    assert [field(page, n).input_value() for n in names] != inner
-    page.locator(".panel").get_by_role("heading", name="Rechendreieck", exact=True).click()
+    assert inner() != before
     page.keyboard.press("Control+z")
     expect(hint(page)).to_have_count(0)
-    assert [field(page, n).input_value() for n in names] == inner
+    assert inner() == before
 
 
 def test_a_click_into_a_field_selects_its_whole_number(editor):
-    """#560 (PR #565): 19 in a field, a click into it and 5 typed give 5, not 195."""
+    """#560 (PR #565): 19 in a field, a double click on it and 5 typed give 5, not 195."""
     client = user()
     page = editor(dz("d", {**DREIECK, "typed": [[0, 0, 19]]}), client=client)
     pick(page, "d")
-    expect(field(page, INNER_TOP)).to_have_value("19")
-    field(page, INNER_TOP).click()
+    number = open_own(page, "d", INNER_TOP)
+    expect(number).to_have_value("19")
     step(page, lambda: page.keyboard.type("5"))
-    expect(field(page, INNER_TOP)).to_have_value("5")
+    expect(number).to_have_value("5")

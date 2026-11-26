@@ -23,7 +23,7 @@ export function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: num
               {!c.over && c.numbers.map((n, j) => {
                 const shows = c.given[j] || (solved && !c.wrong);
                 return (
-                  <g key={j} className="ring" data-ring={j}>
+                  <g key={j} className="ring" data-own={`${i},${j}`} data-ring={j}>
                     <circle cx={top(j)} cy={y + A + D / 2} r={D / 2} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={top(j)} y={y + A + D / 2} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"

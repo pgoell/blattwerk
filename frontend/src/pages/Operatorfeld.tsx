@@ -1,5 +1,4 @@
 // The format panel's settings for an Operatorfeld block: its fields, Variante, boxes, Zahlenraum, Rechenarten, Einschränkung, the given parts and the numbers typed in.
-import { useRef, useState } from "react";
 import type { OperatorfeldBlock } from "../sheet";
 import { draw } from "../bank";
 import { made, sane, type OperatorfeldProps } from "../operatorfeld";
@@ -20,26 +19,10 @@ const RECHENART = [
 export default function Operatorfeld({ block, apply }: { block: OperatorfeldBlock; apply: (props: Partial<OperatorfeldProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, m.fields.length - 1);
-  const field = m.fields[c];
 
   function toggleOp(op: Op, on: boolean) {
     apply({ ops: ORDER.filter((o) => (o === op ? on : p.ops.includes(o))) });
-  }
-
-  function setTyped(box: number, text: string) {
-    // The stored entries as they are, so that the fields beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== box));
-    const key = `typed:${c}:${box}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [c, box, Number(text)]] }, key);
   }
 
   return (
@@ -137,55 +120,7 @@ export default function Operatorfeld({ block, apply }: { block: OperatorfeldBloc
         </select>
       </label>
       <Switch label="Operatoren zeichnen" on={p.drawOps} onChange={(drawOps) => apply({ drawOps })} />
-      <label>
-        Eigene Zahlen
-        <select aria-label="Operatorfeld für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.fields.map((_, i) => (
-            <option key={i} value={i}>
-              {`Operatorfeld ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        <div className="mauer-row">
-          {field?.numbers.map((n, r) => {
-            const key = `${c},${r}`;
-            // With a centre box 0 is the Zentrum, and the outer boxes count from 1.
-            const label = p.centre ? (r === 0 ? "Zahl im Zentrum" : `Zahl in Kästchen ${r}`) : `Zahl in Kästchen ${r + 1}`;
-            return (
-              <input
-                key={r}
-                className="typed"
-                inputMode="numeric"
-                aria-label={label}
-                value={draft?.key === key ? draft.text : String(n)}
-                onFocus={() => {
-                  fresh.current = true;
-                  setDraft({ key, text: String(n) });
-                }}
-                // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-                onMouseUp={(e) => {
-                  if (!fresh.current) return;
-                  fresh.current = false;
-                  e.preventDefault();
-                  e.currentTarget.select();
-                }}
-                onBlur={() => setDraft(null)}
-                onKeyDown={(e) => {
-                  // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                  if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                }}
-                onChange={(e) => {
-                  if (!/^\d{0,4}$/.test(e.target.value)) return;
-                  setDraft({ key, text: e.target.value });
-                  setTyped(r, e.target.value);
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.fields.map((f, i) =>
         f.wrong ? (
           <p key={i} className="hint" role="status">{`Operatorfeld ${i + 1}: kein Operator passt zu diesen Zahlen.`}</p>
@@ -197,7 +132,6 @@ export default function Operatorfeld({ block, apply }: { block: OperatorfeldBloc
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined });
           }}
         >

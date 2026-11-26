@@ -11,7 +11,6 @@ from test_gaps import panel, step
 from test_operatorfeld import (
     OF,
     editor,  # noqa: F401
-    field,
     given_numbers,
     hint,
     of,
@@ -19,17 +18,17 @@ from test_operatorfeld import (
     props_of,
 )
 from test_words import undo
-from ui import at, doc, pick, user
+from ui import at, doc, open_own, pick, user
 
 
 def test_typing_a_number_into_a_box_changes_the_labels_of_its_links_in_one_undo(editor):
-    """Eigene Zahlen: typing 12 into "Zahl in Kästchen 1" stores [[0, 0, 12]], the links at that box change their
+    """Eigene Zahlen: typing 12 into box 1 stores [[0, 0, 12]], the links at that box change their
     operators, and one Ctrl+Z removes both."""
     client = user()
     page = editor(of("d", OF), client=client)
     pick(page, "d")
     before = op_labels(page)
-    number = field(page, "Zahl in Kästchen 1")
+    number = open_own(page, "d", "0,0")
 
     def type_twelve():
         number.press("Control+a")
@@ -46,24 +45,23 @@ def test_typing_a_number_into_a_box_changes_the_labels_of_its_links_in_one_undo(
 
 
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
-    """Eigene Zahlen: typing "17" into "Zahl in Kästchen 3" keeps the focus and the digits, and stores [0, 2, 17]."""
+    """Eigene Zahlen: typing "17" into box 3 keeps the focus and the digits, and stores [0, 2, 17]."""
     client = user()
     page = editor(of("d", OF), client=client)
     pick(page, "d")
-    number = field(page, "Zahl in Kästchen 3")
-    number.click()
+    number = open_own(page, "d", "0,2")
     step(page, lambda: page.keyboard.type("17"))
     expect(number).to_be_focused()
     expect(number).to_have_value("17")
     assert props_of(doc(page, client))["typed"] == [[0, 2, 17]]
 
 
-def test_mit_zentrum_names_the_centre_field_first(editor):
-    """Eigene Zahlen: with Mit Zentrum the first input is "Zahl im Zentrum", and it stores box 0."""
+def test_mit_zentrum_stores_the_centre_as_box_0(editor):
+    """Eigene Zahlen: with Mit Zentrum the first box of the sheet is the centre, and it stores box 0."""
     client = user()
     page = editor(of("d", {**OF, "centre": True}), client=client)
     pick(page, "d")
-    step(page, lambda: field(page, "Zahl im Zentrum").fill("9"))
+    step(page, lambda: open_own(page, "d", "0,0").fill("9"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 9]]
 
 

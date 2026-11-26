@@ -6,20 +6,17 @@ The helpers live in test_malquadrat.py.
 # The fixture is imported, and each test names it as its argument.
 # ruff: noqa: F811
 
-import re
-
 import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_malquadrat import (
     MQ,
     editor,  # noqa: F401
-    field,
     mq,
     props_of,
 )
 from test_words import undo
-from ui import at, doc, pick, user
+from ui import at, doc, open_own, pick, user
 
 TYPED_WRONG = [
     [0, 0, 1, 2],
@@ -33,12 +30,12 @@ def hint(page):
 
 
 def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(editor):
-    """Eigene Zahlen (#826): typing "12" into "Zeile 1, Spalte 3" keeps the focus and both digits while the block
+    """Eigene Zahlen (#826): typing "12" into row 1, column 3 keeps the focus and both digits while the block
     redraws, stores a typed entry, and one Ctrl+Z in the box takes the whole number back."""
     client = user()
     page = editor(mq("d", MQ), client=client)
     pick(page, "d")
-    number = field(page, "Zeile 1, Spalte 3")
+    number = open_own(page, "d", "0,1,3")
     number.click()
     number.press("Control+A")
     step(page, lambda: page.keyboard.type("12"))
@@ -56,9 +53,12 @@ def test_the_first_typed_number_keeps_the_drawn_given_numbers_as_typed_entries(e
     page = editor(mq("d", MQ), client=client)
     pick(page, "d")
     drawn = at(page, "d").locator("g.square[data-square='0'] text.given").count()
-    boxes = page.locator(".panel").get_by_label(re.compile(r"^Zeile \d+, Spalte \d+$"))
-    empty = next(b for b in boxes.all() if b.input_value() == "")
-    empty.click()
+    cell = (
+        at(page, "d")
+        .locator("[data-own^='0,']")
+        .evaluate_all("els => els.find((el) => !el.querySelector('text.given')).dataset.own")
+    )
+    open_own(page, "d", cell)
     step(page, lambda: page.keyboard.type("1"))
     assert len(props_of(doc(page, client))["typed"]) == drawn + 1
 
@@ -71,9 +71,12 @@ def test_a_stored_entry_at_no_position_does_not_stop_the_drawn_numbers_being_kep
     pick(page, "d")
     drawn = at(page, "d").locator("g.square[data-square='0'] text.given").count()
     assert drawn > 0
-    boxes = page.locator(".panel").get_by_label(re.compile(r"^Zeile \d+, Spalte \d+$"))
-    empty = next(b for b in boxes.all() if b.input_value() == "")
-    empty.click()
+    cell = (
+        at(page, "d")
+        .locator("[data-own^='0,']")
+        .evaluate_all("els => els.find((el) => !el.querySelector('text.given')).dataset.own")
+    )
+    open_own(page, "d", cell)
     step(page, lambda: page.keyboard.type("1"))
     assert len(props_of(doc(page, client))["typed"]) == drawn + 2
 

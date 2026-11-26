@@ -18,7 +18,6 @@ const floorsOf = (free: boolean[] | undefined, floors: number) => sideFlags(floo
 export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; apply: (props: Partial<ZahlenhausProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
   // The Zahlenraum at which "Eigener" was chosen or last typed: while the stored one is the same, the input shows,
   // also for 10, 20 or 100. An undo to another Zahlenraum shows the select's own entry again.
   const [ownAt, setOwnAt] = useState<number | null>(null);
@@ -29,7 +28,6 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   // Set by Escape in the own Zahlenraum, until the blur that follows has passed.
   const dropped = useRef(false);
 
-  const h = Math.min(which, m.houses.length - 1);
   const free = p.free ?? [];
   const showOwn = ownAt === p.max || !ZAHLENRAUM.includes(p.max);
   // The rows of a house's boxes, the roof first, then each floor from the top.
@@ -52,15 +50,6 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
     const n = Number(text);
     setOwnAt(n);
     if (n !== p.max) apply({ max: n }, "max");
-  }
-
-  function setTyped(box: number, text: string) {
-    // The stored entries as they are, so that the houses beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== h || t[1] !== box));
-    const key = `typed:${h}:${box}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [h, box, Number(text)]] }, key);
   }
 
   return (
@@ -179,55 +168,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ))}
         </div>
       )}
-      <label>
-        Eigene Zahlen
-        <select aria-label="Haus für eigene Zahlen" value={h} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.houses.map((_, i) => (
-            <option key={i} value={i}>
-              {`Haus ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        {rows.map((row, r) => (
-          <div key={r} className="mauer-row">
-            {row.map((b) => {
-              const key = `${h},${b}`;
-              return (
-                <input
-                  key={b}
-                  className="typed"
-                  inputMode="numeric"
-                  aria-label={b === 0 ? "Zahl im Dach" : `Zahl in ${boxName(b)}`}
-                  value={draft?.key === key ? draft.text : String(m.houses[h].numbers[b])}
-                  onFocus={() => {
-                    fresh.current = true;
-                    setDraft({ key, text: String(m.houses[h].numbers[b]) });
-                  }}
-                  // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-                  onMouseUp={(e) => {
-                    if (!fresh.current) return;
-                    fresh.current = false;
-                    e.preventDefault();
-                    e.currentTarget.select();
-                  }}
-                  onBlur={() => setDraft(null)}
-                  onKeyDown={(e) => {
-                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                  }}
-                  onChange={(e) => {
-                    if (!/^\d{0,4}$/.test(e.target.value)) return;
-                    setDraft({ key, text: e.target.value });
-                    setTyped(b, e.target.value);
-                  }}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.houses.flatMap((hs, i) =>
         hs.wrong.map((bad, f) =>
           bad ? (

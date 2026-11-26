@@ -2,7 +2,7 @@
 import type { PointerEvent, TouchEvent } from "react";
 import { flushSync } from "react-dom";
 import { FIELDS, boxed, dir, isLine, tied, type Block, type ImageBlock } from "../../sheet";
-import { made } from "../../zahlenmauer";
+import { ownOf } from "./own";
 import { next } from "../../cells";
 import { SLOP, round, grouped, spread, centre } from "./palette";
 import { useTemplates } from "./useTemplates";
@@ -129,35 +129,39 @@ export function usePick(session: ReturnType<typeof useTemplates>) {
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
-  // A double click on a stone of the selected Zahlenmauer opens its number field on the stone, as a table cell opens.
-  // Gives whether it did.
+  // A double click on a box of the one picked maths block opens a number field on the box, as a table cell opens:
+  // the teacher types her own number there (own.ts). Gives whether it did.
   function openStone(target: Element): boolean {
-    const el = target.closest<SVGGElement>(".stone");
+    const el = target.closest<SVGGraphicsElement>("[data-own]");
     const block = target.closest<HTMLElement>(".block");
     const only = free.length === 1 ? free[0] : undefined;
-    if (!el || !block || only?.type !== "zahlenmauer" || only.id !== block.dataset.id) return false;
-    const wall = Number(el.closest<SVGGElement>(".wall")?.dataset.wall);
-    const at = Number(el.dataset.stone);
-    // The stone's box in the block's own layout, from the svg's units: a turned block's screen box is not its own.
-    const svg = el.closest<SVGSVGElement>("svg")!;
+    const own = only && ownOf(only);
+    if (!el || !block || !own || only.id !== block.dataset.id) return false;
+    const cell = el.dataset.own!.split(",");
+    // The box in the svg's units: its own `data-own-box` in the group's units, or its first shape's. The matrix from
+    // the group to the svg holds what lies between, a translate as the Rechendreieck has; a turned block turns both.
+    const svg = el.ownerSVGElement!;
+    const shape = el.querySelector<SVGGraphicsElement>("rect, circle, polygon, path, ellipse");
+    const [bx, by, bw, bh] = el.dataset.ownBox ? el.dataset.ownBox.split(",").map(Number) : (({ x, y, width, height }) => [x, y, width, height])(shape!.getBBox());
+    const m = svg.getScreenCTM()!.inverse().multiply((el.dataset.ownBox ? el : shape!).getScreenCTM()!);
+    const corner = new DOMPoint(bx, by).matrixTransform(m);
+    const far = new DOMPoint(bx + bw, by + bh).matrixTransform(m);
+    // From the svg's units to px of the block's own layout: a turned block's screen box is not its own. The svg
+    // keeps its drawing at the top, in the middle across ("xMidYMin meet"), and has no offsets of its own: its box is
+    // that of the block's drawing, which has.
     const view = svg.viewBox.baseVal;
-    const cell = el.querySelector("rect")!;
     const scale = Math.min(svg.clientWidth / view.width, svg.clientHeight / view.height);
-    // The svg has no offsets of its own: its box is that of the block's Zahlenmauer, which has.
-    const host = el.closest<HTMLElement>(".zahlenmauer")!;
-    const left = host.offsetLeft + (svg.clientWidth - view.width * scale) / 2 + (cell.x.baseVal.value - view.x) * scale;
-    const top = host.offsetTop + (cell.y.baseVal.value - view.y) * scale;
-    const box = [left, top, cell.width.baseVal.value * scale, cell.height.baseVal.value * scale];
-    setStone({ id: only.id, wall, at, text: String(made(only.props).walls[wall].numbers[at]), box });
+    const host = svg.parentElement!;
+    const left = host.offsetLeft + (svg.clientWidth - view.width * scale) / 2 + (Math.min(corner.x, far.x) - view.x) * scale;
+    const top = host.offsetTop + (Math.min(corner.y, far.y) - view.y) * scale;
+    const box = [left, top, Math.abs(far.x - corner.x) * scale, Math.abs(far.y - corner.y) * scale];
+    setStone({ id: only.id, cell, text: own.read(cell), box });
     return true;
   }
-  // A number typed into a stone, stored as the format panel stores it: one undo step for each stone.
-  function typeStone(b: Block, wall: number, at: number, text: string) {
-    if (b.type !== "zahlenmauer") return;
-    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
-    const others = (b.props.typed ?? []).filter((t) => t[0] !== wall || t[1] !== at);
-    const typed = text === "" ? (others.length ? others : undefined) : [...others, [wall, at, Number(text)]];
-    style("zahlenmauer", { typed }, `typed:${wall}:${at}`);
+  // A number typed into a box, stored as the block's own file says: one undo step for each box.
+  function typeStone(b: Block, cell: string[], text: string) {
+    const change = ownOf(b)?.write(cell, text);
+    if (change) style(b.type, change.props, change.key);
   }
   function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;

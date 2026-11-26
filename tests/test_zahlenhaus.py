@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import TEXT, at, box, doc, expect_lit, insert, pick, reload, user
+from ui import TEXT, at, box, doc, expect_lit, insert, open_own, pick, reload, type_own, user
 
 HAUS = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 7}
 FREE = [True, True, True, False, False, False, False, False, False]
@@ -69,18 +69,8 @@ def given_boxes(page, house):
 def type_and_remove(page, client):
     """Types 6 in the roof and 1 in Stockwerk 1 links of Haus 1, then clicks "Eigene Zahlen entfernen" without a click elsewhere."""
 
-    roof = field(page, "Zahl im Dach")
-
-    def type_six():
-        roof.fill("6")
-
-    left = field(page, "Zahl in Stockwerk 1 links")
-
-    def type_one():
-        left.fill("1")
-
-    step(page, type_six)
-    step(page, type_one)
+    step(page, lambda: type_own(page, "d", "0,0", "6"))
+    step(page, lambda: type_own(page, "d", "0,1", "1"))
     # The step's save may be the one of the "" that fill types first: the server's copy is read until both are in.
     for _ in range(50):
         if props_of(doc(page, client)).get("typed") == [[0, 0, 6], [0, 1, 1]]:
@@ -202,16 +192,17 @@ def test_a_free_box_flips_shows_in_every_house_and_survives_a_reload(editor):
 
 
 def test_typing_two_digits_into_the_roof_stores_them_and_one_undo_takes_both_back(editor):
-    """A10/I1: "1" then "2" into "Zahl im Dach" store typed [[0, 0, 12]]; one Ctrl+Z removes both."""
+    """A10/I1: "1" then "2" into the roof on the sheet store typed [[0, 0, 12]]; one Ctrl+Z removes both."""
     client = user()
     page = editor(dz("d", HAUS), client=client)
     pick(page, "d")
-    number = field(page, "Zahl im Dach")
+    number = open_own(page, "d", "0,0")
 
     def type_twelve():
         number.press("Control+a")
         number.press_sequentially("1")
         number.press_sequentially("2")
+        number.press("Enter")
 
     step(page, type_twelve)
     assert props_of(doc(page, client))["typed"] == [[0, 0, 12]]
@@ -225,7 +216,7 @@ def test_a_floor_that_misses_the_roof_gives_the_hint_and_fixing_it_removes_it(ed
     page = editor(dz("d", {**HAUS, "typed": [[0, 0, 9], [0, 1, 3], [0, 2, 3]]}), client=client)
     pick(page, "d")
     expect(hint(page)).to_have_text("Haus 1: Stockwerk 1 ergibt nicht 9.")
-    step(page, lambda: field(page, "Zahl in Stockwerk 1 rechts").fill("6"))
+    step(page, lambda: type_own(page, "d", "0,2", "6"))
     expect(hint(page)).to_have_count(0)
 
 
@@ -267,11 +258,12 @@ def test_a_new_number_of_floors_keeps_the_free_flags_and_typed_numbers_that_stil
     assert props["floors"] == 5
     assert props["free"] == [*FREE, True, False]
     assert props["typed"] == TYPED
-    expect(field(page, "Zahl im Dach")).to_have_value("9")
+    expect(open_own(page, "d", "0,0")).to_have_value("9")
+    page.keyboard.press("Escape")
     step(page, lambda: field(page, "Stockwerke").select_option("2"))
     assert props_of(doc(page, client))["free"] == FREE[:5]
     # Floor 1's typed boxes are still there, so its numbers stay.
-    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value("4")
+    expect(open_own(page, "d", "0,1")).to_have_value("4")
 
 
 def test_an_undo_of_an_own_zahlenraum_shows_the_old_entry_in_the_select(editor):
@@ -373,7 +365,7 @@ def test_after_remove_own_numbers_the_typed_box_shows_the_houses_number(editor):
     pick(page, "d")
     type_and_remove(page, client)
     shown = house_box(page, 0, 1).locator("text.given").text_content()
-    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value(shown.strip())
+    expect(open_own(page, "d", "0,1")).to_have_value(shown.strip())
 
 
 def test_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
@@ -382,11 +374,11 @@ def test_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
     page = editor(dz("d", HAUS), client=client)
     pick(page, "d")
     type_and_remove(page, client)
-    field(page, "Zahl in Stockwerk 1 links").focus()
+    open_own(page, "d", "0,1")
     step(page, lambda: page.keyboard.press("Control+z"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 6], [0, 1, 1]]
     expect(panel(page, "Eigene Zahlen entfernen")).to_be_visible()
-    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value("1")
+    expect(open_own(page, "d", "0,1")).to_have_value("1")
 
 
 def test_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
@@ -395,7 +387,7 @@ def test_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
     page = editor(dz("d", HAUS), client=client)
     pick(page, "d")
     type_and_remove(page, client)
-    field(page, "Zahl in Stockwerk 1 links").focus()
+    open_own(page, "d", "0,1")
     step(page, lambda: page.keyboard.press("Control+z"))
     step(page, lambda: page.keyboard.press("Control+y"))
     assert "typed" not in props_of(doc(page, client))
@@ -425,7 +417,6 @@ def test_the_lists_of_the_panel_say_what_they_set(editor):
         "Stockwerke": "Stockwerke",
         "Zahlenraum": "Zahlenraum",
         "Gegebene Felder": "Gegebene Felder",
-        "Haus für eigene Zahlen": "Eigene Zahlen",
     }
     for name, heading in headings.items():
         assert page.locator(f'.panel select[aria-label="{name}"]').evaluate(HEADING) == heading, (

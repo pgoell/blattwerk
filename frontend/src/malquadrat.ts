@@ -91,9 +91,9 @@
 // "Kleiner" / "Größer" ("3 × 3 Felder"; a change drops `typed` in the same undo step); select "Rechenart" ("Mal",
 // "Plus"; a change drops `typed` in the same undo step too); with Mal checkboxes "1er-Reihe" to "10er-Reihe" (the last checked one is disabled); with Plus select
 // "Zahlenraum" ("bis 20", "bis 100", "bis 1000"); select "Aufgabentyp" ("Nur die Zahlen am Rand", "Rand und Innen
-// gemischt", "Knobelaufgabe über die Summen"); select "Malquadrat für eigene Zahlen" (with 2 or more squares); number
-// fields "Zeile i, Spalte j" (i and j from 0 to n + 1, every position) showing the given numbers (typed or drawn), the
-// other boxes empty. Hints (p.hint, role=status): per wrong square that is not unsure (an unsure one is drawn as wrong:
+// gemischt", "Knobelaufgabe über die Summen"); own numbers are typed on the
+// sheet: a box opens a field "Eigene Zahl" on a double click, showing its given number (typed or drawn), an other box
+// empty. Hints (p.hint, role=status): per wrong square that is not unsure (an unsure one is drawn as wrong:
 // class `wrong`, no answers) "Malquadrat i: Die Zahlen passen nicht zusammen.";
 // per square with many and not wrong "Malquadrat i: Es gibt mehr als eine Lösung." Buttons "Eigene Zahlen entfernen"
 // (with typed), "Neu würfeln".

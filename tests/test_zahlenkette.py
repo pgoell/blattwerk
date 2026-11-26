@@ -13,7 +13,7 @@ from test_gaps import panel, step
 from test_suchsel_print import key_print
 from test_words import redo, undo
 from test_zahlenkette_print import chains_of
-from ui import at, box, doc, expect_lit, pick, reload, user
+from ui import at, box, doc, expect_lit, open_own, pick, reload, user
 
 KETTE = {
     "count": 4,
@@ -255,16 +255,16 @@ def test_a_new_number_of_rings_keeps_the_free_flags_and_typed_numbers_that_still
     assert props_of(doc(page, client))["free"] == [*FREE, False, False]
     step(page, lambda: field(page, "Ringe").select_option("4"))
     assert props_of(doc(page, client))["free"] == FREE[:4]
-    expect(field(page, "Zahl in Ring 1")).to_have_value("5")
-    expect(field(page, "Zahl in Ring 5")).to_have_count(0)
+    expect(open_own(page, "d", "0,0")).to_have_value("5")
+    expect(at(page, "d").locator('[data-own="0,4"]')).to_have_count(0)
 
 
 def test_typing_two_digits_into_a_ring_stores_them_and_one_undo_takes_both_back(editor):
-    """A10/I1: "1" then "2" into "Zahl in Ring 1" store typed [[0, 0, 12]]; one Ctrl+Z in the field removes both."""
+    """A10/I1: "1" then "2" into ring 1 store typed [[0, 0, 12]]; one Ctrl+Z in the field removes both."""
     client = user()
     page = editor(kette("d", KETTE), client=client)
     pick(page, "d")
-    number = field(page, "Zahl in Ring 1")
+    number = open_own(page, "d", "0,0")
 
     def type_twelve():
         number.press("Control+a")
@@ -283,7 +283,7 @@ def test_typed_numbers_that_break_the_step_give_the_hint_and_fixing_it_removes_i
     page = editor(kette("d", {**KETTE, "step": 3, "typed": [[0, 0, 5], [0, 1, 9]]}), client=client)
     pick(page, "d")
     expect(hint(page)).to_have_text("Kette 1: die Zahlen passen nicht zum Schritt.")
-    step(page, lambda: field(page, "Zahl in Ring 2").fill("8"))
+    step(page, lambda: open_own(page, "d", "0,1").fill("8"))
     expect(hint(page).filter(has_text="passen nicht zum Schritt")).to_have_count(0)
 
 
@@ -390,13 +390,12 @@ def test_a_rechenart_change_into_mal_drops_the_fixed_step_in_one_undo(editor):
 
 
 def test_a_ring_field_keeps_focus_and_digits_while_the_block_redraws(editor):
-    """A10: typing "17" into "Zahl in Ring 3" keeps the focus and the digits while the block redraws,
+    """A10: typing "17" into ring 3 keeps the focus and the digits while the block redraws,
     and stores [0, 2, 17]."""
     client = user()
     page = editor(kette("d", KETTE), client=client)
     pick(page, "d")
-    number = field(page, "Zahl in Ring 3")
-    number.click()
+    number = open_own(page, "d", "0,2")
     step(page, lambda: page.keyboard.type("17"))
     expect(number).to_be_focused()
     expect(number).to_have_value("17")
