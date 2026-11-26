@@ -11,7 +11,19 @@ from test_grow_turned import LONG, stays
 from test_height_turned import kept, ruling, sums
 from test_lock import KINDS, button, fest, grab, opened, undo
 from test_painter import paint
-from ui import RECT, RULING, TABLE, TEXT, box, doc, expect_picked, maths, pick, user
+from ui import (
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    blatt,
+    box,
+    doc,
+    expect_picked,
+    maths,
+    pick,
+    user,
+)
 
 # The kinds that hold words.
 WORDY = ["text", "shape", "table", "group"]
@@ -228,7 +240,7 @@ def test_quer_and_hoch_bring_a_locked_block_back_onto_the_page(editor, kind):
     far = [{**b, "x": 200, "w": 80, "y": 100} for b in every(client, kind)]
     page = editor(*low, client=client, pages=[{"blocks": far, "landscape": True}])
     before = doc(page, client)
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     panel.get_by_role("button", name="Quer", exact=True).click()
     expect(undo(page)).to_be_enabled()

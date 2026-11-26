@@ -243,7 +243,11 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
         {/* What can go on the page floats over the desk's lower edge. */}
         {drawers ? null : leaf ? (
           <>
-            <div className="dock">{zoomer}</div>
+            <div className="dock">
+              {zoomer}
+              <i className="sep" />
+              {session.rasterKnob}
+            </div>
             {pages.length > 1 && (
               <div className="dock at">
                 Seite {page + 1} von {pages.length}

@@ -2,17 +2,14 @@
 
 import re
 
-import pytest
 from playwright.sync_api import expect
 from ui import TEXT, box
 
 
-@pytest.mark.parametrize("tab", ["Start", "Ansicht", "Vorlagen"])
-def test_the_logo_stays_at_the_top_while_the_left_sidebar_scrolls(editor, tab):
+def test_the_logo_stays_at_the_top_while_the_left_sidebar_scrolls(editor):
     """#1084"""
     page = editor(box("a", "text", TEXT))
     page.set_viewport_size({"width": 1280, "height": 400})
-    page.get_by_role("tab", name=tab, exact=True).click()
     left = page.locator(".left")
     brand = left.locator("a.brand")
     expect(brand).to_be_visible()

@@ -9,12 +9,14 @@ from ui import (
     TABLE,
     TEXT,
     at,
+    blatt,
     box,
     expect_picked,
     knob,
     maths,
     pick,
     picture,
+    raster,
     saved,
     upload,
     user,
@@ -248,17 +250,17 @@ def test_the_last_row_of_a_ruling_stays_with_no_undo_step(editor):
 def test_the_view_set_as_it_is_adds_no_undo_step(editor, own):
     page = editor(box("a", "text", TEXT))
     panel = page.locator(".panel")
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     if own:
-        panel.get_by_role("button", name="Nur diese Seite").click()
         # The page's format, then its grid.
-        for nth in (0, 1):
-            panel.get_by_role("button", name="Wie Blatt").nth(nth).click()
+        panel.get_by_role("button", name="Nur diese Seite").click()
+        panel.get_by_role("button", name="Wie Blatt").click()
+        raster(page).get_by_role("button", name="Wie Blatt").click()
     else:
         # The Raster is set as it is. The Seitenzahlen are a switch, which has no press that changes nothing.
         for name in ("Alle Seiten", "Hoch"):
             knob(panel, name).click()
-        knob(panel, "Aus").click()
+        knob(raster(page), "Aus").click()
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
 

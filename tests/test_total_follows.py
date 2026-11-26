@@ -8,7 +8,8 @@ import re
 
 from playwright.sync_api import expect
 from test_feed_print import pdf_text, sheet_id
-from ui import TEXT, at, box, doc, pick, reload, user
+from ui import TEXT, at, box, doc, pick, user
+from ui_new import from_template
 
 PANEL_SCORE = '.panel input[aria-label="Punkte"]'
 PLUS = "Ein Punkt mehr"
@@ -47,11 +48,7 @@ def test_an_ordinary_sheet_that_looks_like_a_klassenarbeit_keeps_its_total(edito
 def test_a_klassenarbeit_from_the_vorlage_follows(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
-    reload(page, page.url)
-    page.get_by_role("tab", name="Vorlagen").click()
-    page.get_by_role("button", name="Klassenarbeit", exact=True).click()
-    # The sheet holds a text, so the template asks first (#1184).
-    page.locator("dialog.confirm").get_by_role("button", name="Blatt ersetzen").click()
+    from_template(page, "Klassenarbeit")
     expect(page.get_by_text("/ 60 Punkte").first).to_be_visible()
     blocks = doc(page, client)["pages"]
     total_ids = [

@@ -111,7 +111,6 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
   // Whether the maths exercises show their answers.
   const [solved, setSolved] = useState(false);
   const [mod, setMod] = useState(0);
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [name, setName] = useState("");
   // The x and y, in mm, that a line's end or a group's corner has snapped to.
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
@@ -200,5 +199,5 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
   }, [drawnRight, picked]);
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
-    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, templates, setTemplates, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, spaceButton, asked, stage, desk, dragDesk, middlePan, drawnRight, moveable, picker });
+    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, spaceButton, asked, stage, desk, dragDesk, middlePan, drawnRight, moveable, picker });
 }

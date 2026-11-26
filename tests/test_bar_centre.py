@@ -58,5 +58,5 @@ def test_a_narrow_window_has_the_tool_for_the_lernwoerter_and_no_tab_for_them(ed
     expect(
         page.locator(".dock").get_by_role("button", name="Lernwörter", exact=True)
     ).to_be_visible()
-    expect(page.get_by_role("tab", name="Format")).to_be_visible()
+    expect(page.get_by_role("tab", name="Auswahl")).to_be_visible()
     expect(page.get_by_role("tab", name="Lernwörter")).to_have_count(0)

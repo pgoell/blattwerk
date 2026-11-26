@@ -13,7 +13,19 @@ import pytest
 from conftest import WEBKIT
 from playwright.sync_api import expect
 from test_drop import PDF, PNG, landed, spot
-from ui import TEXT, at, box, centre, copy_picture, drop, maths, pick, saved, sheet, user
+from ui import (
+    TEXT,
+    at,
+    blatt,
+    box,
+    centre,
+    copy_picture,
+    drop,
+    maths,
+    pick,
+    saved,
+    user,
+)
 
 from blattwerk import db
 
@@ -25,8 +37,6 @@ WHY = {
 LINE = ".notice.fault"
 NO_PDF = "Das PDF konnte nicht erstellt werden."
 NO_STORE = "Die Vorlage konnte nicht gespeichert werden."
-NO_DELETE = "Die Vorlage konnte nicht gelöscht werden."
-NO_LOAD = "Die Vorlagen konnten nicht geladen werden."
 NO_PICTURE = "Das Bild konnte nicht hochgeladen werden."
 NO_FILE = (
     "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB, SVG bis 2 MB."
@@ -73,13 +83,18 @@ def own(client):
 
 
 def panel(page):
-    """Opens the panel of the templates. Gives the field for a new one's name."""
-    page.get_by_role("tab", name="Vorlagen").click()
+    """Opens the tab "Blatt". Gives the field for a new template's name."""
+    blatt(page)
     return page.get_by_label("Name der Vorlage")
 
 
 def store(page):
-    page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
+    page.get_by_role("button", name="Als Vorlage speichern").click()
+
+
+def stored(page, name="Neu"):
+    """The panel says that the template of that name is stored."""
+    expect(page.locator(".panel [role=status]")).to_contain_text(f"„{name}“ ist gespeichert.")
 
 
 # Records the name the app gives the PDF's link, the name the teacher's browser saves it under.
@@ -141,7 +156,7 @@ def test_a_template_that_cannot_be_stored_keeps_its_name_and_is_stored_once(edit
     mend()
     assert own(client) == []
     again(page)
-    expect(page.get_by_label("Vorlage Neu löschen")).to_have_count(1)
+    stored(page)
     expect(page.locator(LINE)).to_have_count(0)
     expect(field).to_have_value("")
     assert own(client) == ["Neu"]
@@ -161,7 +176,7 @@ def test_a_second_press_while_a_template_is_on_its_way_stores_no_second_one(edit
         store(page)
     store(page)
     held[0].continue_()
-    expect(page.get_by_label("Vorlage Neu löschen")).to_have_count(1)
+    stored(page)
     assert len(held) == 1
     assert own(client) == ["Neu"]
 
@@ -184,52 +199,9 @@ def test_the_line_goes_with_a_press_on_schliessen_and_a_second_failure_takes_its
     said(page, NO_STORE, "offline")
     mend()
     again(page)
-    expect(page.get_by_label("Vorlage Neu löschen")).to_have_count(1)
+    stored(page)
     expect(page.locator(LINE)).to_have_count(0)
     assert own(client) == ["Neu"]
-
-
-@pytest.mark.parametrize("how", HOW)
-def test_a_template_that_cannot_be_deleted_stays_and_goes_with_no_second_question(editor, how):
-    """A20"""
-    client = user()
-    made = sheet(client, [])
-    assert client.post("/api/templates", json={"name": "Alt", "doc": made["doc"]}).is_success
-    page = editor(box("a", "text", TEXT), client=client)
-    panel(page)
-    asked = dialogs(page)
-    mend = broken(page, how, r"/templates/\d+$")
-    page.get_by_label("Vorlage Alt löschen").click()
-    said(page, NO_DELETE, how)
-    expect(page.get_by_label("Vorlage Alt löschen")).to_have_count(1)
-    mend()
-    assert own(client) == ["Alt"]
-    again(page)
-    expect(page.get_by_label("Vorlage Alt löschen")).to_have_count(0)
-    expect(page.locator(LINE)).to_have_count(0)
-    assert own(client) == []
-    assert asked == ["Vorlage „Alt“ löschen?"]
-
-
-@pytest.mark.parametrize("how", HOW)
-def test_templates_that_cannot_be_loaded_say_so_and_load_with_the_next_try(editor, how):
-    """A20: with no connection the app itself would not load, so the templates' own request is
-    cut off, which the page sees as it sees no connection."""
-    client = user()
-    made = sheet(client, [])
-    assert client.post("/api/templates", json={"name": "Alt", "doc": made["doc"]}).is_success
-    page = editor(box("a", "text", TEXT), client=client)
-    pattern = re.compile("/api/templates$")
-    page.route(pattern, lambda r: r.abort() if how == "offline" else r.fulfill(status=500))
-    page.reload()
-    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
-    said(page, NO_LOAD, how)
-    panel(page)
-    expect(page.get_by_label("Vorlage Alt löschen")).to_have_count(0)
-    page.unroute(pattern)
-    again(page)
-    expect(page.get_by_label("Vorlage Alt löschen")).to_have_count(1)
-    expect(page.locator(LINE)).to_have_count(0)
 
 
 def by_button(page, file=PNG):

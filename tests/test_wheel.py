@@ -10,9 +10,9 @@ from ui import TEXT, at, box, centre, pick
 WINDOW = "[innerWidth, innerHeight, devicePixelRatio, visualViewport.scale]"
 PAPER = '.pages [data-thumb="0"] .paper'
 THUMB = f"(w) => Math.abs(document.querySelector('{PAPER}').getBoundingClientRect().width - w) < 1"
-# Where the wheel turns beside the desk and the thumbnails: the panel Seiten below them, the
-# format panel, and the bar.
-BESIDE = {"seiten": ".left .foot", "format": ".panel", "bar": "header .top"}
+# Where the wheel turns beside the desk and the thumbnails: the tabs of the panel Seiten above
+# them, the format panel, and the bar.
+BESIDE = {"seiten": ".left .tabs", "format": ".panel", "bar": "header .top"}
 
 
 def opened(editor, pages=1):

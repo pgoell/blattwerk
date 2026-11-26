@@ -1,10 +1,11 @@
-"""The Vorlagen panel: built-in templates in groups with a thumbnail, and what applying keeps."""
+"""A sheet made from a template under "Neues Blatt": fresh numbers for a built-in one, and the
+sheet stored as a template of the teacher's own."""
 
 import time
 
 from playwright.sync_api import expect
-from ui import TEXT, at, box, doc, maths, reload, user
-from ui_new import apply_template
+from ui import TEXT, at, blatt, box, doc, maths, user
+from ui_new import card, chooser, from_template
 
 ZAHL = {
     "base": 3,
@@ -16,7 +17,6 @@ ZAHL = {
     "empty": False,
     "seed": 1,
 }
-GROUPS = ["Allgemein", "Mathe", "Deutsch", "Organisation"]
 
 
 def stub_template(client, name="Mathe-Stub", group="Mathe", words=False):
@@ -69,97 +69,38 @@ def until_not(read, old, seconds=5):
     return value
 
 
-def open_panel(page):
-    page.get_by_role("tab", name="Vorlagen").click()
-    expect(page.get_by_role("heading", name="Vorlagen", exact=True)).to_be_visible()
-
-
-def apply(page, name):
-    apply_template(page, name)
-
-
-def test_panel_groups_the_builtin_templates_under_headings(editor):
-    page = editor(box("a", "text", TEXT))
-    open_panel(page)
-    for group in ["Allgemein", "Organisation"]:
-        heading = page.get_by_role("heading", name=group, exact=True)
-        expect(heading).to_be_visible()
-        expect(page.get_by_role("group", name=group).locator(".tpl button").first).to_be_visible()
-
-
-def test_each_builtin_template_button_shows_a_paper_thumbnail(editor):
-    page = editor(box("a", "text", TEXT))
-    open_panel(page)
-    buttons = page.locator(".tpl button")
-    expect(buttons.first).to_be_visible()
-    groups = page.locator(".tpl-group .tpl button")
-    assert groups.count() == 13
-    for i in range(groups.count()):
-        # A page drawn small, with the template's blocks on it.
-        expect(groups.nth(i).locator(".paper .block").first).to_be_attached()
-
-
-def test_groups_are_in_the_order_of_the_contract(editor):
-    page = editor(box("a", "text", TEXT))
-    open_panel(page)
-    expect(page.get_by_role("heading", name="Allgemein", exact=True)).to_be_visible()
-    names = page.locator("aside.left h3, aside.left h2").all_inner_texts()
-    shown = [n for n in names if n in GROUPS]
-    assert shown == [g for g in GROUPS if g in shown]
-
-
-def test_applying_a_stubbed_mathe_template_twice_reseeds_each_time(editor, server):
+def test_two_sheets_from_a_stubbed_mathe_template_have_seeds_of_their_own(editor, server):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     stub(page, stub_template(client))
-    reload(page, page.url)
-    open_panel(page)
-    apply(page, "Mathe-Stub")
+    from_template(page, "Mathe-Stub")
     first = until_not(lambda: seed(page, client, "zahlenmauer"), 1)
     first_maths = until_not(lambda: seed(page, client, "maths"), 7)
-    apply(page, "Mathe-Stub")
-    until_not(lambda: seed(page, client, "zahlenmauer"), first)
-    until_not(lambda: seed(page, client, "maths"), first_maths)
-
-
-def test_one_undo_takes_back_a_whole_template_with_its_maths(editor):
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    stub(page, stub_template(client))
-    reload(page, page.url)
-    open_panel(page)
-    apply(page, "Mathe-Stub")
-    expect(at(page, "z")).to_be_visible()
-    page.keyboard.press("Control+z")
-    expect(at(page, "a")).to_be_visible()
-    expect(at(page, "z")).to_have_count(0)
-    expect(at(page, "m")).to_have_count(0)
+    from_template(page, "Mathe-Stub")
+    assert seed(page, client, "zahlenmauer") not in (1, first)
+    assert seed(page, client, "maths") not in (7, first_maths)
 
 
 def test_maths_failure_keeps_the_template_exercises(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     stub(page, stub_template(client))
-    reload(page, page.url)
     page.route("**/api/maths", lambda route: route.fulfill(status=500, body="nein"))
-    open_panel(page)
-    apply(page, "Mathe-Stub")
+    from_template(page, "Mathe-Stub")
     until_not(lambda: seed(page, client, "zahlenmauer"), None)
     assert seed(page, client, "maths") == 7
 
 
-def test_applying_a_template_keeps_the_sheets_words(editor):
+def test_a_template_brings_its_words(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=["Hund", "Katze"])
-    stub(page, stub_template(client))
-    reload(page, page.url)
-    open_panel(page)
-    apply(page, "Mathe-Stub")
+    page = editor(box("a", "text", TEXT), client=client)
+    stub(page, stub_template(client, words=True))
+    from_template(page, "Mathe-Stub")
     expect(at(page, "z")).to_be_visible()
-    assert doc(page, client)["words"] == ["Hund", "Katze"]
+    assert doc(page, client)["words"] == ["Stern"]
 
 
-def test_own_template_applies_with_its_seed_unchanged(editor):
+def test_own_template_gives_a_sheet_with_its_seed_unchanged(editor):
     client = user()
     own = {
         "pages": [{"blocks": [box("z", "zahlenmauer", ZAHL)]}],
@@ -168,40 +109,41 @@ def test_own_template_applies_with_its_seed_unchanged(editor):
     }
     client.post("/api/templates", json={"name": "Eigene", "doc": own})
     page = editor(box("a", "text", TEXT), client=client)
-    reload(page, page.url)
-    open_panel(page)
-    apply(page, "Eigene")
+    from_template(page, "Eigene")
     blocks = doc(page, client)["pages"][0]["blocks"]
     assert next(b for b in blocks if b["type"] == "zahlenmauer")["props"]["seed"] == 1
 
 
-def test_enter_on_a_template_button_applies_it(editor):
+def test_a_sheet_stored_as_a_template_stands_under_neues_blatt(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
-    stub(page, stub_template(client, name="Enter-Stub", group="Deutsch"))
-    reload(page, page.url)
-    open_panel(page)
-    page.locator(".tpl button", has_text="Enter-Stub").focus()
-    page.keyboard.press("Enter")
-    # The sheet holds a text, so the template asks first; the focus starts on the way out.
-    question = page.locator("dialog.confirm")
-    expect(question.get_by_role("button", name="Abbrechen")).to_be_focused()
-    question.get_by_role("button", name="Blatt ersetzen").click()
-    expect(at(page, "z")).to_be_visible()
-    expect(
-        page.get_by_role("group", name="Deutsch").locator(".tpl button", has_text="Enter-Stub")
-    ).to_be_visible()
-
-
-def test_saving_an_own_template_keeps_the_groups(editor):
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    open_panel(page)
+    blatt(page)
     page.get_by_label("Name der Vorlage").fill("Meine Neue")
-    page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
-    expect(page.locator(".tpl button", has_text="Meine Neue")).to_be_visible()
-    expect(page.get_by_role("heading", name="Allgemein", exact=True)).to_be_visible()
-    expect(page.get_by_role("heading", name="Meine Vorlagen", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Als Vorlage speichern").click()
+    said = "„Meine Neue“ ist gespeichert. Du findest die Vorlage unter „Neues Blatt“."
+    expect(page.locator(".panel [role=status]")).to_have_text(said)
+    expect(page.get_by_label("Name der Vorlage")).to_have_value("")
+    page.goto(page.url.split("/blatt/")[0] + "/")
+    shelf = chooser(page)
+    shelf.get_by_role("button", name="Meine Vorlagen").click()
+    expect(card(shelf, "Meine Neue")).to_be_visible()
+
+
+def test_an_own_template_is_deleted_under_neues_blatt(editor):
+    client = user()
+    own = {"pages": [{"blocks": [box("a", "text", TEXT)]}], "guides": {"x": [], "y": []}, "grid": 0}
+    client.post("/api/templates", json={"name": "Alt", "doc": own})
+    page = editor(box("a", "text", TEXT), client=client)
+    page.goto(page.url.split("/blatt/")[0] + "/")
+    shelf = chooser(page)
+    asked = []
+    page.once("dialog", lambda box_: (asked.append(box_.message), box_.accept()))
+    shelf.get_by_label("Vorlage Alt löschen").click()
+    expect(card(shelf, "Alt")).to_have_count(0)
+    assert asked == ["Vorlage „Alt“ löschen?"]
+    assert [t for t in client.get("/api/templates").json() if t["id"] > 0] == []
+    # The built-in ones have no such button.
+    expect(shelf.get_by_label("Vorlage Wochenplan löschen")).to_have_count(0)
 
 
 def test_a_maths_block_grows_to_fit_its_fresh_exercises(editor):
@@ -218,9 +160,7 @@ def test_a_maths_block_grows_to_fit_its_fresh_exercises(editor):
         },
     }
     stub(page, tall)
-    reload(page, page.url)
-    open_panel(page)
-    apply(page, "Mathe-Hoch")
+    from_template(page, "Mathe-Hoch")
     until_not(lambda: height(page, client, "maths"), None)
     grown = until_not(lambda: height(page, client, "maths"), 10)
     assert grown > 10
@@ -229,27 +169,3 @@ def test_a_maths_block_grows_to_fit_its_fresh_exercises(editor):
     expect(grid).to_be_visible()
     fits = grid.evaluate("e => e.scrollHeight <= e.clientHeight + 1")
     assert fits
-
-
-def test_the_last_click_wins_over_a_template_still_waiting_for_its_exercises(editor):
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    stub(page, stub_template(client))
-    reload(page, page.url)
-    held = []
-    page.route("**/api/maths", lambda route: held.append(route))
-    open_panel(page)
-    apply(page, "Mathe-Stub")
-    # The old Arbeitsblatt, which brings no exercises, is clicked while the maths answer is held.
-    apply(page, "Arbeitsblatt")
-    arbeit = next(t for t in client.get("/api/templates").json() if t["name"] == "Arbeitsblatt")
-    wanted = [b["type"] for b in arbeit["doc"]["pages"][0]["blocks"]]
-    until_not(lambda: [b["type"] for b in saved_blocks(page, client)], ["text"])
-    with page.expect_response("**/api/maths"):
-        held[0].continue_()
-    # The held answer comes back after the Arbeitsblatt is in place: the page must keep it.
-    page.evaluate("() => new Promise((ok) => setTimeout(ok, 300))")
-    assert [b["type"] for b in saved_blocks(page, client)] == wanted
-    page.keyboard.press("Control+z")
-    expect(at(page, "a")).to_be_visible()
-    expect(at(page, "z")).to_have_count(0)

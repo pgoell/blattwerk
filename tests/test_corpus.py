@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 from pixels import over, screen_and_print
 from playwright.sync_api import expect
-from ui import seiten, sheet, user
+from ui import sheet, user
+from ui_new import from_template
 
 ROOT = Path(__file__).parent.parent
 CORPUS = Path(__file__).parent / "corpus"
@@ -350,12 +351,14 @@ def stored(file):
     return client, sheet_id, made
 
 
-def change(page, made):
-    """What makes the editor save: a sheet gets another title, and a template takes the place of
-    the empty sheet, which is how a template opens."""
+def change(page, made, errors):
+    """What makes the editor store the file: a sheet gets another title, and a template gives a
+    new sheet under "Neues Blatt", which is how a template opens."""
     if "name" in made:
-        seiten(page)
-        page.locator(".tpl button").get_by_text(made["name"], exact=True).click()
+        from_template(page, made["name"])
+        # On the way the list asks for the school folder, and this teacher has none: that 404 is
+        # the list's, not the sheet's.
+        errors[:] = [said for said in errors if "404" not in said]
     else:
         page.get_by_label("Titel", exact=True).fill("Anders")
 
@@ -365,7 +368,7 @@ def test_a_corpus_file_opens_with_no_error(desk, file):
     client, sheet_id, made = stored(file)
     page, errors = desk(client, sheet_id)
     if "name" in made:
-        change(page, made)
+        change(page, made, errors)
     # The editor lays out every page at once.
     expect(page.locator(".sheet")).to_have_count(len(made["doc"]["pages"]))
     expect(page.locator(".block[data-id]")).to_have_count(len(blocks(made["doc"])))
@@ -376,11 +379,16 @@ def test_a_corpus_file_opens_with_no_error(desk, file):
 def test_a_corpus_file_saves_back_unchanged(desk, file):
     client, sheet_id, made = stored(file)
     page, errors = desk(client, sheet_id)
-    # A change is saved two seconds after it.
-    with page.expect_response(lambda res: res.request.method == "PATCH"):
-        change(page, made)
-    saved = client.get(f"/api/sheets/{sheet_id}").json()
-    assert saved["version"] == 2
+    if "name" in made:
+        # The sheet made from the template holds the template's document.
+        change(page, made, errors)
+        saved = client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()
+    else:
+        # A change is saved two seconds after it.
+        with page.expect_response(lambda res: res.request.method == "PATCH"):
+            change(page, made, errors)
+        saved = client.get(f"/api/sheets/{sheet_id}").json()
+        assert saved["version"] == 2
     assert saved["doc"] == made["doc"]
     assert errors == []
 

@@ -42,7 +42,6 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
   const setFormat = session.setFormat;
   const keyed = session.keyed;
   const setKeyed = session.setKeyed;
-  const mode = session.mode;
   const more = session.more;
   const newerSheet = session.newerSheet;
   const openVariants = session.openVariants;
@@ -65,10 +64,7 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
   const setFromPress = session.setFromPress;
   const setLetters = session.setLetters;
   const setMenu = session.setMenu;
-  const setPane = session.setPane;
-  const setSide = session.setSide;
   const setSolved = session.setSolved;
-  const setTab = session.setTab;
   const setTitle = session.setTitle;
   const setTour = session.setTour;
   const setVariants = session.setVariants;
@@ -90,28 +86,10 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
       <header>
         {/* Blank.tsx draws this bar's boxes, and the panel's below, for a phone that loads: a change here goes there too. */}
         <div className="top" ref={bar} onPointerOver={holdName}>
-          {leaf ? (
-            <span className="modes" role="tablist">
-              {["Start", "Ansicht", "Vorlagen"].map((m) => (
-                <button
-                  key={m}
-                  role="tab"
-                  data-tour={m}
-                  aria-selected={mode === m}
-                  onClick={() => {
-                    setSide(m === "Vorlagen");
-                    setTab(m === "Ansicht" ? "Ansicht" : "Format");
-                    if (m === "Ansicht") setPane(true);
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </span>
-          ) : (
+          {!leaf && (
             <>
               {brand}
-              <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={`pin${left ? " on" : ""}`} aria-pressed={left} onClick={() => showLeft(!left)} />
+              <Tool icon={PanelLeft} label="Seiten" className={`pin${left ? " on" : ""}`} aria-pressed={left} onClick={() => showLeft(!left)} />
             </>
           )}
           <input
@@ -175,7 +153,8 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
           {/* With none of them left in the bar, the divider before them is enough. */}
           {fits !== 0 && <i className="sep" />}
           {!leaf && inBar("Kleiner") && zoomer}
-          <Tool icon={PanelRight} label="Format und Ansicht" className={`pin${right ? " on" : ""}`} aria-pressed={right} onClick={() => showRight(!right)} />
+          {!leaf && inBar("Raster und Hilfslinien") && session.rasterKnob}
+          <Tool icon={PanelRight} label="Auswahl und Blatt" className={`pin${right ? " on" : ""}`} aria-pressed={right} onClick={() => showRight(!right)} />
           {inBar("Rundgang") && <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />}
           <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />

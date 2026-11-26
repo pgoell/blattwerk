@@ -36,7 +36,16 @@ from ui_panels import (
     bar as bar,
 )
 from ui_panels import (
+    blatt as blatt,
+)
+from ui_panels import (
     drawer as drawer,
+)
+from ui_panels import (
+    guide as guide,
+)
+from ui_panels import (
+    raster as raster,
 )
 from ui_panels import (
     seiten as seiten,

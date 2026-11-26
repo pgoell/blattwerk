@@ -41,6 +41,8 @@ EDITS = [
     "Gruppierung aufheben",
 ]
 ZOOM = ["Kleiner", "Zoom", "Ganze Seite", "Größer"]
+# Beside the zoom, and folded by itself.
+GRID = "Raster und Hilfslinien"
 LAST = ["Rundgang", "Feedback"]
 # What the bar says of itself: whether the four that never fold lie in the window, whether it is
 # one row that does not scroll, and the names of the commands in it that may fold.
@@ -181,11 +183,12 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
 
 def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
     """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
-    page = sized(editor, text("a"), width=1050, height=700, touch=False)
+    # At its narrowest, Blattform's bar has "Mehr".
+    page = sized(editor, text("a"), width=1024, height=700, touch=False)
     expect_fitted(page)
     expect(page.locator("main.editor.leaf")).to_have_count(1)
     more(page).focus()
-    resize(page, 1050, 1300)
+    resize(page, 1024, 1300)
     expect_fitted(page)
     expect(page.locator("main.editor.leaf")).to_have_count(0)
     expect(more(page)).to_be_focused()
@@ -257,7 +260,7 @@ def test_the_bar_and_mehr_hold_every_command_once(editor, width, height, touch):
     # Blattform's own layout has the zoom over the desk, not in the bar.
     leaf = page.locator("main.editor.leaf").count() == 1
     assert leaf == (width > height)
-    want = [*EDITS, *([] if leaf else ZOOM), *LAST]
+    want = [*EDITS, *([] if leaf else [*ZOOM, GRID]), *LAST]
     # The bar's zoom button is titled "Zoom", as is its command in "Mehr".
     in_bar = page.evaluate(BAR)["names"]
     in_menu = listed(page)

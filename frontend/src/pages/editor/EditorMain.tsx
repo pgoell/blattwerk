@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useSheetChrome } from "../../components/Blank";
 import { Whole, Words } from "../../sheet";
 import { useRealFonts } from "../../sheet/fontReady";
+import { TABS } from "./palette";
 import { useTools } from "./useTools";
 
 export default function EditorMain({ s: session, children }: { s: ReturnType<typeof useTools>; children: ReactNode }) {
@@ -36,6 +37,8 @@ export default function EditorMain({ s: session, children }: { s: ReturnType<typ
       onChangeCapture={(e) => (e.target as Element).matches("select") && (mergeKey.current = "")}
       onPointerDown={(e) => {
         mergeKey.current = "";
+        // A press on a block shows its settings, also on one that is picked already: the right panel turns to "Auswahl".
+        if ((e.target as Element).closest(".sheet .block")) session.setTab(TABS[0]);
         inPanel.current = !!(e.target as Element).closest(".panel");
         // The browser tells the field only later where the caret went, and the field hears nothing once the panel
         // has the focus: a look picked there would go to the word the caret has left. So the field reads it now.

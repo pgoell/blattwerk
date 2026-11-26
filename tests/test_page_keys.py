@@ -219,7 +219,7 @@ def test_delete_in_a_number_field_does_not_touch_the_page(editor):
 def test_tab_reaches_a_thumbnail_and_delete_removes_its_page(editor):
     page = three(editor)
     pick(page, "a")
-    page.get_by_role("tab", name="Vorlagen").focus()
+    page.locator("aside.left").get_by_role("tab", name="Seiten").focus()
     for _ in range(40):
         if thumb(page, 1).evaluate("el => el === document.activeElement"):
             break

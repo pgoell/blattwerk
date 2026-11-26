@@ -24,7 +24,6 @@ export function useSelection(session: ReturnType<typeof useLayoutState>) {
   const onPage = session.onPage;
   const left = session.left;
   const mod = session.mod;
-  const templates = session.templates;
   const draft = session.draft;
   const room = session.room;
   const zoom = session.zoom;
@@ -182,10 +181,6 @@ const mergeKey = useRef("");
   // What can take another's size: a line has only its length.
   const sizable = free.filter((b) => !isLine(b));
   const ns = numbers(hist.doc);
-  // The built-in templates have ids below zero; the teacher's own can be deleted.
-  const kept = templates.filter((t) => t.id > 0);
-  // The built-in templates' documents for their thumbnails, read once, so a thumbnail draws again only with the list.
-  const builtIn = useMemo(() => templates.filter((t) => t.id < 0).map((t) => ({ ...t, shown: read(t.doc) })), [templates]);
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
@@ -229,5 +224,5 @@ const mergeKey = useRef("");
   const xs = loose ? [] : [...pageXs, ...still.map(outline).flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
   const ys = loose ? [] : [...pageYs, ...still.map(outline).flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
-    return Object.assign(session, { mergeKey, ahead, grasp, tight, sink, touch, cover, hold, held, came, away, downOn, owed, strip, tug, press, auto, dragged, ctrlMenu, grab, adjusting, spot, start, pivots, dragFrom, dragAt, pinch, pages, guides, grid, learnt, lineaturen, crowded, page, chosenNow, choiceOf, blocks, helping, sizes, mendWord, folio, numbering, W, H, widest, fit, last, small, cellOf, cell, mine, dirty, loose, k, zoomTo, sel, lock, setLock, from, setFrom, free, thing, things, among, sizable, ns, kept, builtIn, boxes, fill, nameFields, stroke, source, rulers, line, table, cropping, oneGroup, ownFrame, mixed, frame, turnedLine, group, shaped, keep, across, down, handles, top, still, pageXs, pageYs, xs, ys });
+    return Object.assign(session, { mergeKey, ahead, grasp, tight, sink, touch, cover, hold, held, came, away, downOn, owed, strip, tug, press, auto, dragged, ctrlMenu, grab, adjusting, spot, start, pivots, dragFrom, dragAt, pinch, pages, guides, grid, learnt, lineaturen, crowded, page, chosenNow, choiceOf, blocks, helping, sizes, mendWord, folio, numbering, W, H, widest, fit, last, small, cellOf, cell, mine, dirty, loose, k, zoomTo, sel, lock, setLock, from, setFrom, free, thing, things, among, sizable, ns,  boxes, fill, nameFields, stroke, source, rulers, line, table, cropping, oneGroup, ownFrame, mixed, frame, turnedLine, group, shaped, keep, across, down, handles, top, still, pageXs, pageYs, xs, ys });
 }

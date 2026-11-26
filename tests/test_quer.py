@@ -11,7 +11,15 @@ import pytest
 from playwright.sync_api import expect
 from test_lock import KINDS, undo
 from test_lock_format import OTHER, every, named, redo
-from ui import TEXT, box, doc, expect_lit, thumb, user
+from ui import (
+    TEXT,
+    blatt,
+    box,
+    doc,
+    expect_lit,
+    thumb,
+    user,
+)
 
 QUER, HOCH = (297, 210), (210, 297)
 # Every kind of block by itself: the test puts each into a group.
@@ -66,7 +74,7 @@ def laid(was, now, size):
 
 def fmt(page, name):
     """Clicks a format in the panel Ansicht."""
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     page.locator(".panel").get_by_role("button", name=name, exact=True).click()
 
 
@@ -149,7 +157,7 @@ def test_a_page_with_a_format_of_its_own_brings_its_blocks_back(editor):
     page = editor(text("z", 265), client=client, more=low, seiten=True)
     before = doc(page, client)
     thumb(page, 1).click()
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     panel.get_by_role("button", name="Nur diese Seite").click()
     panel.get_by_role("button", name="Quer", exact=True).click()
@@ -180,7 +188,7 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
     page = editor(text("z", 20), client=client, pages=rest, seiten=True)
     before = doc(page, client)
     thumb(page, 1).click()
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     panel = page.locator(".panel")
     panel.get_by_role("button", name="Nur diese Seite").click()
     expect_lit(panel.get_by_role("button", name="Quer", exact=True), "true")

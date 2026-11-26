@@ -41,7 +41,7 @@ def list_tab(page):
     none picked, the tool "Lernwörter" puts such a Lineatur on the page, picked."""
     if field(page).count():
         return
-    if page.locator(".pages").count() and page.locator("header .modes").count():
+    if page.locator(".pages").count():
         seiten(page, False)
     page.locator(".insert, .dock").get_by_role("button", name="Lernwörter", exact=True).click()
     expect(field(page)).to_be_visible()

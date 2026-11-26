@@ -14,7 +14,7 @@ When a teacher asks for: "Ein Blatt mit zwei Spalten, die sauber untereinander s
 * `guides` holds the guide lines in mm. `x: [15, 105, 195]` puts a line at the left margin, in the middle of the gutter, and at the right margin. The guides show in the editor and never print.
 * The left column runs from x 15 to x 100 (w 85). The right column runs from x 110 to x 195 (w 85), so both sit on the guides.
 * Doc guides apply to every page. A page can hold its own guides with `set_page`, and `guides` there only changes that page.
-* In the editor the teacher sets the guides in the panel of the button "Format und Ansicht", tab "Ansicht", under the heading "Hilfslinien". Dragging a guide's number off the sheet removes it.
+* In the editor the teacher sets the guides with the button "Raster und Hilfslinien" beside the zoom, under the heading "Hilfslinien". Dragging a guide's number off the sheet removes it.
 * See [text](../blocks/text.md) for the other props.
 
 # Doc

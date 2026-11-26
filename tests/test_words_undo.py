@@ -23,6 +23,7 @@ from ui import (
     RULING,
     TEXT,
     at,
+    blatt,
     box,
     doc,
     pick,
@@ -32,6 +33,7 @@ from ui import (
     unpick,
     user,
 )
+from ui_new import from_template
 
 
 def test_undo_and_redo_walk_the_list_the_link_the_mode_and_the_cut(editor):
@@ -173,16 +175,13 @@ def test_a_reload_a_duplicate_and_a_template_keep_the_list(editor):
     assert copied["words"] == ["Hund", "Katze"]
     assert rulings(copied)[0]["props"]["list"] == "copy"
 
-    seiten(page)
+    blatt(page)
     page.get_by_label("Name der Vorlage").fill("Lernwörter-Vorlage")
-    page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
+    page.get_by_role("button", name="Als Vorlage speichern").click()
     # The template is there once the server has answered: a page that leaves before then never
-    # sent it, and the other sheet has no such template to pick (#448).
-    template = page.get_by_role("button", name="Lernwörter-Vorlage", exact=True)
-    expect(template).to_be_visible()
-    other = sheet(client, [])
-    go(page, other)
-    template.click()
+    # sent it, and the chooser has no such template to pick (#448).
+    expect(page.locator(".panel [role=status]")).to_contain_text("ist gespeichert")
+    from_template(page, "Lernwörter-Vorlage")
     stored = doc(page, client)
     assert stored["words"] == ["Hund", "Katze"]
     assert rulings(stored)[0]["props"]["list"] == "copy"

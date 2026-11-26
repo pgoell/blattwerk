@@ -1,7 +1,7 @@
 // The commands of the right-click menu and the zoom control.
 import { useLayoutEffect } from "react";
 import { flushSync } from "react-dom";
-import { ChevronLeft, ClipboardPaste, Copy, CopyPlus, Eraser, Group, FilePlus, FileX, Fullscreen, Lock, LockOpen, Paintbrush, RotateCcw, RotateCw, Scissors, Trash2, Ungroup, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ClipboardPaste, Copy, CopyPlus, Eraser, Grid2x2, Group, FilePlus, FileX, Fullscreen, Lock, LockOpen, Paintbrush, RotateCcw, RotateCw, Scissors, Trash2, Ungroup, ZoomIn, ZoomOut } from "lucide-react";
 import { Link } from "react-router";
 import Logo from "../../components/Logo";
 import type { Item } from "../../components/Menu";
@@ -214,7 +214,6 @@ export function useMenus(session: ReturnType<typeof usePick>) {
           { label: "Eine Ebene nach hinten", disabled: none || !stacked(false, true), run: () => raise(false, true) },
           { label: "In den Hintergrund", disabled: none || !stacked(false), run: () => raise(false) },
         ];
-  const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
   const brand = (
     <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
       <Logo />
@@ -281,5 +280,19 @@ export function useMenus(session: ReturnType<typeof usePick>) {
       <Tool icon={ZoomIn} label="Größer" onClick={() => zoomBy(1)} />
     </>
   );
-    return Object.assign(session, { locked, menuAt, thumbMenu, none, ctrl, shift, thumbed, ruled, menuCell, only, writeIn, clips, copies, lockIt, groups, turnless, mini, blockMenu, pickedBox, items, mode, brand, zoomBy, fitPage, zoomer });
+  // Beside the zoom: the grid and the guide lines, in a list of their own.
+  const rasterKnob = (
+    <Tool
+      icon={Grid2x2}
+      label="Raster und Hilfslinien"
+      aria-haspopup="dialog"
+      aria-expanded={!!session.raster}
+      onClick={(e) => {
+        const box = e.currentTarget.getBoundingClientRect();
+        const up = !!e.currentTarget.closest(".dock");
+        session.setRaster({ x: box.left, y: up ? box.top - 4 : box.bottom + 4, up });
+      }}
+    />
+  );
+    return Object.assign(session, { locked, menuAt, thumbMenu, none, ctrl, shift, thumbed, ruled, menuCell, only, writeIn, clips, copies, lockIt, groups, turnless, mini, blockMenu, pickedBox, items, brand, zoomBy, fitPage, zoomer, rasterKnob });
 }

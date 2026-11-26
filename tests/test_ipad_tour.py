@@ -45,7 +45,7 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
         )
         assert inside(page, ring)
 
-    on("Format")
+    on("Auswahl")
     expect_ringed(page.locator("aside.panel"))
     expect_lit(bar(page, "right"), "true")
     # The next step's tool stands in the rail, beside the open panel: Mathe, then Rechnen.
@@ -55,7 +55,7 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
     page.locator("dialog.library .lead").get_by_role("button", name="Rechnen").tap()
     expect(step).to_have_text("Aufgaben einstellen")
     expect(page.locator(".panel .what")).to_contain_text("Rechnen")
-    on("Seiten und Vorlagen")
+    on("Seiten")
     expect_ringed(page.locator("aside.left"))
     # The panel under the picked block stays: it is none of the drawers (#1187).
     expect(page.locator("aside.panel")).to_be_visible()

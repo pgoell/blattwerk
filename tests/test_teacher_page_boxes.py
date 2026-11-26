@@ -77,8 +77,9 @@ def test_box_refuses_what_is_no_answer_in_plain_words(folder, server, words):
 
 @pytest.mark.native
 def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, server):
-    # A template's delete asks `Vorlage „Probe“ löschen?` in a box of the browser: the plain click
-    # says no, `box yes` says yes. A sheet's delete asks in the app's own dialog (#1185).
+    # A template's delete, under "Neues Blatt", asks `Vorlage „Probe“ löschen?` in a box of the
+    # browser: the plain click says no, `box yes` says yes. A sheet's delete asks in the app's own
+    # dialog (#1185).
     email = f"{uuid4().hex}@example.com"
     client = user(email)
     made = sheet(client, [box("a", "text", ONE)], title="Probeblatt")
@@ -99,10 +100,7 @@ def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, serv
         ok("click", "Passwort")
         ok("type", PASSWORD)
         ok("key", "Enter")
-        ok("where", "Neues Blatt")
-        ok("click", "Probeblatt")
-        ok("click", "Beenden")
-        ok("click", "Vorlagen")
+        ok("click", "Neues Blatt")
         said = ok("click", "Vorlage Probe löschen")
         assert 'A box asked: "Vorlage „Probe“ löschen?" (confirm). Answered no.' in said
         assert own() == [kept["id"]]

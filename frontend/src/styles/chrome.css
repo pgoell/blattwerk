@@ -71,6 +71,16 @@ dialog.menu {
   border-radius: 8px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
 }
 dialog.menu::backdrop { background: none; }
+/* The grid and the guide lines, beside the zoom: a list as the menus are, with the panel's controls in it. */
+dialog.raster {
+  position: fixed; inset: auto; margin: 0; width: 264px; max-width: none; padding: 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
+}
+dialog.raster::backdrop { background: none; }
+dialog.raster h2 { margin: 0; padding: 12px 0 8px; font: 500 11px/1 var(--ui); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+dialog.raster .acts { margin-bottom: 8px; }
+dialog.raster button.wide { margin-top: 0; }
+dialog.raster .hint { margin: 10px 0 0; font-size: 12px; }
 dialog.menu button {
   display: flex; width: 100%; min-height: var(--ctl); padding: 0 8px; border: 0; border-radius: 5px; background: none; font-weight: 400;
   justify-content: flex-start; gap: 8px; transform: none; white-space: nowrap;
@@ -152,6 +162,9 @@ dialog.chooser .tile {
 }
 dialog.chooser .tile:hover { background: var(--accent-soft); border-color: var(--accent); }
 dialog.chooser .tile small { color: var(--muted); font-size: 11px; }
+/* An own template has its delete button at the card's corner. */
+dialog.chooser .own { position: relative; display: grid; }
+dialog.chooser .own .ib { position: absolute; top: 6px; right: 6px; background: var(--raise); border: 1px solid var(--line); }
 dialog.chooser .pic { display: block; flex: none; width: 132px; overflow: hidden; border: 1px solid var(--line); border-radius: 2px; background: #fff; pointer-events: none; }
 dialog.chooser .pic.blank { display: grid; place-items: center; height: 187px; color: #999; }
 dialog.chooser .lead { margin: 12px 0 0; }

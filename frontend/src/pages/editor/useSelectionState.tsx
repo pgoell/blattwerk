@@ -123,13 +123,19 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; cell?: number; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number; up?: boolean }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
+  // Where the list of the grid and the guide lines stands while it is open.
+  const [raster, setRaster] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
+  // What is picked anew shows its settings: the right panel turns to "Auswahl".
+  const pickedNow = ids.join();
+  useEffect(() => {
+    if (pickedNow) setTab(TABS[0]);
+  }, [pickedNow]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   const [pane, setPane] = useState(true);
-  // A wide window lays the editor out anew: the left panel holds what can be inserted, and Start,
-  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. `opening`
-  // tells when the layout is that one and how the panel of pages and templates starts.
+  // A wide window lays the editor out anew: its left panel has two tabs, what can be inserted and the pages.
+  // `side` then means that the pages show. `opening` tells when the layout is that one and how the panel starts.
   const { leafy } = opening();
   const [side, setSide] = useState(() => opening().side);
   // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
@@ -137,5 +143,5 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   const [drawer, setDrawer] = useState<"left" | "right">();
   // The finger on a drawer's swipe: where it came down, which drawer it may open or shut, and whether it has.
   const swipe = useRef<{ x: number; y: number; open?: "left" | "right"; shut?: "left" | "right"; decided?: boolean } | undefined>(undefined);
-    return Object.assign(session, { own, setOwn, at, setAt, chosen, setChosen, haul, setHaul, ids, setIds, targets, setTargets, rest, setRest, coat, setCoat, brush, setBrush, wet, openNow, editing, setEditing, stone, setStone, finger, setFinger, grips, setGrips, slot, setSlot, reach, setReach, cellDrag, brushing, brushed, laid, setLaid, caret, clicked, entire, words, setWords, wordsKept, nameWriting, field, part, setPart, inPanel, accent, stays, sheet, written, back, MOVES, act, multi, setMulti, menu, setMenu, mathMenu, setMathMenu, lens, setLens, tab, setTab, onPage, setOnPage, pane, setPane, leafy, side, setSide, drawers, drawer, setDrawer, swipe });
+    return Object.assign(session, { own, setOwn, at, setAt, chosen, setChosen, haul, setHaul, ids, setIds, targets, setTargets, rest, setRest, coat, setCoat, brush, setBrush, wet, openNow, editing, setEditing, stone, setStone, finger, setFinger, grips, setGrips, slot, setSlot, reach, setReach, cellDrag, brushing, brushed, laid, setLaid, caret, clicked, entire, words, setWords, wordsKept, nameWriting, field, part, setPart, inPanel, accent, stays, sheet, written, back, MOVES, act, multi, setMulti, menu, setMenu, mathMenu, setMathMenu, lens, setLens, raster, setRaster, tab, setTab, onPage, setOnPage, pane, setPane, leafy, side, setSide, drawers, drawer, setDrawer, swipe });
 }

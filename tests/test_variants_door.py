@@ -8,7 +8,13 @@ dialog. Wait with `expect`, never for a fixed time.
 import pytest
 from playwright.sync_api import expect
 from test_bar import expect_fitted, listed, more, sized, text, tool
-from ui import box, hold_close, maths, user
+from ui import (
+    blatt,
+    box,
+    hold_close,
+    maths,
+    user,
+)
 
 
 def bar_button(page):
@@ -52,7 +58,7 @@ def test_the_panel_ansicht_has_no_door_of_its_own(editor):
     """#1186: the bar's arrow is there at every size, so the panel Ansicht has no second button."""
     client = user()
     page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     expect(page.locator(".panel").get_by_role("heading", name="Drucken")).to_have_count(0)
     expect(page.locator(".panel").get_by_text("Varianten drucken")).to_have_count(0)
 

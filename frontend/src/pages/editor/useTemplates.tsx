@@ -1,32 +1,20 @@
-// Saving the sheet as a template and applying one.
+// Saving the sheet as a template.
 import { useRef, useState } from "react";
-import { api, post, type Refusal } from "../../api";
-import { fresh } from "../../history";
+import { post, type Refusal } from "../../api";
+import type { Template } from "./palette";
 import { attempt } from "../../fault";
 import { signed } from "../../saves";
-import { read } from "../../sheet";
-import { pagesOf } from "../../templates";
-import { followDoc } from "../../words";
-import { made } from "../../zahlenmauer";
-import { next } from "../../cells";
-import type { Template } from "./palette";
 import { usePrint } from "./usePrint";
 
 export function useTemplates(session: ReturnType<typeof usePrint>) {
   const live = session.live;
-  const setIds = session.setIds;
-  const words = session.words;
-  const setTemplates = session.setTemplates;
   const name = session.name;
   const setName = session.setName;
-  const pages = session.pages;
-  const blocks = session.blocks;
-  const update = session.update;
-  const turn = session.turn;
-  const all = session.all;
-// A template stored or deleted with the session run out brings the login. A second press while one is on its way
+// A template stored with the session run out brings the login. A second press while one is on its way
   // stores no second template. The name stays until the template is stored.
   const storing = useRef(false);
+  // The name of the template stored last, which the panel says.
+  const [stored, setStored] = useState("");
   async function store() {
     const made = { name: name.trim() };
     await attempt(
@@ -37,7 +25,7 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
         try {
           // The page as it stands at the try: a later one stores what the teacher sees then.
           const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
-          setTemplates((ts) => [...ts, saved]);
+          setStored(saved.name);
           setName((now) => (now.trim() === made.name ? "" : now));
         } finally {
           storing.current = false;
@@ -50,35 +38,5 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
       },
     );
   }
-  // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
-  // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
-  // Lernwörter unless the template brings some.
-  // The last click wins: an apply still waiting for its exercises gives way to one started after it.
-  const applied = useRef(0);
-  async function replaceSheet(t: Template) {
-    const turn = ++applied.current;
-    const doc = read(t.doc);
-    const pages = await pagesOf(t);
-    if (turn !== applied.current) return;
-    update((cur) => followDoc({ ...doc, words: doc.words ?? cur.words, pages }));
-    setIds([]);
-  }
-  // A sheet that holds something is not replaced without a word: the panel asks first, and says what goes.
-  const [tplAsk, setTplAsk] = useState<Template>();
-  const holds = () => ({ pages: pages.length, blocks: pages.reduce((n, p) => n + p.blocks.length, 0), ground: pages.some((p) => p.ground) });
-  const apply = (t: Template) => {
-    const { blocks, ground } = holds();
-    if (blocks || ground) setTplAsk(t);
-    else void replaceSheet(t);
-  };
-  async function forget(t: Template) {
-    if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
-    await attempt("Die Vorlage konnte nicht gelöscht werden.", async () => {
-      // One deleted on another device is gone as asked: a 404 is no failure here.
-      await signed(api(`/templates/${t.id}`, { method: "DELETE" })).catch((e: Error) => (e.message === "404" ? undefined : Promise.reject(e)));
-      setTemplates((ts) => ts.filter((o) => o.id !== t.id));
-    });
-  }
-
-    return Object.assign(session, { storing, store, applied, apply, replaceSheet, tplAsk, setTplAsk, holds, forget });
+    return Object.assign(session, { storing, store, stored });
 }

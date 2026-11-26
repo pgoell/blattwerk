@@ -73,11 +73,11 @@ def test_double_click_at_a_table_cell_opens_it_and_type_writes_there(editor):
 
 def test_hover_on_an_icon_by_its_name_shows_that_name(editor):
     page = editor(box("a", "text", ONE))
-    button = page.get_by_label("Format und Ansicht", exact=True)
+    button = page.get_by_label("Auswahl und Blatt", exact=True)
     assert button.evaluate(TIP) is None
-    said = tool.hover(page, "Format und Ansicht")
+    said = tool.hover(page, "Auswahl und Blatt")
     assert said.startswith(f"mouse at {middle(button)}: ")
-    assert button.evaluate(TIP)["content"] == '"Format und Ansicht"'
+    assert button.evaluate(TIP)["content"] == '"Auswahl und Blatt"'
 
 
 def test_406_1_click_takes_the_button_when_a_heading_shares_its_name(editor):

@@ -16,7 +16,7 @@ def test_a_bar_buttons_name_shows_whole_under_it_on_hover(editor):
     """A5"""
     page = sized(editor, text("a"), width=900, height=1200, touch=False)
     expect_fitted(page)
-    for name in ("Seiten und Vorlagen", "Einfügen", "Format und Ansicht", "Mehr"):
+    for name in ("Seiten", "Einfügen", "Auswahl und Blatt", "Mehr"):
         button = page.locator("header .top").get_by_label(name, exact=True)
         button.hover()
         tip = button.evaluate(TIP)

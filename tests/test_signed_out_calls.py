@@ -23,7 +23,16 @@ from test_signed_out import (
     written,
 )
 from test_stale import FRAMES
-from ui import TEXT, box, maths, pick, sheet, user
+from ui import (
+    TEXT,
+    blatt,
+    box,
+    maths,
+    pick,
+    sheet,
+    user,
+)
+from ui_new import chooser
 
 # Every other call of the app (issue #347): templates, maths, feedback, photos, the admin page and
 # the account page.
@@ -43,9 +52,14 @@ def click(name):
 
 
 def templates(page):
-    """The panel of the templates, with a name typed for a new one."""
-    page.get_by_role("tab", name="Vorlagen").click()
+    """The tab "Blatt", with a name typed for a new template."""
+    blatt(page)
     page.get_by_label("Name der Vorlage").fill("Neu")
+
+
+def choosing(page):
+    """The chooser of "Neues Blatt", where the teacher's own templates are deleted."""
+    chooser(page)
 
 
 def limits(page):
@@ -64,11 +78,11 @@ def to_admin(page):
 # Each call: where the teacher starts, what is made ready before the session runs out, the click,
 # and the request it sends.
 CALLS = {
-    "templates load": ("/", None, to_sheet, "GET", "/templates"),
-    "template store": (SHEET, templates, click("Dieses Blatt als Vorlage"), "POST", "/templates"),
+    "templates load": ("/", None, click("Neues Blatt"), "GET", "/templates"),
+    "template store": (SHEET, templates, click("Als Vorlage speichern"), "POST", "/templates"),
     "template delete": (
-        SHEET,
-        templates,
+        "/",
+        choosing,
         click("Vorlage Alt löschen"),
         "DELETE",
         r"/templates/\d+",
@@ -99,7 +113,7 @@ CALLS = {
 # The page asks these as it opens, each beside a call that brings the login too. So the session
 # stays and this call alone is told that it is gone: once, for the page asks again after the login.
 # The click leads to another address, and the login must stand on that one.
-ALONE = {"templates load": SHEET, "admin users": "/admin", "admin leftovers": "/admin"}
+ALONE = {"admin users": "/admin", "admin leftovers": "/admin"}
 
 
 def tell(page, call, status, **how):
@@ -143,6 +157,14 @@ def before(window, server, call):
         with (
             page.expect_response(re.compile("/api/tokens$")),
             page.expect_response(re.compile("/api/connections$")),
+        ):
+            page.goto(start)
+    elif start == server + "/":
+        # The list asks for its sheets and for the Schulordner after its heading shows. One of them
+        # still out when the test takes the cookies brings the login before the call.
+        with (
+            page.expect_response(re.compile("/api/sheets$")),
+            page.expect_response(re.compile(r"/api/folder\?")),
         ):
             page.goto(start)
     else:
@@ -246,24 +268,25 @@ def test_a_call_that_fails_for_another_reason_says_so_as_before_and_brings_no_lo
 def test_templates_asked_for_before_a_login_and_turned_down_after_it_sign_nobody_out(
     window, server
 ):
-    """I8: the sheet's templates get no answer, the session runs out, the list brings the login
+    """I8: the chooser's templates get no answer, the session runs out, the sheet brings the login
     and the teacher signs in. Then the templates are answered: the session is gone."""
     page, client, _, answers, _ = before(window, server, "templates load")
     held = []
     page.route(re.compile("/api/templates$"), lambda route: held.append(route))
     with page.expect_request(re.compile("/api/templates$")):
-        to_sheet(page)
-    expect_sheet(page)
+        chooser(page)
+    page.locator("dialog.chooser").get_by_role("button", name="Abbrechen").click()
+    address = server + page.locator(".sheets a").get_attribute("href")
     page.context.clear_cookies()
-    with page.expect_response(f"{server}/api/sheets") as got:
-        page.get_by_label("Meine Blätter").click()
+    with page.expect_response(re.compile(r"/api/sheets/\d+$")) as got:
+        to_sheet(page)
     assert got.value.status == 401
-    expect_login(page, f"{server}/")
+    expect_login(page, address)
     login(page, server, client)
-    shown(page, server, f"{server}/")
+    shown(page, server, address)
     with page.expect_response(answers) as late:
         held[0].fulfill(status=401)
     assert late.value.status == 401
     page.evaluate(FRAMES)
     expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
-    shown(page, server, f"{server}/")
+    shown(page, server, address)

@@ -12,8 +12,9 @@ def expect_lit(locator, on="true"):
 
 
 def bar(page, side):
-    """The bar's button for the panel on that side: "left" for Seiten, "right" for Format."""
-    return page.get_by_label({"left": "Seiten und Vorlagen", "right": "Format und Ansicht"}[side])
+    """The bar's button for the panel on that side: "left" for Seiten, "right" for Auswahl."""
+    names = {"left": "Seiten", "right": "Auswahl und Blatt"}
+    return page.locator("header").get_by_label(names[side], exact=True)
 
 
 def drawer(page, side):
@@ -29,11 +30,11 @@ def drawer(page, side):
 
 
 def seiten(page, shown=True):
-    """Shows the panel of pages. In a wide window it takes the place of the tools at the left:
+    """Shows the panel of pages. In a wide window it is a tab of the left panel, beside the tools:
     `shown=False` brings those back."""
-    modes = page.locator("header .modes")
-    if modes.count():
-        tab = modes.get_by_role("tab", name="Vorlagen" if shown else "Start")
+    tabs = page.locator("aside.left [role=tablist]")
+    if tabs.count():
+        tab = tabs.get_by_role("tab", name="Seiten" if shown else "Blöcke")
         tab.click()
         expect(tab).to_have_attribute("aria-selected", "true")
         return
@@ -41,3 +42,36 @@ def seiten(page, shown=True):
     if (knob.get_attribute("aria-pressed") == "true") != shown:
         knob.click()
     expect_lit(knob, "true" if shown else "false")
+
+
+def blatt(page, shown=True):
+    """Turns the right panel to its tab "Blatt", which holds what goes for the whole sheet, or with
+    `shown=False` back to "Auswahl"."""
+    tab = page.locator(".panel").get_by_role("tab", name="Blatt" if shown else "Auswahl")
+    tab.click()
+    expect(tab).to_have_attribute("aria-selected", "true")
+
+
+def raster(page):
+    """Opens the list of the grid and the guide lines, beside the zoom, and gives it. A pick in
+    it shuts it; "Nur diese Seite" and "Alle Seiten" leave it open."""
+    knob = page.get_by_label("Raster und Hilfslinien", exact=True)
+    if knob.count():
+        knob.click()
+    else:
+        # A bar without room for it has it under "Mehr".
+        page.get_by_label("Mehr", exact=True).click()
+        page.get_by_role("menuitem", name="Raster und Hilfslinien").click()
+    box = page.locator("dialog.raster")
+    expect(box).to_be_visible()
+    return box
+
+
+def guide(page, axis="x", scope=None):
+    """Adds a guide line from that list: `x` upright, `y` level. `scope` is "Nur diese Seite" or
+    "Alle Seiten", pressed first; unnamed, the list's choice stays as it is."""
+    box = raster(page)
+    if scope:
+        box.get_by_role("button", name=scope, exact=True).click()
+    box.get_by_role("button", name="Senkrecht" if axis == "x" else "Waagerecht").click()
+    expect(box).to_have_count(0)

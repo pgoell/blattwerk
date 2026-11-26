@@ -36,7 +36,6 @@ export function useTextFit(session: ReturnType<typeof useSelection>) {
   const fit = session.fit;
   const k = session.k;
   const sel = session.sel;
-  const kept = session.kept;
   const frame = session.frame;
   const across = session.across;
   const down = session.down;

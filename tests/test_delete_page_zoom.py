@@ -3,7 +3,14 @@
 from playwright.sync_api import expect
 from test_clipboard import button
 from test_pages import expect_in_use
-from ui import TEXT, at, box, seiten, thumb
+from ui import (
+    TEXT,
+    at,
+    blatt,
+    box,
+    seiten,
+    thumb,
+)
 
 
 def two(editor):
@@ -16,7 +23,7 @@ def two(editor):
 def quer(page, n):
     """Page n goes Quer alone, from the panel Ansicht."""
     thumb(page, n).click()
-    page.get_by_role("tab", name="Ansicht").click()
+    blatt(page)
     page.locator(".panel").get_by_role("button", name="Nur diese Seite").click()
     page.locator(".panel").get_by_role("button", name="Quer", exact=True).click()
     # Ansicht took the place of the pages.

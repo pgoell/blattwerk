@@ -120,7 +120,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
   const unmerge = session.unmerge;
   const update = session.update;
   const words = session.words;
-  const panes = usePanes(tab === "Format" ? sel : []);
+  const panes = usePanes(tab === "Auswahl" ? sel : []);
   return (
     <>
       {right && (
@@ -134,17 +134,15 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
               </button>
             </div>
           )}
-          {!leaf && (
-            <div className="tabs" role="tablist">
-              {TABS.map((t) => (
-                <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
-                  {t}
-                </button>
-              ))}
-            </div>
-          )}
-          {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
-          {tab === "Format" && sel.length > 0 && (
+          <div className="tabs" role="tablist">
+            {TABS.map((t) => (
+              <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+          {tab === "Auswahl" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {tab === "Auswahl" && sel.length > 0 && (
             <>
               <p className="what">
                 {pickName(sel, blocks)}
