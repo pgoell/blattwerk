@@ -172,6 +172,28 @@ def test_a_sheet_picked_from_the_list_shows_its_page_while_it_loads(window, serv
     expect_ready(page, 1)
 
 
+def test_the_page_swaps_in_the_same_step_as_the_address(window, server):
+    """A click on a sheet changes the address and the page together: the list never stands under a
+    sheet's address, where an answer that lands late could still redraw it (the `flash` above).
+    """
+    page, client = window()
+    sheet(client, [box("a", "text", TEXT)])
+    page.goto(server)
+    expect(page.locator(".sheets a")).to_be_visible()
+    hold(page, SHEET)
+    path, bar = page.evaluate(
+        """async () => {
+            document.querySelector('.sheets a').click();
+            // React draws what a click set in a microtask of the click's own task.
+            await Promise.resolve();
+            const drawn = [...document.querySelectorAll('#root > nav, #root > footer')];
+            return [location.pathname, drawn.filter((el) => el.getClientRects().length).length];
+        }"""
+    )
+    assert path.startswith("/blatt/")
+    assert bar == 0
+
+
 @pytest.mark.parametrize("first", [SCRIPT, SHEET], ids=["script-first", "sheet-first"])
 def test_a_reload_shows_the_page_while_account_script_and_sheet_load(window, server, first):
     page, client = window()
