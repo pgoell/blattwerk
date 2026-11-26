@@ -106,8 +106,9 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
     document.fonts.ready.then(again);
     return () => watch.disconnect();
   }, []);
-  // The tour opens by itself the first time the editor does on this device.
-  const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
+  // The tour opens by itself the first time the editor does for this account, on whatever device. A test says
+  // `window.toured` to keep it shut.
+  const [tour, setTour] = useState(() => !session.user.toured && !(window as { toured?: boolean }).toured);
   // Whether the maths exercises show their answers.
   const [solved, setSolved] = useState(false);
   const [mod, setMod] = useState(0);

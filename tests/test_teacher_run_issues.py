@@ -204,9 +204,9 @@ def test_d5_the_zoom_has_no_100_percent():
     )
 
 
-def test_d6_the_tour_opens_once_per_device():
+def test_d6_the_tour_opens_once_per_account():
     how = section("## How the editor works")
-    assert "opens the first time the editor opens on a device" in how
+    assert "opens the first time the editor opens for an account" in how
     assert "click `Rundgang` in the bar" in how
 
 

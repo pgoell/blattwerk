@@ -1,5 +1,5 @@
 // The bar: the title, the commands that fit, and the clash.
-import { CircleHelp, ClipboardPaste, Copy, CopyPlus, ChevronDown, Ellipsis, Eye, Group, FileDown, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
+import { CircleHelp, ClipboardPaste, Copy, CopyPlus, ChevronDown, Ellipsis, Eye, FileDown, MessageSquare, Paintbrush, PanelLeft, PanelRight, Redo2, Scissors, Trash2, Undo2, Ungroup } from "lucide-react";
 import Feedback from "../../components/Feedback";
 import { Switch } from "../../components/Switch";
 import Variants from "../../components/Variants";
@@ -30,13 +30,9 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
   const fromPress = session.fromPress;
   const hist = session.hist;
   const inBar = session.inBar;
-  const join = session.join;
-  const joinable = session.joinable;
   const leaf = session.leaf;
   const left = session.left;
   const letters = session.letters;
-  const lockIt = session.lockIt;
-  const locked = session.locked;
   const menu = session.menu;
   const format = session.format;
   const setFormat = session.setFormat;
@@ -72,8 +68,6 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
   const showRight = session.showRight;
   const solved = session.solved;
   const source = session.source;
-  const split = session.split;
-  const splittable = session.splittable;
   const title = session.title;
   const tour = session.tour;
   const undo = session.undo;
@@ -147,9 +141,6 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
           )}
           {inBar("Duplizieren") && <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />}
           {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!free.length} onClick={remove} />}
-          {inBar(lockIt.label) && <Tool icon={lockIt.icon!} label={lockIt.label} disabled={!sel.length} className={locked ? "on" : ""} onClick={lockIt.run} />}
-          {inBar("Gruppieren") && <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />}
-          {inBar("Gruppierung aufheben") && <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />}
           {/* With none of them left in the bar, the divider before them is enough. */}
           {fits !== 0 && <i className="sep" />}
           {!leaf && inBar("Kleiner") && zoomer}
@@ -166,8 +157,6 @@ export default function EditorBar({ s: session }: { s: ReturnType<typeof useTool
               className="more"
               aria-haspopup="menu"
               aria-expanded={!!menu?.more}
-              // The tour's last step is about its own button, which lies in here when the bar has folded it.
-              data-tour={inBar("Rundgang") ? undefined : "help"}
               onClick={(e) => {
                 const box = e.currentTarget.getBoundingClientRect();
                 setMenu({ x: box.left, y: box.bottom + 4, more: true });

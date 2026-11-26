@@ -5,6 +5,7 @@ import Library from "../../components/Library";
 import { newSeed } from "../Maths";
 import ZoomList from "../../components/ZoomList";
 import Tour from "../../components/Tour";
+import { post } from "../../api";
 import type { Axis } from "../../sheet";
 import RasterMenu from "./RasterMenu";
 import { useTools } from "./useTools";
@@ -45,7 +46,7 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
   const setTab = session.setTab;
   const setTour = session.setTour;
   const show = session.show;
-  const showLeft = session.showLeft;
+  const user = session.user;
   const showRight = session.showRight;
   const tab = session.tab;
   const thumbMenu = session.thumbMenu;
@@ -58,12 +59,14 @@ export default function EditorMenus({ s: session }: { s: ReturnType<typeof useTo
         <Tour
           seen={{ doc: hist.doc, blocks: blocks.length, sel: sel.length, editing: !!editing, tab }}
           show={(t) => {
-            if (t === "Seiten") return showLeft(true);
             setTab(t);
             showRight(true);
           }}
           close={() => {
-            localStorage.setItem("tour", "1");
+            // The account remembers it: the same object stands for the user until the next login. A call that
+            // fails is no loss, the tour then opens once more.
+            if (!user.toured) post("/me/tour").catch(() => {});
+            user.toured = true;
             setTour(false);
           }}
         />

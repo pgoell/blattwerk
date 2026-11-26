@@ -191,7 +191,13 @@ def start_session(con: sqlite3.Connection, response: Response, user_id: int) -> 
 
 
 def public(user: sqlite3.Row) -> dict:
-    return {"id": user["id"], "email": user["email"], "admin": bool(user["admin"]), **view(user)}
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "admin": bool(user["admin"]),
+        "toured": bool(user["toured"]),
+        **view(user),
+    }
 
 
 @router.post("/login")
@@ -219,6 +225,13 @@ def logout(response: Response, con: Con, session: Annotated[str | None, Cookie()
 @router.get("/me")
 def me(user: User) -> dict:
     return public(user)
+
+
+@router.post("/me/tour")
+def toured(user: User, con: Con) -> dict:
+    """The account has seen the editor's tour, and no device of it opens it by itself again."""
+    con.execute("UPDATE users SET toured = 1 WHERE id = ?", (user["id"],))
+    return {}
 
 
 @router.delete("/me")

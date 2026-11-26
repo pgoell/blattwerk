@@ -1,4 +1,5 @@
-export type User = { id: number; email: string; admin: boolean };
+// `toured`: the account has seen the editor's tour.
+export type User = { id: number; email: string; admin: boolean; toured: boolean };
 
 // Throws the HTTP status as the error message, so callers can tell 401 from 429. `by` is the user a sheet's 404 was
 // served for, where the server named one. `problems` is what the server found wrong in a sheet it refused (a 422).

@@ -27,7 +27,7 @@ def tabs(browser, server):
     sheet_id = sheet(client, [box("a", "text", TEXT)], title="a")["id"]
     context = browser.new_context(viewport={"width": 1400, "height": 1000})
     context.add_init_script("window.saveAfter = 300")
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     page1, page2 = context.new_page(), context.new_page()
     for page in (page1, page2):

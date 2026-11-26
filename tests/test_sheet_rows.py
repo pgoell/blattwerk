@@ -154,5 +154,9 @@ def test_the_nav_names_the_form_for_photos_as_feedback(window, server):  # noqa:
     page, _ = window()
     page.goto(server)
     expect(page.get_by_role("link", name="Fotos", exact=True)).to_have_count(0)
-    page.get_by_role("link", name="Foto-Feedback", exact=True).click()
+    # One entry for feedback: the form names the photos as its second kind.
+    expect(page.get_by_role("link", name="Foto-Feedback", exact=True)).to_have_count(0)
+    page.get_by_role("button", name="Feedback", exact=True).click()
+    page.locator("dialog.feedback").get_by_role("link", name="Fotos von Blättern schicken").click()
+    expect(page.locator("dialog.feedback")).to_have_count(0)
     expect(page.get_by_role("heading", name="Fotos von Blättern")).to_be_visible()

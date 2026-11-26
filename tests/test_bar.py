@@ -36,9 +36,6 @@ EDITS = [
     "Format übertragen",
     "Duplizieren",
     "Löschen",
-    "Sperren",
-    "Gruppieren",
-    "Gruppierung aufheben",
 ]
 ZOOM = ["Kleiner", "Zoom", "Ganze Seite", "Größer"]
 # Beside the zoom, and folded by itself.
@@ -94,6 +91,13 @@ def expect_fitted(page, row=True):
 
 def more(page):
     return page.get_by_label("Mehr", exact=True)
+
+
+def long_title(page):
+    """A long title takes the bar's room (#318), so that "Mehr" is there in a wide window too."""
+    page.get_by_label("Titel").fill("W" * 80)
+    page.get_by_label("Titel").press("Enter")
+    expect(page.locator(".top .hint")).to_have_text("Gespeichert", timeout=10000)
 
 
 def menu(page):
@@ -183,8 +187,9 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
 
 def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
     """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
-    # At its narrowest, Blattform's bar has "Mehr".
+    # At its narrowest and under a long title, Blattform's bar has "Mehr".
     page = sized(editor, text("a"), width=1024, height=700, touch=False)
+    long_title(page)
     expect_fitted(page)
     expect(page.locator("main.editor.leaf")).to_have_count(1)
     more(page).focus()
@@ -242,6 +247,8 @@ def test_the_bar_is_fitted_anew_when_a_right_click_beside_the_menu_shuts_it(edit
 def test_a_turn_gives_the_focus_back_to_mehr_that_the_keys_opened(editor):
     """Review"""
     page = editor(text("a"), touch=True)
+    # On its side the bar has room for every command, unless the title is long.
+    long_title(page)
     expect_fitted(page)
     more(page).focus()
     page.keyboard.press("Enter")

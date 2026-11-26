@@ -137,7 +137,7 @@ def editor(browser, server, playwright):
         if WEBKIT:
             context.add_init_script(READ_PICTURE)
         # The tour would open on the first visit and lie over the sheet.
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         client = client or user()
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies(

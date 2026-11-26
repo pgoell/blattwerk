@@ -180,7 +180,7 @@ def test_print_and_thumbnail_draw_a_sheet_with_an_unknown_font(browser, server, 
     mine = sheet(client, [box("a", "text", {**TEXT, "font": font})])["id"]
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     page = context.new_page()
     errors = watch(page)
     page.set_extra_http_headers({"X-Render-Token": pdf.new_token(mine)})
@@ -258,7 +258,7 @@ def test_a_sheet_with_every_value_unknown_opens_prints_and_saves(editor, browser
     mine = page.url.rsplit("/", 1)[1]
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     printed = context.new_page()
     print_errors = watch(printed)
     printed.set_extra_http_headers({"X-Render-Token": pdf.new_token(mine)})

@@ -22,7 +22,7 @@ def window(browser, server):
             viewport={"width": 1400, "height": 1000}, color_scheme="dark" if dark else "light"
         )
         contexts.append(context)
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         context.add_init_script(WATCH)
         client = user()
         context.add_cookies(

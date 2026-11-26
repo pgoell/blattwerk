@@ -85,7 +85,7 @@ def test_the_buttons_step_cleanly_where_the_scrollbar_comes_and_goes(browser, pl
         browser = playwright.chromium.launch(ignore_default_args=["--hide-scrollbars"])
     context = browser.new_context(viewport={"width": 1700, "height": 900})
     try:
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         client = user()
         cookie = {"name": "session", "value": client.cookies["session"], "url": server}
         context.add_cookies([cookie])

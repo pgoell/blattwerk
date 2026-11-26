@@ -77,6 +77,19 @@ def test_login_and_logout():
     assert client.get("/api/me").status_code == 401
 
 
+def test_the_tour_is_remembered_with_the_account():
+    client = user("a@example.com")
+    assert client.get("/api/me").json()["toured"] is False
+    assert client.post("/api/me/tour").status_code == 200
+    assert client.get("/api/me").json()["toured"] is True
+    # Another device of the same account hears it at its login; another account has its own.
+    again = TestClient(app, base_url="https://testserver")
+    login = {"email": "a@example.com", "password": PASSWORD}
+    assert again.post("/api/login", json=login).json()["toured"] is True
+    assert user("b@example.com").get("/api/me").json()["toured"] is False
+    assert TestClient(app, base_url="https://testserver").post("/api/me/tour").status_code == 401
+
+
 def test_login_is_rate_limited():
     client = TestClient(app, base_url="https://testserver")
     body = {"email": "a@example.com", "password": "falsch-falsch"}

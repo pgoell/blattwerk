@@ -12,48 +12,32 @@ type Step = {
   rail?: string;
   // The element the ring goes round.
   find?: string;
-  // The panel the step needs open: a tab of the right one, or Seiten for the left one.
+  // The tab of the right panel that the step needs open.
   tab?: string;
   // True once the step's task is done, from the editor now and as the step began; the tour then moves on by itself.
   done?: (now: Seen, start: Seen) => boolean;
 };
 
+// Five steps, each on what a first sheet needs: a text, its place, a maths block, the panel and the download.
 const STEPS: Step[] = [
   {
     title: "Willkommen bei Blattomat",
-    text: "Dieser Rundgang zeigt dir in zwei Minuten, wie ein Blatt entsteht. Du probierst jeden Schritt gleich selbst aus.",
-  },
-  {
-    title: "Ein Textfeld einfügen",
-    text: ["Klicke auf Text. Ein Textfeld landet auf dem Blatt.", "Tippe auf Text. Ein Textfeld landet auf dem Blatt."],
-    rail: "Tippe links auf Einfügen und dann in der Liste auf Text. Ein Textfeld landet auf dem Blatt.",
+    text: [
+      "In fünf Schritten entsteht dein erstes Blatt. Klicke auf Text: Ein Textfeld landet auf dem Blatt.",
+      "In fünf Schritten entsteht dein erstes Blatt. Tippe auf Text: Ein Textfeld landet auf dem Blatt.",
+    ],
+    rail: "In fünf Schritten entsteht dein erstes Blatt. Tippe links auf Einfügen und dann in der Liste auf Text: Ein Textfeld landet auf dem Blatt.",
     find: "[data-tour=text]",
     done: (now, start) => now.blocks > start.blocks,
   },
   {
-    title: "Schreiben",
+    title: "Schreiben und verschieben",
     text: [
-      "Schreib ein paar Wörter und klicke dann neben das Feld. Ein Doppelklick auf das Feld öffnet es wieder.",
-      "Schreib ein paar Wörter und tippe dann neben das Feld. Ein zweiter Tipp auf das ausgewählte Feld öffnet es wieder.",
+      "Schreib ein paar Wörter und klicke dann neben das Feld. Danach ziehst du es an seine Stelle; die Punkte an Ecken und Kanten ändern die Größe.",
+      "Schreib ein paar Wörter und tippe dann neben das Feld. Danach ziehst du es an seine Stelle; die Punkte an Ecken und Kanten ändern die Größe.",
     ],
     find: ".block.sel",
     done: (now, start) => start.editing && !now.editing,
-  },
-  {
-    title: "Bewegen und Größe ändern",
-    text: [
-      "Klicke das Feld an und zieh es an eine andere Stelle. Die Punkte an Ecken und Kanten ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
-      "Tippe das Feld an und zieh es an eine andere Stelle. Die Punkte an Ecken und Kanten ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
-    ],
-    find: ".block.sel",
-    done: (now, start) => !now.editing && now.doc !== start.doc,
-  },
-  {
-    title: "Auswahl",
-    text: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Der Knopf oben rechts blendet die Leiste ein und aus.",
-    rail: "Hier steht alles zu dem, was ausgewählt ist: Schrift, Größe, Farbe, Nummerierung. Die Leiste kommt von unten, sobald du etwas antippst, und „Fertig“ schließt sie.",
-    find: ".panel",
-    tab: "Auswahl",
   },
   {
     title: "Rechenaufgaben",
@@ -63,62 +47,17 @@ const STEPS: Step[] = [
     done: (now, start) => now.blocks > start.blocks,
   },
   {
-    title: "Aufgaben einstellen",
-    text: "Im Format legst du Rechenart, Zahlenraum, die Ziffern jeder Stelle und den Übertrag fest. Probier es aus: „Neu würfeln“ bringt neue Zahlen in denselben Grenzen.",
+    title: "Auswahl und Blatt",
+    text: "Unter Auswahl steht alles zu dem, was ausgewählt ist: hier Rechenart, Zahlenraum und „Neu würfeln“. Der Reiter Blatt daneben gilt für das ganze Blatt: Hoch oder Quer, Seitenzahlen, ein Hintergrund.",
+    rail: "Unter Auswahl steht alles zu dem, was ausgewählt ist: hier Rechenart, Zahlenraum und „Neu würfeln“. Die Leiste kommt von unten, sobald du etwas antippst, und „Fertig“ schließt sie. Der Reiter Blatt daneben gilt für das ganze Blatt.",
     find: ".panel",
     tab: "Auswahl",
-  },
-  {
-    title: "Mehrere Felder auswählen",
-    text: [
-      "Halte die Umschalttaste und klicke beide Felder an, oder zieh neben dem Blatt beginnend einen Rahmen um sie. Strg+A wählt alle.",
-      "Halte ein Feld gedrückt, bis es ausgewählt ist, und tippe dann das zweite an. Der Knopf Mehrere macht dasselbe.",
-    ],
-    find: "[data-tour=multi]",
-    done: (now) => now.sel > 1,
-  },
-  {
-    title: "Ausrichten, kopieren, löschen",
-    text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren, Löschen und Gruppieren stehen oben in der Leiste oder dort unter „Mehr“: gruppierte Felder bleiben beisammen.",
-    find: ".panel",
-    tab: "Auswahl",
-  },
-  {
-    title: "Rückgängig",
-    text: "Etwas ist verrutscht? Rückgängig nimmt Schritt für Schritt alles zurück.",
-    find: "[data-tour=undo]",
-  },
-  {
-    title: "Blatt",
-    text: ["Klicke auf den Reiter Blatt.", "Tippe auf den Reiter Blatt."],
-    find: "[data-tour=Blatt]",
-    done: (now) => now.tab === "Blatt",
-  },
-  {
-    title: "Das ganze Blatt",
-    text: [
-      "Hier steht, was für das ganze Blatt gilt: Hoch oder Quer, Seitenzahlen, ein Hintergrund, die Farbe der Lösungen. Raster und Hilfslinien liegen neben dem Zoom. Das Auge oben zeigt die Ergebnisse der Rechenaufgaben.",
-      "Hier steht, was für das ganze Blatt gilt: Hoch oder Quer, Seitenzahlen, ein Hintergrund, die Farbe der Lösungen. Raster und Hilfslinien liegen neben dem Zoom. Mit zwei Fingern zoomst du das Blatt.",
-    ],
-    find: ".panel",
-    tab: "Blatt",
-  },
-  {
-    title: "Seiten",
-    text: "Links stehen die Seiten des Blatts. Eine Seite verschiebst du, indem du ihre Vorschau ziehst. Vorlagen für einen fertigen Anfang findest du unter „Neues Blatt“; im Reiter Blatt speicherst du dein Blatt als eigene Vorlage.",
-    find: ".left",
-    tab: "Seiten",
   },
   {
     title: "Drucken",
-    text: "„Herunterladen“ lädt das Blatt als PDF zum Drucken. Der Pfeil daneben öffnet ein Fenster für alles Weitere: das Blatt mit Lösungen, als Word oder PowerPoint, oder in mehreren Varianten, damit der Nachbar nicht abschreibt. Speichern musst du nie: Das Blatt sichert sich von selbst.",
+    // Where the bar has folded the tour's button away, it lies under "Mehr".
+    text: "„Herunterladen“ lädt das Blatt als PDF zum Drucken. Der Pfeil daneben öffnet ein Fenster für alles Weitere: das Blatt mit Lösungen, als Word oder PowerPoint, oder in mehreren Varianten, damit der Nachbar nicht abschreibt. Speichern musst du nie: Das Blatt sichert sich von selbst. Den Rundgang findest du jederzeit wieder, hinter dem Fragezeichen oben in der Leiste oder dort unter „Mehr“.",
     find: "[data-tour=pdf]",
-  },
-  {
-    title: "Das war's",
-    // Where the bar has folded the button away, the editor puts this mark on "Mehr".
-    text: "Den Rundgang findest du jederzeit hinter dem Fragezeichen, oben in der Leiste oder dort unter „Mehr“. Viel Freude mit deinem ersten Blatt!",
-    find: "[data-tour=help]",
   },
 ];
 
@@ -182,7 +121,7 @@ export default function Tour({ seen, show, close }: { seen: Seen; show: (tab: st
           <button onClick={close}>Beenden</button>
           {n > 0 && <button onClick={() => go(n - 1)}>Zurück</button>}
           <button className="primary" onClick={() => go(n + 1)}>
-            {n === 0 ? "Los geht's" : n === STEPS.length - 1 ? "Fertig" : "Weiter"}
+            {n === STEPS.length - 1 ? "Fertig" : "Weiter"}
           </button>
         </div>
       </section>

@@ -209,7 +209,7 @@ def test_logout_while_recording_stops_the_mic_and_drops_the_clip(browser, server
     other = f"{uuid4().hex}@example.com"
     user(other)
     context = browser.new_context(viewport={"width": 1400, "height": 1000})
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     client = user()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     page = context.new_page()

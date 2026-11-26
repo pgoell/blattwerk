@@ -4,7 +4,7 @@ from playwright.sync_api import expect
 from ui import doc, user
 
 GROUPS = {
-    "Rechnen": 12,
+    "Rechenformate": 12,
     "Zahlen verstehen": 7,
     "Geometrie und Größen": 4,
     "Knobeln und Kontrolle": 3,

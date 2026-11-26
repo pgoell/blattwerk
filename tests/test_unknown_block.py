@@ -49,7 +49,7 @@ def test_print_draws_the_plain_line_and_is_ready(browser, server):
     mine = sheet(client, [unknown(), known()])["id"]
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     page = context.new_page()
     errors = watch(page)
     page.set_extra_http_headers({"X-Render-Token": pdf.new_token(mine)})

@@ -91,7 +91,7 @@ def window(browser, server, playwright):
         context = browser.new_context(**look, color_scheme="dark" if dark else "light")
         contexts.append(context)
         # The tour would open on the first visit and lie over the sheet.
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         context.add_init_script(WATCH)
         client = user()
         if signed:

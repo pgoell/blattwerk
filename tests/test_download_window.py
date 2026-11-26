@@ -26,6 +26,8 @@ def test_the_window_has_the_preview_left_and_every_choice_right(editor):
     for switch in ("Buchstabe auf jedem Blatt", "Mit Lösungen"):
         expect(right.get_by_role("switch", name=switch, exact=True)).to_be_visible()
     expect(right.get_by_label("Dateiname")).to_be_visible()
+    # One sentence says what a variant is.
+    expect(right.get_by_text("Jede Variante hat andere Zahlen.")).to_be_visible()
     expect(window.locator("button.primary")).to_have_count(1)
     expect(window.locator("button.primary")).to_have_text("Herunterladen")
 

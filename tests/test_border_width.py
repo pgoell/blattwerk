@@ -221,7 +221,7 @@ def test_a_text_in_a_border_keeps_its_place_and_its_rows(browser, server, width)
     mine = sheet(client, blocks)["id"]
     # A sharp screen, as an iPad has.
     context = browser.new_context(device_scale_factor=2)
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     shown = context.new_page()
     shown.goto(f"{server}/blatt/{mine}")

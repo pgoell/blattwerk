@@ -316,7 +316,7 @@ def desk(browser, server):
         context = browser.new_context(viewport={"width": 1400, "height": 1000})
         contexts.append(context)
         # The tour would lie over the sheet.
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies(
             [{"name": "session", "value": client.cookies["session"], "url": server}]

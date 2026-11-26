@@ -19,7 +19,7 @@
    - with the session run out: `expire`, then go on working; the MCP page stays signed in.
    - where a pull request is about what an account copies or sees: across the two teachers, as "Two teachers" says;
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
-   - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
+   - with several blocks picked (`click` and `shift-click`, or `key Control+a`);
    - while a text, a cell or a menu is open;
    - at once after a reload of the page. `key F5` does not reload the tool's window: there a reload is `open /blatt/N`, with the sheet's number, which a line of each verb's output gives (`The page is /blatt/N`), or `open /` and a click on the sheet's title;
    - if the pull request names the iPad: `resize 1180 820` too, or `emulate` an iPad in the MCP page.

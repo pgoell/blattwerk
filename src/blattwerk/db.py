@@ -29,6 +29,7 @@ ID = re.compile("[1-9][0-9]*")
 # account, and a browser may keep an upload under its address for good.
 # plan, paid_until and renewal are the account's plan. A database from before them gains the
 # columns in ensure_plan: CREATE TABLE IF NOT EXISTS does not add a column.
+# toured says that the account has seen the editor's tour, on whatever device.
 USERS = """(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
@@ -37,7 +38,8 @@ USERS = """(
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     plan TEXT NOT NULL DEFAULT 'free',
     paid_until TEXT,
-    renewal TEXT NOT NULL DEFAULT 'none'
+    renewal TEXT NOT NULL DEFAULT 'none',
+    toured INTEGER NOT NULL DEFAULT 0
 )"""
 TEMPLATES = """(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -247,6 +249,7 @@ PLAN_COLUMNS = (
     ("plan", "TEXT NOT NULL DEFAULT 'free'"),
     ("paid_until", "TEXT"),
     ("renewal", "TEXT NOT NULL DEFAULT 'none'"),
+    ("toured", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 
@@ -267,6 +270,10 @@ def ensure_plan(con: sqlite3.Connection) -> None:
     for name, decl in PLAN_COLUMNS:
         if name not in have:
             con.execute(f"ALTER TABLE users ADD COLUMN {name} {decl}")
+            if name == "toured":
+                # Until now the device remembered the tour. An account from before has had its
+                # chance to see it, and is not shown it again.
+                con.execute("UPDATE users SET toured = 1")
 
 
 def old(con: sqlite3.Connection) -> list[str]:
