@@ -18,7 +18,7 @@ BESIDE = {"seiten": ".left .foot", "format": ".panel", "bar": "header .top"}
 def opened(editor, pages=1):
     """The editor with the panel Seiten open, its block selected, and the wheel watched."""
     rest = [{"blocks": []} for _ in range(pages - 1)]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True)
     pick(page, "a")
     page.evaluate(WATCH)
     return page

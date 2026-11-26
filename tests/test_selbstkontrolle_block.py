@@ -211,7 +211,10 @@ def test_seite_duplizieren_links_the_copied_selbstkontrolle_to_the_copied_block(
 
     client = user()
     page = editor(
-        maths_block(client), sk({**SK, "form": "word", "word": "A" * 12}), client=client, theme=""
+        maths_block(client),
+        sk({**SK, "form": "word", "word": "A" * 12}),
+        client=client,
+        seiten=True,
     )
     right_thumb(page, 0)
     run(page, "Seite duplizieren")

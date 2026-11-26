@@ -59,7 +59,7 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
     setFits(undefined);
   };
   // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
-  // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
+  // loaded, and when the wide window's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
   // by then, as the window's new size shuts any menu; a type that loads under an open menu has not. So it is when
   // the title changes, and when its field gains or loses the focus: the bar's width stays, and tells of none.
   // This runs before the measure below: a render that is measured and whose layout changes at once would else have

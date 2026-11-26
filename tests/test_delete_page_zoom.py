@@ -3,12 +3,12 @@
 from playwright.sync_api import expect
 from test_clipboard import button
 from test_pages import expect_in_use
-from ui import TEXT, at, box, thumb
+from ui import TEXT, at, box, seiten, thumb
 
 
 def two(editor):
     """Two pages with a heading each, "a" on the first and "b" on the second, the second Quer."""
-    page = editor(box("a", "text", TEXT), pages=[{"blocks": [box("b", "text", TEXT)]}], theme="")
+    page = editor(box("a", "text", TEXT), pages=[{"blocks": [box("b", "text", TEXT)]}], seiten=True)
     quer(page, 1)
     return page
 
@@ -19,6 +19,8 @@ def quer(page, n):
     page.get_by_role("tab", name="Ansicht").click()
     page.locator(".panel").get_by_role("button", name="Nur diese Seite").click()
     page.locator(".panel").get_by_role("button", name="Quer", exact=True).click()
+    # Ansicht took the place of the pages.
+    seiten(page)
 
 
 def fit(page):
@@ -74,7 +76,7 @@ def test_deleting_an_upright_page_beside_a_quer_one_keeps_the_zoom(editor):
     page = editor(
         box("a", "text", TEXT),
         pages=[{"blocks": [box("b", "text", TEXT)]}, {"blocks": [box("c", "text", TEXT)]}],
-        theme="",
+        seiten=True,
     )
     quer(page, 1)
     at(page, "a").click()
@@ -87,7 +89,7 @@ def test_deleting_an_upright_page_beside_a_quer_one_keeps_the_zoom(editor):
 
 
 def test_deleting_a_quer_page_first_with_the_second_in_use_keeps_it_in_view(editor):
-    page = editor(box("a", "text", TEXT), pages=[{"blocks": [box("b", "text", TEXT)]}], theme="")
+    page = editor(box("a", "text", TEXT), pages=[{"blocks": [box("b", "text", TEXT)]}], seiten=True)
     quer(page, 0)
     thumb(page, 1).click()
     zoom = fit(page)

@@ -277,7 +277,7 @@ def test_sizes_agree_on_screen_thumb_and_pdf(editor, browser, server):
     """Asked 11"""
     client = user()
     table = {**GRID, "cols": [40, 60, 60], "rows": [20, 10, 10]}
-    page = editor(box("t", "table", table, w=160 + EDGE, h=40 + EDGE), client=client, theme="")
+    page = editor(box("t", "table", table, w=160 + EDGE, h=40 + EDGE), client=client, seiten=True)
     on_screen = cell(page, "t", 0)
     assert abs(mm_width(page, on_screen) - 40) <= 0.1
     assert abs(mm_height(page, on_screen) - 20) <= 0.1

@@ -5,9 +5,6 @@ import { signed } from "../saves";
 import { mark, wipe } from "../clip";
 import { useBackdrop } from "../components/useBackdrop";
 
-// The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
-const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
-
 // `created` and `last_used` are UTC, "YYYY-MM-DD HH:MM:SS".
 type Token = { id: number; name: string; created: string; last_used: string | null };
 // A program connected over OAuth: the same times as a key.
@@ -42,7 +39,6 @@ const when = (utc: string) =>
 
 export default function Account({ user, onGone }: { user: User; onGone: () => void }) {
   const [sure, setSure] = useState(false);
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "leaf");
   const [tokens, setTokens] = useState<Token[]>([]);
   // What a try left when the session ran out, read once here: the line, and the name typed. Taken out of storage
   // at mount, so it shows once. Only for the account that made the try.
@@ -98,12 +94,6 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   function forget() {
     setLeft(null);
     dropNote();
-  }
-
-  function show(to: string) {
-    localStorage.setItem("theme", to);
-    document.documentElement.dataset.theme = to;
-    setTheme(to);
   }
 
   // Quiet when it fails: the list is not what the teacher came for, and the next make or revoke loads it again.
@@ -212,17 +202,6 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         >
           Abmelden
         </button>
-      </div>
-      <div className="card">
-        <label>Darstellung</label>
-        <p className="hint">Grün als Blattform, so wie dein Gerät eingestellt ist, hell oder dunkel. Das Blatt selbst bleibt immer weiß.</p>
-        <div className="seg">
-          {THEMES.map(([to, label]) => (
-            <button key={to} type="button" className={theme === to ? "on" : ""} aria-pressed={theme === to} onClick={() => show(to)}>
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
       <div className="card">
         <label>Zugang für Claude</label>

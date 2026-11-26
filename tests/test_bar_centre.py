@@ -6,11 +6,10 @@ from ui import TEXT, box, expect
 WIDE = {"width": 1600, "height": 900}
 
 
-@pytest.mark.parametrize("theme", [None, ""], ids=["blattform", "plain"])
 @pytest.mark.parametrize("name", ["Lösungen zeigen", "Herunterladen"])
-def test_the_words_of_a_bar_button_stand_at_its_middle(editor, name, theme):
+def test_the_words_of_a_bar_button_stand_at_its_middle(editor, name):
     """The panel's box of syllable words has the class `words` too, and its margin pushed these up."""
-    page = editor(box("a", "text", TEXT), theme=theme)
+    page = editor(box("a", "text", TEXT))
     page.set_viewport_size(WIDE)
     words = page.locator(".top .words").filter(has_text=name)
     expect(words).to_be_visible()
@@ -56,8 +55,9 @@ def test_the_left_panel_leads_to_the_lernwoerter(editor):
     expect(tool).to_have_attribute("aria-pressed", "false")
 
 
-def test_the_plain_look_keeps_its_tab_and_has_no_tool_for_the_lernwoerter(editor):
-    page = editor(box("a", "text", TEXT), theme="")
+def test_a_narrow_window_keeps_its_tab_and_has_no_tool_for_the_lernwoerter(editor):
+    page = editor(box("a", "text", TEXT))
+    page.set_viewport_size({"width": 1000, "height": 900})
     expect(
         page.locator(".dock, .insert").get_by_role("button", name="Lernwörter", exact=True)
     ).to_have_count(0)

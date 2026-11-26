@@ -200,7 +200,7 @@ def test_the_list_shows_the_percent_a_wheel_set(editor):
 
 def test_blattform_opens_the_list_upward_from_the_dock(editor):
     """Z8"""
-    page = editor(box("a", "text", TEXT), theme=None)
+    page = editor(box("a", "text", TEXT))
     resize(page, 1200, 800)
     page.reload()
     expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
@@ -235,7 +235,7 @@ def open_from_mehr(page):
 
 def test_ipad_mehr_opens_the_zoom_list(editor):
     """Mehr has "Zoom"; a tap opens the list: the percents, Seitenbreite, Ganze Seite, the field."""
-    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True)
     expect_fitted(page)
     more(page).tap()
     expect(item(page, "Zoom")).to_have_count(1)
@@ -251,7 +251,7 @@ def test_ipad_mehr_opens_the_zoom_list(editor):
 
 def test_ipad_a_percent_and_a_typed_percent_set_the_zoom(editor):
     """A tap on "150 %" sets it; "120" and Enter in the field set 120 %."""
-    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True)
     expect_fitted(page)
     open_from_mehr(page)
     page.locator(LIST).get_by_role("menuitem", name="150 %", exact=True).tap()
@@ -266,7 +266,7 @@ def test_ipad_a_percent_and_a_typed_percent_set_the_zoom(editor):
 
 def test_the_list_opens_by_mehr_and_escape_gives_the_focus_back(editor):
     """The list opens by Mehr inside the window; Escape shuts it, Mehr has the focus again."""
-    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True)
     expect_fitted(page)
     open_from_mehr(page)
     lst = page.locator(LIST).bounding_box()
@@ -281,7 +281,7 @@ def test_the_list_opens_by_mehr_and_escape_gives_the_focus_back(editor):
 
 def test_a_mouse_in_a_narrow_window_opens_the_list_from_mehr(editor):
     """The same in a narrow desktop window with a mouse."""
-    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False)
     expect_fitted(page)
     more(page).click()
     item(page, "Zoom").click()
@@ -296,7 +296,7 @@ def test_a_mouse_in_a_narrow_window_opens_the_list_from_mehr(editor):
 
 def test_ganze_seite_from_the_list_opened_by_mehr_fits_the_page(editor):
     """Extra case: "Ganze Seite" in the list shuts it and fits the whole page in the window."""
-    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True)
     expect_fitted(page)
     open_from_mehr(page)
     page.locator(LIST).get_by_role("menuitem", name="Ganze Seite", exact=True).tap()
@@ -311,7 +311,7 @@ def test_ganze_seite_from_the_list_opened_by_mehr_fits_the_page(editor):
 
 def test_a_turn_of_the_ipad_shuts_the_list(editor):
     """Extra case: the iPad turned on its side while the list is open shuts it."""
-    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True)
     expect_fitted(page)
     open_from_mehr(page)
     resize(page, 1194, 834)

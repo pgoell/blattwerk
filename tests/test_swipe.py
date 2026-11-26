@@ -173,7 +173,7 @@ def test_8_on_its_side_an_edge_swipe_changes_nothing(editor):
 
 def test_a_held_thumbnail_dragged_sideways_keeps_the_drawer_open(editor):
     """A thumbnail held for the long press, then dragged sideways, keeps the Seiten drawer open."""
-    page = editor(text("a", 1), pages=[{"blocks": [text("b", 1)]}], touch=True, theme="")
+    page = editor(text("a", 1), pages=[{"blocks": [text("b", 1)]}], touch=True)
     drawer(page, "left")
     # The strip's thumbnails are not buttons here, so they are found by their number.
     second = page.locator('.pages [data-thumb="1"]')

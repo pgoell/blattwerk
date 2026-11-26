@@ -242,13 +242,11 @@ def test_a_rechentabelle_on_page_2_keeps_its_props_through_a_save_and_a_reload(e
 def test_a_rechentabelle_moved_to_page_2_keeps_its_props(editor):
     """Block actions: a Rechentabelle cut on page 1 and pasted on page 2 keeps type and props there."""
     client = user()
-    # theme="" opens the panel Seiten, which holds the page thumbnails.
     page = editor(
         fields(),
         text(),
         pages=[{"blocks": [box("u", "text", TEXT, z=1)]}],
         client=client,
-        theme="",
         touch=True,
     )
     drawer(page, "left")

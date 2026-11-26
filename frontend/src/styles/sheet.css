@@ -1,13 +1,12 @@
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {
   position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
-  box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .08), rgb(0 0 0 / .4)), 0 20px 50px -12px light-dark(rgb(0 0 0 / .18), rgb(0 0 0 / .6));
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .08), 0 20px 50px -12px rgb(0 0 0 / .18);
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 /* Pages lie one under the other; a ring marks the one in use. */
 .sheet + .sheet { margin-top: 32px; }
-/* The page that stands while a sheet loads: upright, as wide as the desk, and after a moment it says that it loads,
-   in a grey that reads on its white in every theme. */
+/* The page that stands while a sheet loads: upright, as wide as the desk, and after a moment it says that it loads. */
 .sheet.blank { aspect-ratio: 210 / 297; display: grid; place-items: center; color: #62636c; }
 .sheet.on:not(:only-child) { outline: 2px solid var(--accent); outline-offset: 4px; }
 /* A page's blocks, on the desk and in a thumbnail: laid out at the PDF's scale and drawn at the page's by a transform. */
@@ -30,7 +29,7 @@
 }
 .rule.y b { margin: -9px 0 0; cursor: ns-resize; }
 .rule b::after { content: ""; position: absolute; inset: -13px -7px; }
-/* The colour of what marks the selection: the same green on white paper under either theme. */
+/* The colour of what marks the selection: the same green on white paper. */
 .sheet { --sel: #16a878; }
 .sheet .moveable-control-box { --moveable-color: var(--sel); }
 /* A block that Tab scrolls to stops clear of the desk's edge and of the bar that floats over the lower one. */

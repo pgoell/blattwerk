@@ -106,7 +106,7 @@
   .tour-ring { animation: ring 1.6s ease-in-out infinite; }
 }
 @keyframes ring { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
-/* Blattform's own layout, on a wide window. The green panel runs the window's height and names all that can be
+/* The layout of a wide window. The green panel runs the window's height and names all that can be
    inserted; Start, Ansicht and Vorlagen in the bar pick what the panels show; the zoom and the page count float over
    the desk's lower corners. */
 .leaf > header { grid-column: 2 / -1; }

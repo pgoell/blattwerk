@@ -98,7 +98,7 @@ def test_feedback_closes_on_a_backdrop_click(editor):
 
 
 def test_feedback_from_mehr_gives_the_focus_back_to_mehr(editor):
-    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False, theme="")
+    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False)
     dialog = page.locator("dialog.feedback")
 
     def reopen():

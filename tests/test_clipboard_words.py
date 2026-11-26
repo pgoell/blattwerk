@@ -10,6 +10,7 @@ from test_clipboard import (
     fresh,
     ready,
 )
+from test_words import list_tab
 from ui import (
     BROWSER,
     FIELD,
@@ -154,7 +155,7 @@ def test_another_accounts_copy_pastes_nothing_into_an_open_text(editor):
 def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
     client = user()
     shape = box("a", "table", TABLE) if kind == "cell" else box("a", "text", TEXT)
-    page = editor(shape, client=client, theme="", words=["Hund"])
+    page = editor(shape, client=client, words=["Hund"])
     # Words with a tab: a paste into a cell would spread them over the cells.
     copy_text(page, "Ge\theim")
     page.evaluate(MARK, "Ge\theim")
@@ -163,7 +164,7 @@ def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
         page.keyboard.press("Enter")
         field = page.locator(".block textarea:focus")
     elif kind == "list":
-        page.get_by_role("tab", name="Lernwörter").click()
+        list_tab(page)
         field = page.get_by_role("textbox", name="Lernwörter", exact=True)
     else:
         pick(page, "a")

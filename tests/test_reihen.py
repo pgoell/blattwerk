@@ -82,7 +82,6 @@ def test_kernaufgaben_sets_the_rows_of_a_table_and_a_square(editor):
         rt("t", {**RT, "op": "*"}),
         mq("q", MQ, y=120),
         client=client,
-        theme="",
     )
     pick(page, "t")
     step(page, lambda: ctl(page, "Kernaufgaben").click())

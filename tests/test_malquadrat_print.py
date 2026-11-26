@@ -211,7 +211,7 @@ def test_a_typed_square_with_one_solution_has_no_note_and_no_hint(editor, browse
     no hint in the panel, and is neither marked many nor wrong; the key shows that one solution."""
     client = user()
     typed = {**MQ, "op": "+", "size": 2, "count": 1, "typed": TYPED_ONE}
-    page = editor(box("k", "malquadrat", typed, w=180, h=H), client=client, theme="")
+    page = editor(box("k", "malquadrat", typed, w=180, h=H), client=client)
     pick(page, "k")
     expect(page.locator(".panel")).to_be_visible()
     expect(page.locator(".panel p.hint[role=status]")).to_have_count(0)

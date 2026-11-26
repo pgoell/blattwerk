@@ -83,7 +83,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
   const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
-  // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
+  // What can go on the page. A divider's name is its group's heading in the wide window's left panel.
   const tools = (
     <>
       <Tool
@@ -117,8 +117,8 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       <Tool icon={SquareSlash} label="Punkte" onClick={() => addInsert(INSERTS.points())} />
       <Tool icon={Grid3x3} label="Suchsel" onClick={() => addInsert(INSERTS.suchsel(newSeed()))} />
       {/* What makes exercises, a group to a subject. */}
-      {/* The sheet's list of words is no block, so its tool opens the list in the panel at the right. Blattform has
-          no tab for it; the plain look has. */}
+      {/* The sheet's list of words is no block, so its tool opens the list in the panel at the right. A wide window
+          has no tab for it; a narrow one has. */}
       {leaf && (
         <>
           <i className="sep" data-name="Deutsch" />

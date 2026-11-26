@@ -22,6 +22,7 @@ from ui import (
     copy_picture,
     order,
     pick,
+    seiten,
     thumb,
 )
 
@@ -39,6 +40,8 @@ CHANGES = {
 def change_pages(page, how):
     """Changes the pages and waits for it. Gives the page in use from then on."""
     run, count, after, _, _ = CHANGES[how]
+    # The tools may have taken the panel's place for what was asked.
+    seiten(page)
     thumb(page, 1).focus()
     run(page)
     expect(page.locator(".sheet[data-page]")).to_have_count(count)
@@ -106,10 +109,13 @@ def test_undo_of_a_change_on_the_page_in_use_keeps_the_selection(editor):
 
 # What asks the server for a block, and the request that waits.
 SOURCES = {
-    "maths": ("**/api/maths", lambda page: button(page, "Rechnen").click()),
+    "maths": ("**/api/maths", lambda page: (seiten(page, False), button(page, "Rechnen").click())),
     "ctrl v": ("**/api/uploads", lambda page: page.keyboard.press("Control+v")),
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
-    "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
+    "picker": (
+        "**/api/uploads",
+        lambda page: (seiten(page, False), page.locator(PICKER).set_input_files(PICKED)),
+    ),
 }
 # #775: now and then Playwright sees neither the route nor the request of a picture's upload,
 # which the page sends and the server answers. So the page holds that answer itself.
@@ -170,7 +176,7 @@ def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source
 def test_undo_of_a_brush_stroke_on_another_page_shows_that_page(editor):
     """The press that paints also visits the page: the paint comes off where it went on."""
     red = box("a", "shape", {**RECT, "fill": "#ff0000"})
-    page = editor(red, more=[box("b", "shape", RECT)], theme="")
+    page = editor(red, more=[box("b", "shape", RECT)], seiten=True)
     pick(page, "a")
     page.get_by_label("Format übertragen", exact=True).click()
     was = at(page, "b").inner_html()
@@ -187,8 +193,10 @@ def test_undo_of_a_block_from_the_server_shows_the_page_it_landed_on(editor):
     page = three(editor)
     waiting = []
     page.route("**/api/maths", lambda route: waiting.append(route))
+    seiten(page, False)
     with page.expect_request("**/api/maths"):
         button(page, "Rechnen").click()
+    seiten(page)
     thumb(page, 2).click()
     expect_shown(page, 2)
     [route] = waiting

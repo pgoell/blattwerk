@@ -68,7 +68,7 @@ def test_a_tap_on_the_selected_lineatur_paints(editor):
     client = user()
     blocks = apart(box("a", "ruling", SCRIPT), box("b", "ruling", RULING, z=2))
     # On its side and in the plain layout the iPad's bar has room for the brush's own button.
-    page = editor(*blocks, client=client, touch="landscape", theme="")
+    page = editor(*blocks, client=client, touch="landscape")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()
@@ -166,7 +166,7 @@ def test_a_tap_paints(editor):
     client = user()
     blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
     # On its side and in the plain layout the iPad's bar has room for the brush's own button.
-    page = editor(*blocks, client=client, touch="landscape", theme="")
+    page = editor(*blocks, client=client, touch="landscape")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).tap()
@@ -359,7 +359,7 @@ def test_a_tap_on_the_selected_block_paints(editor):
     client = user()
     blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
     # On its side and in the plain layout the iPad's bar has room for the brush's own button.
-    page = editor(*blocks, client=client, touch="landscape", theme="")
+    page = editor(*blocks, client=client, touch="landscape")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()

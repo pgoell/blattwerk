@@ -35,7 +35,7 @@ def editor(editor):
     """The editor with its panel open, where the Rechentabelle's settings are."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **more)
 
     return start
 

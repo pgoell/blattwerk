@@ -65,7 +65,7 @@ useLayoutEffect(() => {
   }, [room, high]);
   // For a mouse the dock wraps to more rows in a narrow window: the styles keep as much room free as it is high.
   useLayoutEffect(() => {
-    // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
+    // A wide window has two side by side, the second once the sheet has more pages than one: the higher counts.
     const docks = [...stage.current!.querySelectorAll<HTMLElement>(".dock")];
     const fit = () =>
       stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`);

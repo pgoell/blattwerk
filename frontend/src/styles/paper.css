@@ -1,4 +1,4 @@
-/* Paper is white under either theme, and so is all that lies on it. */
+/* Paper is white, and so is all that lies on it. */
 .paper, .sheet, .sample { color-scheme: light; }
 /* A letter is as wide as its font says, at every size. Chromium on Linux, which prints the PDF, otherwise rounds
    each letter to whole pixels, and a line then breaks at another word than on the screen. A field has to be told. */

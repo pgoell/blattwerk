@@ -1,4 +1,4 @@
-"""The logo stays at the top of the left sidebar of the leaf theme while the sidebar's content scrolls (#1084)."""
+"""The logo stays at the top of the left sidebar of a wide window while the sidebar's content scrolls (#1084)."""
 
 import re
 
@@ -10,7 +10,7 @@ from ui import TEXT, box
 @pytest.mark.parametrize("tab", ["Start", "Ansicht", "Vorlagen"])
 def test_the_logo_stays_at_the_top_while_the_left_sidebar_scrolls(editor, tab):
     """#1084"""
-    page = editor(box("a", "text", TEXT), theme="leaf")
+    page = editor(box("a", "text", TEXT))
     page.set_viewport_size({"width": 1280, "height": 400})
     page.get_by_role("tab", name=tab, exact=True).click()
     left = page.locator(".left")

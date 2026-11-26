@@ -95,9 +95,9 @@ def test_a_lineatur_added_from_the_panel_shows_its_settings(editor):
     expect(field(page)).to_have_count(0)
 
 
-def test_blattform_a_picked_block_shows_its_settings_not_the_list(editor):
+def test_in_a_wide_window_a_picked_block_shows_its_settings_not_the_list(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), words=WORDS, client=client, theme=None)
+    page = editor(box("a", "text", TEXT), words=WORDS, client=client, wide=True)
     page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
     expect(field(page)).to_be_visible()
     pick(page, "a")
@@ -176,6 +176,7 @@ def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor
         more=[box("b", "ruling", {**RULING, "list": "trace"}, h=40)],
         client=client,
         words=["Hund"],
+        seiten=True,
     )
     for block in (at(page, "a"), at(page, "o"), thumb(page, 1).locator(".block")):
         expect(block.locator(".listed .row")).to_have_count(1)

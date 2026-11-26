@@ -21,7 +21,7 @@ def editor(editor):
     """The editor with its panel open, where the tabs Format and Lernwörter are."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **more)
 
     return start
 
@@ -241,6 +241,6 @@ def test_a_turned_knickblatt_presses_the_long_word_as_a_level_one(editor, angle)
 
 def test_the_thumbnail_shows_the_long_word_whole(editor):
     """A6: the thumbnail of the page shows the long word whole, as the editor does."""
-    page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG)
+    page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG, seiten=True)
     expect(thumb(page, 0)).to_be_visible()
     whole(thumb(page, 0), LONG)

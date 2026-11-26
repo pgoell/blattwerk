@@ -244,13 +244,11 @@ def test_a_chain_on_page_2_keeps_its_props_through_a_save_and_a_reload(editor):
 def test_a_chain_moved_to_page_2_keeps_its_props(editor):
     """A: block actions: a chain cut on page 1 and pasted on page 2 keeps type and props there."""
     client = user()
-    # theme="" opens the panel Seiten, which holds the page thumbnails.
     page = editor(
         chain(),
         text(),
         pages=[{"blocks": [box("u", "text", TEXT, z=1)]}],
         client=client,
-        theme="",
         touch=True,
     )
     drawer(page, "left")

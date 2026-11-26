@@ -146,8 +146,16 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
   // The editor's own smooth scroll to the page in use: until it is there, the page in use lies out of view on purpose.
   const heading = useRef(0);
+  // Until when that scroll may still run. The browser tells its end where it knows `scrollend`; a page that lies at
+  // the desk's top already is not scrolled to.
+  const glide = useRef(0);
   function seek() {
     heading.current = performance.now() + 1500;
+    const el = desk.current!;
+    if (Math.abs(sheet.current!.getBoundingClientRect().top - el.getBoundingClientRect().top) > 1) {
+      glide.current = performance.now() + 1500;
+      el.addEventListener("scrollend", () => (glide.current = 0), { once: true });
+    }
     sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
   const strayed = () => lost() && performance.now() > heading.current;
@@ -238,5 +246,5 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
       window.removeEventListener("pointercancel", lift, true);
     };
   }, []);
-    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, wheeled, follow, lost, heading, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
+    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, wheeled, follow, lost, heading, glide, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
 }

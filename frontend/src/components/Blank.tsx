@@ -15,14 +15,11 @@ export function useSheetChrome() {
 
 // An iPad held upright: a rail of tools at the left, the pages a drawer over the desk. The same words as in styles.css.
 export const DRAWERS = matchMedia("(orientation: portrait) and (min-width: 701px) and (max-width: 1099px)");
-// How the editor opens. Blattform lays it out anew on a wide window, `leafy`, from the width of an iPad on its
-// side: beside the green panel a narrower window has no room for the bar's one row. `side` is whether the panel of
-// pages and templates starts open: not where it would lie over the desk, and not in Blattform at any width, for
-// the window may grow or turn into that layout.
-export const opening = () => {
-  const blatt = document.documentElement.dataset.theme === "leaf";
-  return { leafy: blatt && innerWidth >= 1024, side: innerWidth > 700 && !blatt };
-};
+// How the editor opens. A wide window, `leafy`, from the width of an iPad on its side, has the green panel of tools
+// at its left: beside it a narrower window has no room for the bar's one row. `side` is whether the panel of pages
+// and templates starts open: never, for it would lie over the desk of a narrow window, and a wide one may turn or
+// shrink into that.
+export const opening = () => ({ leafy: innerWidth >= 1024, side: false });
 
 // The editor while a sheet loads: its frame, empty, with a white page where the first page comes to lie. `late`
 // is whether the loading has taken half a second: then the page says so. The account, the editor's script and the

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from pixels import over, screen_and_print
 from playwright.sync_api import expect
-from ui import sheet, user
+from ui import seiten, sheet, user
 
 ROOT = Path(__file__).parent.parent
 CORPUS = Path(__file__).parent / "corpus"
@@ -314,9 +314,8 @@ def desk(browser, server):
     def start(client, sheet_id):
         context = browser.new_context(viewport={"width": 1400, "height": 1000})
         contexts.append(context)
-        # The tour would lie over the sheet, and the panel with the templates starts shut.
+        # The tour would lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
-        context.add_init_script("localStorage.setItem('theme', '')")
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies(
             [{"name": "session", "value": client.cookies["session"], "url": server}]
@@ -355,6 +354,7 @@ def change(page, made):
     """What makes the editor save: a sheet gets another title, and a template takes the place of
     the empty sheet, which is how a template opens."""
     if "name" in made:
+        seiten(page)
         page.locator(".tpl button").get_by_text(made["name"], exact=True).click()
     else:
         page.get_by_label("Titel", exact=True).fill("Anders")

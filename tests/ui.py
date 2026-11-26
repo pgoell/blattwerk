@@ -26,12 +26,21 @@ import threading
 import time
 import unicodedata
 import zlib
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from uuid import uuid4
 
 import uvicorn
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
+from ui_panels import (
+    bar as bar,
+)
+from ui_panels import (
+    drawer as drawer,
+)
+from ui_panels import (
+    seiten as seiten,
+)
 from ui_touch import (
     finger as finger,
 )
@@ -403,11 +412,6 @@ def doc(page, client):
     return client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]
 
 
-def bar(page, side):
-    """The bar's button for the panel on that side: "left" for Seiten, "right" for Format."""
-    return page.get_by_label({"left": "Seiten und Vorlagen", "right": "Format und Ansicht"}[side])
-
-
 def tool(page, label):
     """The bar's command of that name: its button or, where the bar has no room for it, its item
     in "Mehr", which this opens."""
@@ -426,18 +430,6 @@ def insert(page, label):
     "Mathe" in the tablet's rail): opens it and picks the card of that name."""
     page.locator(".dock, .insert, .rail").get_by_label(re.compile("^Mathe(-Blöcke)?$")).click()
     page.locator("dialog.library").get_by_label(label, exact=True).click()
-
-
-def drawer(page, side):
-    """Opens a panel on the iPad held upright, where both start shut. Format has come up by itself
-    under a picked block (#1187)."""
-    knob = bar(page, side)
-    if side == "right" and page.locator(".block.sel").count():
-        with suppress(AssertionError):
-            expect(knob).to_have_attribute("aria-pressed", "true", timeout=500)
-    if knob.get_attribute("aria-pressed") != "true":
-        knob.tap()
-    expect_lit(knob, "true")
 
 
 def thumb(page, n):

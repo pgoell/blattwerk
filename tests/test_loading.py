@@ -6,7 +6,6 @@ The tests hold back the account, the editor's script or the sheet, and let each 
 time counts, Playwright's clock stands still and the test moves it: none waits on real time.
 """
 
-import json
 import re
 from uuid import uuid4
 
@@ -84,7 +83,7 @@ def window(browser, server, playwright):
     """
     contexts = []
 
-    def start(theme=None, touch=None, dark=False, signed=True):
+    def start(touch=None, dark=False, signed=True):
         """`touch` is the window of a device with fingers, as IPAD."""
         look = {"viewport": touch or {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if WEBKIT and touch:
@@ -93,8 +92,6 @@ def window(browser, server, playwright):
         contexts.append(context)
         # The tour would open on the first visit and lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
-        if theme is not None:
-            context.add_init_script(f"localStorage.setItem('theme', {json.dumps(theme)})")
         context.add_init_script(WATCH)
         client = user()
         if signed:
@@ -338,19 +335,17 @@ def test_a_load_within_half_a_second_never_says_that_it_loads(window, server):
 PHONE = {"width": 390, "height": 844}
 LONG = "Die Geschichte vom kleinen Igel, der nicht schlafen wollte."
 CASES = {
-    "blattform": (None, None, None),
-    "plain": ("", None, None),
-    "ipad": (None, IPAD, None),
-    "phone": (None, PHONE, None),
-    "phone-plain": ("", PHONE, None),
-    "phone-long-title": (None, PHONE, LONG),
-    **{f"phone-{wide}": (None, {**PHONE, "width": wide}, LONG) for wide in (320, 360, 414)},
+    "desktop": (None, None),
+    "ipad": (IPAD, None),
+    "phone": (PHONE, None),
+    "phone-long-title": (PHONE, LONG),
+    **{f"phone-{wide}": ({**PHONE, "width": wide}, LONG) for wide in (320, 360, 414)},
 }
 
 
-@pytest.mark.parametrize(("theme", "touch", "title"), CASES.values(), ids=CASES)
-def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, theme, touch, title):
-    page, client = window(theme=theme, touch=touch)
+@pytest.mark.parametrize(("touch", "title"), CASES.values(), ids=CASES)
+def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, touch, title):
+    page, client = window(touch=touch)
     go = hold(page, SHEET)
     page.goto(f"{server}/blatt/{sheet(client, [], **({'title': title} if title else {}))['id']}")
     expect_loading(page)
@@ -375,7 +370,7 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     assert page.evaluate(SHIFTS) == 0
     # An upright A4 page, and the layout the case is about.
     assert before[".sheet"][3] / before[".sheet"][2] == pytest.approx(297 / 210, abs=0.01)
-    assert before["leaf"] == (theme is None and not touch)
+    assert before["leaf"] == (not touch)
     assert (before[".panel"] is None) == (touch is IPAD)
     # A phone's bar has more rows than one, or the case shows nothing.
     assert (before["header"][3] > 100) == (touch is not None and touch["width"] <= 700)
@@ -417,9 +412,8 @@ def light(colour):
     return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 
 
-@pytest.mark.parametrize("theme", ["", None], ids=["plain", "blattform"])
-def test_the_loading_page_is_white_on_a_dark_desk_and_its_word_reads(window, server, theme):
-    page, client = window(theme=theme, dark=True)
+def test_the_loading_page_is_white_on_a_dark_device_and_its_word_reads(window, server):
+    page, client = window(dark=True)
     # The script, not the sheet: see HELD.
     go = hold(page, SCRIPT)
     page.clock.install()
@@ -431,9 +425,9 @@ def test_the_loading_page_is_white_on_a_dark_desk_and_its_word_reads(window, ser
     look = "([found, what]) => getComputedStyle(document.querySelector(found))[what]"
     white = page.evaluate(look, [".sheet.blank", "backgroundColor"])
     assert white == "rgb(255, 255, 255)"
-    # Blattform keeps its pale desk on a dark device.
-    assert (light(page.evaluate(look, [".desk", "backgroundColor"])) < 0.05) == (theme == "")
-    # The word is dark enough on the white page, whatever the theme makes of its other greys.
+    # The desk stays pale on a dark device: the app has one look.
+    assert light(page.evaluate(look, [".desk", "backgroundColor"])) > 0.7
+    # The word is dark enough on the white page.
     page.clock.run_for(500)
     expect(page.locator(BLANK)).to_have_text("Lädt")
     word = page.evaluate(look, [".sheet.blank", "color"])

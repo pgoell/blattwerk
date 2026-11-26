@@ -37,6 +37,7 @@ export function useMenus(session: ReturnType<typeof usePick>) {
   const zoom = session.zoom;
   const setZoom = session.setZoom;
   const fitted = session.fitted;
+  const glide = session.glide;
   const fitOn = session.fitOn;
   const fitTick = session.fitTick;
   const setFitTick = session.setFitTick;
@@ -241,9 +242,23 @@ export function useMenus(session: ReturnType<typeof usePick>) {
   useLayoutEffect(() => {
     if (!fitted.current) return;
     const el = desk.current!;
-    const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
-    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
-    el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+    const align = () => {
+      const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
+      // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+      el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+    };
+    // A smooth scroll to the page may still be on its way, from a click on its thumbnail. The browser does not end
+    // it here: it adds this scroll to where it was heading, at the old size. Once it has ended the page is put in
+    // its place again.
+    const left = glide.current - performance.now();
+    align();
+    if (left <= 0) return;
+    el.addEventListener("scrollend", align, { once: true });
+    const over = setTimeout(() => el.removeEventListener("scrollend", align), left);
+    return () => {
+      clearTimeout(over);
+      el.removeEventListener("scrollend", align);
+    };
   }, [fitTick]);
   const zoomer = (
     <>

@@ -7,7 +7,7 @@ from playwright.sync_api import expect
 from test_delete_page_zoom import quer
 from test_words import list_tab, rulings
 from test_zoom import wheel
-from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, user
+from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, seiten, user
 
 # A name line at the top, and a heading under it: the new block goes under the heading, 5 mm lower.
 NAME = box("name", "name", {}, y=15, h=10, w=180)
@@ -152,7 +152,7 @@ def test_an_insert_under_a_block_at_the_right_stays_on_the_page(editor):
 def test_the_knickblatt_button_goes_under_the_lowest_block(editor):
     """#293: the Knickblatt is 180 mm wide and six rows high, and lands 5 mm under the heading."""
     client = user()
-    page = editor(*TOP, client=client, theme="", words=["Hund", "Katze", "Maus"])
+    page = editor(*TOP, client=client, seiten=True, words=["Hund", "Katze", "Maus"])
     list_tab(page)
     page.get_by_role("button", name="Knickblatt", exact=True).click()
     [blatt] = rulings(doc(page, client))
@@ -240,8 +240,9 @@ def test_a_quer_page_puts_a_kreis_in_its_free_third(editor):
     # 150 mm wide, so that Quer does not stretch them over the page.
     head = box("head", "text", HEAD, x=15, y=15, h=14, w=150)
     body = box("body", "text", TEXT, x=15, y=40, h=150, w=150)
-    page = editor(head, body, client=client, theme="")
+    page = editor(head, body, client=client, seiten=True)
     quer(page, 0)
+    seiten(page, False)
     dock(page, "Kreis").click()
     block = new_block(page, client, {"head", "body"})
     assert page_of(client, page, block["id"]) == 0

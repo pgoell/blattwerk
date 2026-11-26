@@ -172,7 +172,7 @@ def test_escape_shuts_the_menu_and_its_toolbar(editor):
 @pytest.mark.parametrize("opened", ["corner", "thumb"])
 def test_the_page_and_empty_menus_have_no_toolbar(editor, opened):
     """I4"""
-    page = editor(*texts("a"), pages=[{"blocks": texts("b")}], theme="")
+    page = editor(*texts("a"), pages=[{"blocks": texts("b")}], seiten=True)
     if opened == "thumb":
         right_thumb(page, 1)
     else:

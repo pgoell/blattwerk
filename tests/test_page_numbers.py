@@ -9,7 +9,7 @@ from pypdf import PdfReader
 from test_clipboard import button
 from test_pages import copy as duplicate
 from test_pages import pull, three, thumb
-from ui import TEXT, at, box, centre, doc, expect_lit, knob, reload, user
+from ui import TEXT, at, box, centre, doc, expect_lit, knob, reload, seiten, user
 
 FOLIO = ".sheet[data-page] .scaled .folio"
 MM = {"upright": 210, "landscape": 297}
@@ -113,6 +113,8 @@ def test_the_numbers_run_one_to_m_after_a_page_is_added_deleted_moved_or_copied(
     page = three(editor)
     numbers(page, form="2 / 5")
     expect(page.locator(FOLIO)).to_have_count(3)
+    # The Ansicht tab took the place of the panel of pages.
+    seiten(page)
     thumb(page, 1).click()
     change(page)
     expect(page.locator(FOLIO)).to_have_text(texts)
@@ -262,6 +264,7 @@ def test_the_number_is_9_pt_andika_grey_or_black_and_the_thumbnails_show_it(edit
     expect(mark).to_have_css("color", "rgb(112, 112, 112)")
     knob(page, "Schwarz").click()
     expect(mark).to_have_css("color", "rgb(0, 0, 0)")
+    seiten(page)
     expect(page.locator(".pages .paper .folio")).to_have_text(["1", "2", "3"])
 
 

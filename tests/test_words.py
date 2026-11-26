@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from ui import (
     RULING,
     doc,  # noqa: F401
+    seiten,
 )
 
 LINKED = {**RULING, "list": "copy"}
@@ -20,10 +21,16 @@ WORDS = ["Hund", "Katze", "Igel"]
 
 @pytest.fixture
 def editor(editor):
-    """The editor with its panel open, with the tabs. `theme=None` is Blattform."""
+    """The editor in a window under 1024 px: there the panel has the tabs Format, Ansicht and
+    Lernwörter, which these tests go by. `wide` keeps the window as it opens."""
 
     def start(*blocks, **more):
-        return editor(*blocks, **{"theme": "", **more})
+        wide = more.pop("wide", False)
+        page = editor(*blocks, **more)
+        if not wide and not more.get("touch"):
+            page.set_viewport_size({"width": 1000, "height": 900})
+            expect(page.get_by_role("tab", name="Lernwörter")).to_be_visible()
+        return page
 
     return start
 
@@ -33,7 +40,13 @@ def ready(page):
 
 
 def list_tab(page):
-    page.get_by_role("tab", name="Lernwörter").click()
+    """Opens the word list: by the panel's tab in a narrow window, by the tool under "Deutsch" in a
+    wide one."""
+    tab = page.get_by_role("tab", name="Lernwörter")
+    if tab.count():
+        return tab.click()
+    seiten(page, False)
+    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
 
 
 def field(page):
@@ -50,18 +63,24 @@ def redo(page):
 
 def store_words(page, client, words):
     """Stores the sheet's list as the server holds it, then opens the sheet again."""
+    shown = page.locator(".pages").count()
     sheet_id = page.url.rsplit("/", 1)[1]
     got = client.get(f"/api/sheets/{sheet_id}").json()
     body = {"doc": {**got["doc"], "words": words}, "version": got["version"]}
     assert client.patch(f"/api/sheets/{sheet_id}", json=body).status_code == 200
     page.reload()
     ready(page)
+    if shown:
+        seiten(page)
 
 
 def go(page, other):
-    """Opens another sheet of the same user in this tab."""
+    """Opens another sheet of the same user in this tab, with the panel of pages as it was."""
+    shown = page.locator(".pages").count()
     page.goto(f"{page.url.rsplit('/blatt/', 1)[0]}/blatt/{other['id']}")
     ready(page)
+    if shown:
+        seiten(page)
     page.bring_to_front()
 
 
