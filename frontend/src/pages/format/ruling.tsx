@@ -122,8 +122,9 @@ export function RulingPanel({
       </Pane>
       <Pane tab="Aufgaben">
           {/* A Lineatur shows its own text or the sheet's Lernwörter. The switch is on only when every picked Lineatur
-              shows them; then the list stands here, and under it what the children do with the words. */}
-          <Switch label="Lernwörter des Blatts" on={!!mode} onChange={() => list(mode ? undefined : "copy")} />
+              shows them; then the list stands here, and under it what the children do with the words. Picked beside
+              a text or a shape, which has the same switch, each says whose it is. */}
+          <Switch label={text ? "Lernwörter des Blatts in der Lineatur" : "Lernwörter des Blatts"} on={!!mode} onChange={() => list(mode ? undefined : "copy")} />
           {mode && (
             <>
               <WordList doc={doc} listing={listing} short={n} />
