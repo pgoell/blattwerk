@@ -106,7 +106,7 @@ def test_a_bubble_cut_loose_keeps_its_words_in_its_body(editor, browser, server)
     bubble = {**RECT, **TEXT, "kind": "bubble", "list": True}
     page = editor(box("a", "shape", bubble, h=30, w=60), client=client, words=WORDS)
     pick(page, "a")
-    page.get_by_label(CHOICE).select_option(label="Eigener Text")
+    page.get_by_label(CHOICE).click()
     expect(at(page, "a").locator(".frame")).not_to_have_class(re.compile(r"\blisted\b"))
     saved(page, client)
     assert in_body(at(page, "a").evaluate(BODY))
@@ -204,7 +204,7 @@ def test_a_text_cut_loose_still_breaks_a_long_word(editor, browser, server):
     linked = {**TEXT, "size": 16, "list": True, "mix": 7}
     page = editor(box("a", "text", linked, h=20, w=80), client=client, words=["Hase", LONG])
     pick(page, "a")
-    page.get_by_label(CHOICE).select_option(label="Eigener Text")
+    page.get_by_label(CHOICE).click()
     expect(at(page, "a").locator(".frame")).not_to_have_class(re.compile(r"\blisted\b"))
     expect(at(page, "a").locator(".mix .gap.line")).to_have_count(2)
     assert all(at(page, "a").evaluate(RECTS))

@@ -19,7 +19,7 @@ WALL = {"count": 4, "columns": 2, "max": 20, "op": "+", "given": "base", "empty"
 START = ["Auswahl", "Blatt", "von", "X", "Y", "Breite", "Höhe", "Drehung"]
 START += ["Seitenverhältnis sperren", "Breite %", "Höhe %"]
 FONT = ["Schriftart", "Schrift kleiner", "Schrift größer", "Fett", "Kursiv", "Unterstrichen"]
-PLACE = ["Aufzählung", "Nummerierung", "Links", "Mitte", "Rechts", "Oben", "Mitte", "Unten"]
+PLACE = ["Aufzählung", "Nummerierte Liste", "Links", "Mitte", "Rechts", "Oben", "Mitte", "Unten"]
 TURN = [
     "Farbe",
     "Zeilenabstand",
@@ -34,12 +34,11 @@ TURN = [
     "Erster Buchstabe",
     "Letzter Buchstabe",
     "Buchstabengruppe",
+    # A text without a gap shows what makes gaps, and nothing that sets them.
     "Lücke",
-    "Lücken gleich breit",
     "n",
     "Jedes n-te Wort",
-    "Lösungswörter",
-    "Text des Textfelds",
+    "Lernwörter des Blatts",
     "Schüttelwörter",
     "Rechtsdrehung 90°",
     "Linksdrehung 90°",

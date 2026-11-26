@@ -157,7 +157,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         <Turns sel={sel} alone={alone} spin={spin} mirror={mirror} />
       </Pane>
       <Pane tab="Aussehen">
-      <h2>Nummerierung</h2>
+      {/* A Rechnen block has two: this one stands before the block, the other before each of its tasks. */}
+      <h2>{sel.some((b) => b.type === "maths") ? "Nummer vor dem Block" : "Nummerierung"}</h2>
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
       </Pane>

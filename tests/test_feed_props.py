@@ -14,7 +14,6 @@ from test_feed import (
     editor,  # noqa: F401
 )
 from test_gaps import panel, step
-from test_keys_focus import choose
 from test_painter import held
 from ui import (
     FIELD,
@@ -120,7 +119,8 @@ def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor
     pick(page, "a")
     page.keyboard.press("Enter")
     expect(page.locator(FIELD)).to_be_focused()
-    control = choose(page, CHOICE)
+    control = page.get_by_label(CHOICE)
+    control.click()
     expect(control).not_to_be_focused()
     expect(page.locator(FIELD)).to_have_count(0)
     assert held(page, client)["a"]["list"] is True
@@ -130,12 +130,16 @@ def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor
 
 
 def test_a_linked_block_shows_no_gap_controls(editor):
-    """I8: a linked text shows no Lücke, Jedes n-te Wort or Lösungswörter; an unlinked one does."""
+    """I8: a linked text shows no Lücke, Jedes n-te Wort or Lösungswörter; an unlinked one shows
+    what makes gaps, and Lösungswörter once it has a gap."""
     linked = editor(box("a", "text", LISTED), words=WORDS)
     pick(linked, "a")
     for label in ("Lücke", "Jedes n-te Wort", "Lösungswörter"):
         expect(panel(linked, label)).to_have_count(0)
     plain = editor(box("b", "text", TEXT))
     pick(plain, "b")
-    for label in ("Lücke", "Jedes n-te Wort", "Lösungswörter"):
+    for label in ("Lücke", "Jedes n-te Wort"):
         expect(panel(plain, label)).to_have_count(1)
+    expect(panel(plain, "Lösungswörter")).to_have_count(0)
+    panel(plain, "Lücke").click()
+    expect(panel(plain, "Lösungswörter")).to_have_count(1)

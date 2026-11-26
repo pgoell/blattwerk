@@ -103,11 +103,8 @@ def test_one_click_draws_a_bow_under_each_syllable_and_one_more_takes_them_away(
     page = editor(box("a", "text", WORDS), client=client)
     pick(page, "a")
     expect_switch(page, False)
-    # It follows the last text setting: the hint of the trace choice (Andika has no dotted cut).
-    assert (
-        switch(page).evaluate("(el) => el.previousElementSibling.textContent")
-        == "Gepunktet gibt es nur in der Grundschrift (Urff)."
-    )
+    # It is the first setting under its heading.
+    assert switch(page).evaluate("(el) => el.previousElementSibling.textContent") == "Silben"
     bows(page, "a").to_have_count(0)
     switch(page).click()
     expect_switch(page, True)

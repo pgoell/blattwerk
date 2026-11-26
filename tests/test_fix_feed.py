@@ -121,7 +121,7 @@ def test_eigener_text_keeps_the_gaps(editor, kind, props, mode):
     pick(page, "a")
     before = hidden_letters(at(page, "a").locator(".rich p"))
     assert any(before)
-    step(page, lambda: page.get_by_label(CHOICE).select_option(label="Eigener Text"))
+    step(page, lambda: page.get_by_label(CHOICE).click())
     assert hidden_letters(at(page, "a").locator(".rich p")) == before
     stored = held(page, client)["a"]
     assert "list" not in stored
@@ -142,7 +142,7 @@ def test_undo_links_the_block_again(editor):
         words=WORDS,
     )
     pick(page, "a")
-    step(page, lambda: page.get_by_label(CHOICE).select_option(label="Eigener Text"))
+    step(page, lambda: page.get_by_label(CHOICE).click())
     step(page, lambda: undo(page))
     back = held(page, client)["a"]
     assert back["list"] is True
@@ -165,7 +165,7 @@ def test_several_blocks_each_keep_their_gaps(editor):
     pick(page, "a", "b")
     before = {name: hidden_letters(at(page, name).locator(".rich p")) for name in ("a", "b")}
     assert before["a"] != before["b"]
-    step(page, lambda: page.get_by_label(CHOICE).select_option(label="Eigener Text"))
+    step(page, lambda: page.get_by_label(CHOICE).click())
     for name in ("a", "b"):
         assert hidden_letters(at(page, name).locator(".rich p")) == before[name]
 
@@ -175,7 +175,7 @@ def test_a_block_without_gaps_is_cut_loose_plain(editor):
     client = user()
     page = editor(box("a", "text", LISTED), client=client, words=WORDS)
     pick(page, "a")
-    step(page, lambda: page.get_by_label(CHOICE).select_option(label="Eigener Text"))
+    step(page, lambda: page.get_by_label(CHOICE).click())
     stored = held(page, client)["a"]
     assert stored["text"] == "\n".join(WORDS)
     assert "rich" not in stored

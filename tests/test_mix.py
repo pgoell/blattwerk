@@ -270,13 +270,14 @@ def test_tab_reaches_the_mix_controls_and_space_and_enter_press_them(editor):
     page = editor(box("a", "text", SCHUTTEL), client=client)
     pick(page, "a")
     page.locator(".panel").get_by_label("Nachspurtext").focus()
-    # Zeichen's six stops sit between Silbenfarbe and Lücke.
-    for _ in range(13):
+    # Zeichen's six stops sit between Silbenfarbe and Lücke. A text without a gap shows only what
+    # makes gaps.
+    for _ in range(11):
         page.keyboard.press("Tab")
-    expect(panel(page, "Lösungswörter")).to_be_focused()
-    # The choice of the text's source stands between the gaps and the mix.
+    expect(panel(page, "Jedes n-te Wort")).to_be_focused()
+    # The switch of the text's source stands between the gaps and the mix.
     page.keyboard.press("Tab")
-    expect(page.get_by_label("Text des Textfelds")).to_be_focused()
+    expect(page.get_by_label("Lernwörter des Blatts")).to_be_focused()
     page.keyboard.press("Tab")
     expect(panel(page, "Schüttelwörter")).to_be_focused()
     page.keyboard.press("Space")

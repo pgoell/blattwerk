@@ -292,7 +292,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
       )}
       <button className="wide" onClick={() => limit({ seed: newSeed() })}>Neu würfeln</button>
       <Pane tab="Aussehen">
-      <h2>Aufgaben nummerieren</h2>
+      <h2>Nummern vor den Aufgaben</h2>
       <Numbering value={p.numbering} onChange={(numbering) => show({ numbering })} />
       </Pane>
     </>

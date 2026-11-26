@@ -45,6 +45,7 @@ export function Syllables({ sel, part, look, style, mendWord, doc, words }: { se
   };
   return (
     <>
+      <h2>Silben</h2>
       {/* Off is no entry, as on a sheet that never had bows. */}
       <Switch label="Silbenbögen" on={bowsOn} onChange={() => set({ syllables: bowsOn ? undefined : true }, "syllables")} />
       <Switch label="Silbenfarbe" on={tintsOn} onChange={() => set(tintsOn ? { tints: undefined, tintsAcross: undefined } : { tints: TINTS }, "tints")} />

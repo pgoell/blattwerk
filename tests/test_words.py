@@ -3,6 +3,7 @@
 # Tests of one behaviour each live in the sibling modules. Shared helpers stay here so existing imports keep working.
 
 import io
+import re
 
 import httpx
 import pytest
@@ -62,8 +63,10 @@ def blatt(rows=6):
 
 
 def lernen(page):
-    """The switch that makes the picked Lineatur show the sheet's list."""
-    return page.locator(".panel").get_by_role("switch", name="Lernwörter des Blatts")
+    """The switch that makes the picked Lineatur show the sheet's list. Picked beside a text, which
+    has the same switch, it says that it is the Lineatur's."""
+    name = re.compile(r"^Lernwörter des Blatts( in der Lineatur)?$")
+    return page.locator(".panel").get_by_role("switch", name=name)
 
 
 def sollen(page):

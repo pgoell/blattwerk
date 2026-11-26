@@ -16,10 +16,10 @@ SELECTS = [
     ("ruling", "Schriftart auf den Zeilen"),
     ("table", "Schriftart der Tabelle"),
     ("table", "Linienart"),
-    ("text", "Nachspurtext"),
-    ("shape", "Nachspurtext"),
-    ("ruling", "Nachspurtext"),
-    ("table", "Nachspurtext"),
+    ("text", "Art des Nachspurtexts"),
+    ("shape", "Art des Nachspurtexts"),
+    ("ruling", "Art des Nachspurtexts"),
+    ("table", "Art des Nachspurtexts"),
     ("ruling l1", "Häuschen einfärben"),
 ]
 # The words of a text or a shape, of its own blue: all but the last letter are red.
@@ -119,7 +119,7 @@ def test_tab_in_a_ruling_keeps_the_writing_open_and_types_nothing(editor, key):
 
 @pytest.mark.parametrize("label", CONTROLS["ruling"])
 def test_a_pick_with_the_mouse_gives_the_keys_back_to_a_ruling(editor, label):
-    page = editor(box("ruling", "ruling", RULING), box("b", "text", TEXT, z=2))
+    page = editor(box("ruling", "ruling", KINDS["ruling"][1]), box("b", "text", TEXT, z=2))
     area = write(page, "ruling")
     choose(page, label)
     expect_caret(page, area)

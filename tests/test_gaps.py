@@ -94,13 +94,16 @@ def test_ctrl_l_makes_no_gap_in_a_block_or_in_an_open_text(editor):
 
 
 def test_lucken_gleich_breit_stores_a_width_that_the_field_changes_and_off_removes_it(editor):
-    """A3: the width is stored at 30 mm with no gap drawn; a number changes it; off removes it."""
+    """A3: the switch stands there once the text has a gap and stores the width of the widest
+    one; a number changes it; off removes it."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
+    expect(panel(page, "Lücken gleich breit")).to_have_count(0)
+    panel(page, "Lücke").click()
     panel(page, "Lücken gleich breit").click()
     expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-checked", "true")
-    assert held(page, client)["a"]["gapWidth"] == 30
+    assert held(page, client)["a"]["gapWidth"] >= 5
     width = page.locator(".panel").get_by_label("Breite der Lücken", exact=True)
     width.fill("12")
     width.press("Enter")

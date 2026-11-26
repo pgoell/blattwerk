@@ -21,10 +21,10 @@ export function Fed({ sel, words, doc, listing, look, link, feed }: { sel: Block
   const cols = listColsOf(held[0]);
   return (
     <>
-      <select aria-label="Text des Textfelds" value={linked ? "list" : "own"} onChange={(e) => link(e.target.value === "list")}>
-        <option value="own">Eigener Text</option>
-        <option value="list">Text aus Lernwörtern</option>
-      </select>
+      <h2>Wörter</h2>
+      {/* The same switch as on a Lineatur: the block shows the sheet's list in place of a text of its own. Picked
+          beside a Lineatur, each of the two says whose it is. */}
+      <Switch label={sel.some((b) => b.type === "ruling") ? "Lernwörter des Blatts im Text" : "Lernwörter des Blatts"} on={linked} onChange={() => link(!linked)} />
       {linked && (
         <>
           {/* A picked Lineatur that shows the list has the field already. */}

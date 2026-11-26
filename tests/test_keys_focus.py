@@ -23,20 +23,22 @@ from ui import (
     user,
 )
 
+# Each block that holds words has its trace on: the list of its kinds stands in the panel only then.
+TEXT, RECT, RULING, TABLE = ({**props, "trace": True} for props in (TEXT, RECT, RULING, TABLE))
 OPEN = ".ProseMirror, .block textarea:not([readonly])"
 # Every select and colour input the panel shows for a block, by its label.
 CONTROLS = {
-    "text": ["Schriftart", "Farbe", "Nachspurtext", "Füllung", "Rand"],
-    "shape": ["Schriftart", "Farbe", "Nachspurtext", "Füllung", "Rand"],
+    "text": ["Schriftart", "Farbe", "Art des Nachspurtexts", "Füllung", "Rand"],
+    "shape": ["Schriftart", "Farbe", "Art des Nachspurtexts", "Füllung", "Rand"],
     "line": ["Füllung", "Rand"],
-    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen", "Nachspurtext"],
+    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen", "Art des Nachspurtexts"],
     "ruling l1": [
         "Art der Lineatur",
         "Farbe",
         "Häuschen einfärben",
         "Farbe des Mittelbands",
         "Schriftart auf den Zeilen",
-        "Nachspurtext",
+        "Art des Nachspurtexts",
     ],
     "table": [
         "Schriftart der Tabelle",
@@ -44,7 +46,7 @@ CONTROLS = {
         "Farbe",
         "Linien",
         "Linienart",
-        "Nachspurtext",
+        "Art des Nachspurtexts",
     ],
 }
 KINDS = {
@@ -52,7 +54,7 @@ KINDS = {
     "shape": ("shape", RECT),
     "line": ("shape", LINE),
     "ruling": ("ruling", RULING),
-    "ruling l1": ("ruling", {"kind": "l1", "color": "#222222", "house": True}),
+    "ruling l1": ("ruling", {"kind": "l1", "color": "#222222", "house": True, "trace": True}),
     "table": ("table", TABLE),
 }
 LABEL = "(el) => el.getAttribute('aria-label') ?? el.closest('label').firstChild.textContent.trim()"

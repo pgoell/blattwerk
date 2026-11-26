@@ -2,9 +2,10 @@
 import { dottedFamily, fadeOf, traceOf, type Fade, type Font } from "../../sheet";
 import { Switch } from "../../components/Switch";
 
-// The trace text of a text, a shape, a table or a Lineatur: Aus, Grau, Umriss or Gepunktet. Gepunktet needs the font's
-// dotted cut. Fading makes the trace lighter along the row or from row to row. Aus takes the fading along; the other
-// choices set only their own keys.
+// The trace text of a text, a shape, a table or a Lineatur, under its heading: one switch, and while it is on the
+// kind (Grau, Umriss or Gepunktet) and the fading. Gepunktet needs the font's dotted cut, and the hint that says so
+// shows only while the trace is on. Fading makes the trace lighter along the row or from row to row. Off takes the
+// fading along; the other choices set only their own keys.
 const TRACE_CHOICE: Record<string, { trace?: true | "outline" | "dotted"; fade?: Fade }> = {
   off: { trace: undefined, fade: undefined },
   grey: { trace: true },
@@ -17,17 +18,23 @@ export function TraceControls({ props, font, onChange }: { props: { trace?: unkn
   const dotted = !!dottedFamily(font);
   return (
     <>
-      <select aria-label="Nachspurtext" value={trace} onChange={(e) => onChange(TRACE_CHOICE[e.target.value])}>
-        <option value="off">Aus</option>
-        <option value="grey">Grau</option>
-        <option value="outline">Umriss</option>
-        <option value="dotted" disabled={!dotted}>
-          Gepunktet
-        </option>
-      </select>
-      {!dotted && <p className="hint">Gepunktet gibt es nur in der Grundschrift (Urff).</p>}
+      <h2>Nachspuren</h2>
+      <Switch label="Nachspurtext" on={trace !== "off"} onChange={() => onChange(TRACE_CHOICE[trace === "off" ? "grey" : "off"])} />
       {trace !== "off" && (
-        <Switch label="Ausblenden" on={!!fade} onChange={() => onChange({ fade: fade ? undefined : "row" })} />
+        <>
+          <label>
+            Art
+            <select aria-label="Art des Nachspurtexts" value={trace} onChange={(e) => onChange(TRACE_CHOICE[e.target.value])}>
+              <option value="grey">Grau</option>
+              <option value="outline">Umriss</option>
+              <option value="dotted" disabled={!dotted}>
+                Gepunktet
+              </option>
+            </select>
+          </label>
+          {!dotted && <p className="hint">Gepunktet gibt es nur in der Grundschrift (Urff).</p>}
+          <Switch label="Ausblenden" on={!!fade} onChange={() => onChange({ fade: fade ? undefined : "row" })} />
+        </>
       )}
       {fade && (
         <div className="seg">
