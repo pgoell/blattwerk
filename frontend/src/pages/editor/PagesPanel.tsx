@@ -47,14 +47,15 @@ export default function PagesPanel({ s: session }: { s: ReturnType<typeof useToo
   const visit = session.visit;
   return (
     <>
-      {/* A wide window's left panel has two tabs: what can go on the page, and the pages. A narrower one has the
+      {/* A wide window's left panel has two tabs: the blocks that can go on the page, and the pages. The first is not
+          called "Einfügen": that is the bar's button for what was copied. A narrower one has the
           pages alone, behind the bar's button, and the tools at the desk's foot. */}
       {(leaf || left) && (
         <aside className="left">
           {leaf && brand}
           {leaf && (
             <div className="tabs sides" role="tablist">
-              {["Einfügen", "Seiten"].map((t) => (
+              {["Blöcke", "Seiten"].map((t) => (
                 <button key={t} role="tab" data-tour={t} aria-selected={(t === "Seiten") === side} onClick={() => session.showLeft(t === "Seiten")}>
                   {t}
                 </button>

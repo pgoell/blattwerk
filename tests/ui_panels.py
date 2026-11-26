@@ -34,7 +34,7 @@ def seiten(page, shown=True):
     `shown=False` brings those back."""
     tabs = page.locator("aside.left [role=tablist]")
     if tabs.count():
-        tab = tabs.get_by_role("tab", name="Seiten" if shown else "Einfügen")
+        tab = tabs.get_by_role("tab", name="Seiten" if shown else "Blöcke")
         tab.click()
         expect(tab).to_have_attribute("aria-selected", "true")
         return

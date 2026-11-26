@@ -89,7 +89,7 @@ Only the four Rechenblätter draw new tasks each time you start from one: `Reche
 
 1. Open `TR1 Rechnen` from `Meine Blätter`. Click the tab `Blatt` of the right panel. Type `TR Vorlage` into `Name der Vorlage` and click `Als Vorlage speichern`. The panel says that `TR Vorlage` is stored.
 2. Go back to `Meine Blätter`, click `Neues Blatt`, click `Meine Vorlagen` in the chooser, click `TR Vorlage`. The new sheet has the title `TR Vorlage` and shows the name line, the heading and the same 16 exercises with the same numbers as `TR1 Rechnen`. Set the title to `TR5 Kopie`.
-3. Change the copy: click `Text` (tab `Einfügen` of the left panel), type `Nur in der Kopie`.
+3. Change the copy: click `Text` (tab `Blöcke` of the left panel), type `Nur in der Kopie`.
 4. Export and compare.
 5. Open `TR1 Rechnen` again: it must look as in your screenshot of sheet 1, without the new text.
 6. On `Meine Blätter` click `Neues Blatt` and `Meine Vorlagen` again: `TR Vorlage` shows the template as you saved it, without `Nur in der Kopie`. Click `Abbrechen`.

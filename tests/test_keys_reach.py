@@ -132,10 +132,11 @@ def test_shift_f6_goes_from_the_sheet_to_the_panel(editor, name):
 
 
 def test_shift_f6_with_nothing_picked(editor):
-    # A wide window has no tabs there, and with nothing picked its panel holds a hint only: the keys pass it.
+    # With nothing picked the panel still has its tabs "Auswahl" and "Blatt": the keys stop there.
     page = opened(editor, None)
     page.keyboard.press("Shift+F6")
-    assert part(page) == "header"
+    assert part(page) == "panel"
+    assert page.evaluate(FIRST, ".panel")
 
 
 def test_f6_goes_round_and_keeps_the_selection(editor):

@@ -5,8 +5,8 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import REFUSED, blocks, button, every, stored
-from ui import FIELD, RECT, TABLE, TEXT, at, box, centre, drop, pick, png, saved, user
+from test_clipboard import REFUSED, blocks, every, stored
+from ui import FIELD, RECT, TABLE, TEXT, at, box, centre, drop, pick, png, saved, seiten, user
 
 PNG = ("bild.png", "image/png", png())
 PDF = ("blatt.pdf", "application/pdf", b"%PDF-1.4\n")
@@ -319,7 +319,11 @@ def test_a_page_deleted_or_added_while_the_picture_uploads(editor, own, press, p
     expect(second if own else first).to_have_class(re.compile(r"\bon\b"))
     with page.expect_request("**/api/uploads"):
         drop(page, *spot(page, 105, 148.5, n=1), PNG)
-    button(page, press).click()
+    # The buttons of the pages stand in the tab "Seiten" of the left panel.
+    seiten(page)
+    page.locator(".left").get_by_role("button", name=press, exact=True).first.click()
+    # Back to the tools: the thumbnails draw the blocks a second time.
+    seiten(page, False)
     expect(page.locator(".sheet")).to_have_count(len(pages))
     [route] = waiting
     route.continue_()

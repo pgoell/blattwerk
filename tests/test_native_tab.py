@@ -15,7 +15,8 @@ pytestmark = pytest.mark.native
 
 WALL = {"count": 4, "columns": 2, "max": 20, "op": "+", "given": "base", "empty": False, "seed": 7}
 # What Tab stops at from the panel's first field on, down to the kinds of border.
-START = ["von", "X", "Y", "Breite", "Höhe", "Drehung"]
+# The panel's tabs "Auswahl" and "Blatt" come first.
+START = ["Auswahl", "Blatt", "von", "X", "Y", "Breite", "Höhe", "Drehung"]
 START += ["Seitenverhältnis sperren", "Breite %", "Höhe %"]
 FONT = ["Schriftart", "Schrift kleiner", "Schrift größer", "Fett", "Kursiv", "Unterstrichen"]
 PLACE = ["Aufzählung", "Nummerierung", "Links", "Mitte", "Rechts", "Oben", "Mitte", "Unten"]
