@@ -20,8 +20,14 @@ from blattwerk.maths import (
 )
 from blattwerk.maths.carry import keeps as place_keeps
 
-threes = st.builds(
-    Settings,
+
+def threes_of(**fixed):
+    """Settings for tasks of three numbers; a field named here has that one value."""
+    free = {**THREE, **{key: st.just(value) for key, value in fixed.items()}}
+    return st.builds(Settings, **free)
+
+
+THREE = dict(
     ops=st.lists(st.sampled_from("+-*/"), min_size=1, max_size=4),
     max=st.sampled_from([10, 20, 100, 1000, 1_000_000]) | st.integers(1, 1_000_000),
     a=places,
@@ -35,6 +41,7 @@ threes = st.builds(
     count=st.integers(1, 30),
     seed=st.integers(0, 10**9),
 )
+threes = threes_of()
 
 
 def apply(op, x, y):
@@ -52,11 +59,14 @@ def steps_of(e):
     return [inner, (o2, apply(*inner), c)]
 
 
-# 300 sheets take 45 s on a quiet machine: the suite's 60 s ended the worker on a busy runner.
-@pytest.mark.timeout(240)
-@given(threes)
-@settings(max_examples=300, deadline=None)
-def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(s):
+# 300 sheets take 45 s on a quiet machine, and on a busy runner even 240 s ended the worker. So they come as four
+# tests of 75 sheets, one for each format with and without Punkt vor Strich.
+@pytest.mark.parametrize("fmt", ["row", "gap"])
+@pytest.mark.parametrize("pvs", [False, True])
+@given(st.data())
+@settings(max_examples=75, deadline=None)
+def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(fmt, pvs, data):
+    s = data.draw(threes_of(format=fmt, pvs=pvs))
     out = generate(s)
     exercises = out["exercises"]
     rule = s.pvs and any(o in "+-" for o in s.ops) and any(o in "*/" for o in s.ops)

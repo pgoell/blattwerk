@@ -132,11 +132,10 @@ def test_shift_f6_goes_from_the_sheet_to_the_panel(editor, name):
 
 
 def test_shift_f6_with_nothing_picked(editor):
-    # A wide window has no tabs there: the button that leads to the Lernwörter is its panel's stop.
+    # A wide window has no tabs there, and with nothing picked its panel holds a hint only: the keys pass it.
     page = opened(editor, None)
     page.keyboard.press("Shift+F6")
-    assert part(page) == "panel"
-    expect(page.locator(".panel").get_by_role("button", name="Lernwörter")).to_be_focused()
+    assert part(page) == "header"
 
 
 def test_f6_goes_round_and_keeps_the_selection(editor):

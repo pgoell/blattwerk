@@ -37,7 +37,7 @@ def test_seite_duplizieren_puts_a_copy_right_after_the_page_in_use(editor):
     expect(page.locator(".pages button[data-thumb]")).to_have_count(4)
 
 
-def test_the_left_bar_of_the_leaf_theme_copies_the_page_too(editor):
+def test_the_left_bar_of_a_wide_window_copies_the_page_too(editor):
     """A3"""
     rest = [{"blocks": [box("b", "text", TEXT)]}]
     page = editor(box("a", "text", TEXT), pages=rest)

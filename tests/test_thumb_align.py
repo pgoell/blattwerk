@@ -30,8 +30,6 @@ def test_the_thumbnail_starts_a_lineaturs_text_at_the_left(editor):
 
 
 def test_the_thumbnail_keeps_a_centred_text_centred(editor):
-    page = editor(
-        box("t", "text", {**TEXT, "text": "Igel", "align": "center"}, w=120, h=20)
-    )
+    page = editor(box("t", "text", {**TEXT, "text": "Igel", "align": "center"}, w=120, h=20))
     expect(thumb(page, 0)).to_be_visible()
     expect(thumb(page, 0).locator("p")).to_have_css("text-align", "center")

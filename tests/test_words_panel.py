@@ -98,7 +98,7 @@ def test_a_lineatur_added_from_the_panel_shows_its_settings(editor):
 def test_blattform_a_picked_block_shows_its_settings_not_the_list(editor):
     client = user()
     page = editor(box("a", "text", TEXT), words=WORDS, client=client)
-    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
+    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
     expect(field(page)).to_be_visible()
     pick(page, "a")
     expect(field(page)).to_have_count(0)

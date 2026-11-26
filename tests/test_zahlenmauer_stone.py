@@ -23,7 +23,7 @@ TOP_OF_SECOND = '.wall[data-wall="1"] .stone[data-stone="5"]'
 
 @pytest.fixture
 def editor(editor):
-    """The editor without a theme, as the Zahlenmauer tests of the format panel have it."""
+    """The editor as the Zahlenmauer tests of the format panel have it."""
 
     def start(*blocks, **more):
         return editor(*blocks, **more)

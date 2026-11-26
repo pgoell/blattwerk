@@ -369,8 +369,9 @@ def caret(page, word, offset):
 
 def saved(page, client):
     """The first page's blocks as the server holds them, once the editor has saved a change."""
-    # The editor saves 1.1 s after a change in the `editor` fixture, 2 s for a teacher.
-    expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=5000)
+    # The editor saves 1.1 s after a change in the `editor` fixture, 2 s for a teacher. On a machine with more
+    # workers than cores the save went out 2.5 s after a paste and its answer took 2.5 s more, so 5 s were too few.
+    expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=15000)
     sheet_id = page.url.rsplit("/", 1)[1]
     return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
 

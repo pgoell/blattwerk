@@ -21,9 +21,11 @@ const Picture = memo(function Picture({ t }: { t: Template }) {
   );
 });
 
-type Props = { onPick: (t?: Template) => void; onClose: () => void };
+// `back` gives the button that opens the chooser as it stands now: the list draws that button anew once its sheets
+// have come, and the one that was pressed is then no longer on the page to take the focus back.
+type Props = { onPick: (t?: Template) => void; onClose: () => void; back?: () => HTMLElement | null };
 
-export default function NewSheet({ onPick, onClose }: Props) {
+export default function NewSheet({ onPick, onClose, back }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [templates, setTemplates] = useState<Template[]>();
   const [failed, setFailed] = useState(false);
@@ -38,7 +40,7 @@ export default function NewSheet({ onPick, onClose }: Props) {
     );
     return () => {
       on = false;
-      from?.focus?.();
+      (from?.isConnected ? from : back?.())?.focus?.();
     };
   }, []);
   const backdrop = useBackdrop(ref);

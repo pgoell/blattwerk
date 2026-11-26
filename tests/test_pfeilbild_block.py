@@ -248,7 +248,6 @@ def test_a_pfeilbild_on_page_2_keeps_its_props_through_a_save_and_a_reload(edito
 def test_a_pfeilbild_moved_to_page_2_keeps_its_props(editor):
     """Block actions: a Pfeilbild cut on page 1 and pasted on page 2 keeps type and props there."""
     client = user()
-    # theme="" opens the panel Seiten, which holds the page thumbnails.
     page = editor(
         arrows(),
         text(),

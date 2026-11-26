@@ -164,7 +164,7 @@ def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
         field = page.locator(".block textarea:focus")
     elif kind == "list":
         page.get_by_role("tab", name="Lernwörter").click()
-        field = page.get_by_label("Lernwörter", exact=True)
+        field = page.get_by_role("textbox", name="Lernwörter", exact=True)
     else:
         pick(page, "a")
         field = page.locator(".panel input.mm").first

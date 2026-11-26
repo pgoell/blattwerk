@@ -144,9 +144,6 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
             </div>
           )}
           {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
-          {/* A wide window's panel has no tabs, and its bar no room for one more mode: there this button leads to the
-              list, and "Start" in the bar leads back. */}
-          {tab === "Format" && !sel.length && leaf && <button onClick={() => setTab("Lernwörter")}>Lernwörter</button>}
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">

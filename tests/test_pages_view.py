@@ -3,7 +3,7 @@
 from playwright.sync_api import expect
 from ui import TEXT, box, doc, insert, user
 
-# The counter floats over the desk in the leaf theme, on a wide window.
+# The counter floats over the desk of a wide window.
 COUNTER = ".dock.at"
 
 

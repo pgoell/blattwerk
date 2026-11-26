@@ -5,7 +5,6 @@ loading page can paint the bar, and the watch keeps that. Holding the stylesheet
 order every time.
 """
 
-
 import pytest
 from conftest import WEBKIT
 from playwright.sync_api import expect

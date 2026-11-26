@@ -47,7 +47,7 @@ def test_a_set_row_height_comes_back_when_the_long_text_is_deleted(editor):
     before = block(page, client)
     rows_before = [mm_height(page, cell(page, "t", n)) for n in (0, 6)]
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert block(page, client)["h"] > before["h"] + 10
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
@@ -65,7 +65,7 @@ def test_a_table_goes_back_when_its_long_text_is_deleted(editor):
     page = editor(box("t", "table", GRID, h=H), client=client)
     rows_before = [mm_height(page, cell(page, "t", n)) for n in (0, 3, 6)]
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert block(page, client)["h"] > H + 20
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
@@ -83,7 +83,7 @@ def test_a_table_made_taller_by_hand_goes_back_to_that_height(editor):
     page = editor(box("t", "table", GRID, h=60), client=client)
     rows_before = [mm_height(page, cell(page, "t", n)) for n in (0, 3, 6)]
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG + " " + LONG)
+    page.keyboard.insert_text(LONG + " " + LONG)
     assert block(page, client)["h"] > 60
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
@@ -115,7 +115,7 @@ def test_a_height_set_on_a_table_grown_by_its_text_holds(editor):
     client = user()
     page = editor(box("t", "table", GRID, h=H), client=client)
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert 60 < block(page, client)["h"] < 85
     page.keyboard.press("Escape")
     pick(page, "t")
@@ -133,7 +133,7 @@ def test_a_shrunk_table_agrees_on_screen_thumb_and_pdf(editor, browser, server):
     client = user()
     page = editor(box("t", "table", GRID, h=H), client=client, seiten=True)
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     on_screen = cell(page, "t", 0)
@@ -162,12 +162,12 @@ def test_a_typed_height_holds_when_more_text_is_typed_and_deleted(editor):
     client = user()
     page = editor(box("t", "table", GRID, h=H), client=client)
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Escape")
     typed_height(page, 90)
     assert block(page, client)["h"] == 90
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - 90) <= 0.1
@@ -185,7 +185,7 @@ def test_a_dragged_height_holds_when_text_is_typed_and_deleted(editor):
     dragged = block(page, client)["h"]
     assert dragged > H + 5
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - dragged) <= 0.1
@@ -197,7 +197,7 @@ def test_a_typed_height_holds_when_the_text_goes_into_another_row(editor):
     page = editor(box("t", "table", GRID, h=H), client=client)
     typed_height(page, 90)
     open_cell(page, "t", 6)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - 90) <= 0.1
@@ -212,7 +212,7 @@ def test_a_table_with_solution_words_goes_back_when_its_long_text_is_deleted(edi
     )
     before = block(page, client)["h"]
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert block(page, client)["h"] > before + 10
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
@@ -227,13 +227,13 @@ def test_a_typed_height_holds_on_a_table_with_solution_words_after_typing_and_de
         box("t", "table", {**GRID, "gaps": gaps, "bank": 3}, w=W, h=50 + EDGE), client=client
     )
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Escape")
     # The long text alone needs some 96 mm: 120 is a height above that.
     typed_height(page, 120)
     assert block(page, client)["h"] == 120
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     assert block(page, client)["h"] > 130
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
@@ -247,7 +247,7 @@ def test_undo_brings_back_the_height_and_rows_before_a_typed_height(editor):
     client = user()
     page = editor(box("t", "table", GRID, h=H), client=client)
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Escape")
     start = block(page, client)
     typed_height(page, 90)
@@ -352,11 +352,11 @@ def test_a_turned_table_holds_its_typed_height(editor):
     client = user()
     page = editor(box("t", "table", GRID, h=H, angle=90), client=client)
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Escape")
     typed_height(page, 90)
     open_cell(page, "t", 3)
-    page.keyboard.type(LONG)
+    page.keyboard.insert_text(LONG)
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - 90) <= 0.1

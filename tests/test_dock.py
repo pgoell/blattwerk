@@ -214,9 +214,7 @@ ROOM = """() => {
 
 
 @pytest.mark.parametrize("width", [360, 700])
-def test_for_a_mouse_the_dock_lies_over_no_part_of_the_sheet_scrolled_to_its_end(
-    editor, width
-):
+def test_for_a_mouse_the_dock_lies_over_no_part_of_the_sheet_scrolled_to_its_end(editor, width):
     """A1, I2"""
     # A second page, so the desk has an end to scroll to and Blattform shows its page number.
     got = narrow(editor, width, more=[text("b")]).evaluate(ROOM)

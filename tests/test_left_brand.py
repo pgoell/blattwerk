@@ -1,4 +1,4 @@
-"""The logo stays at the top of the left sidebar of the leaf theme while the sidebar's content scrolls (#1084)."""
+"""The logo stays at the top of the left sidebar of a wide window while the sidebar's content scrolls (#1084)."""
 
 import re
 

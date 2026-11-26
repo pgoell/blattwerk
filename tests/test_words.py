@@ -34,19 +34,17 @@ def ready(page):
 
 
 def list_tab(page):
-    """Opens the word list: by the panel's tab in a narrow window, by the panel's button in a wide
-    one, which shows it while nothing is picked."""
+    """Opens the word list: by the panel's tab in a narrow window, by the tool under "Deutsch" in a
+    wide one."""
     tab = page.get_by_role("tab", name="Lernwörter")
     if tab.count():
         return tab.click()
-    knob = page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True)
-    if not knob.count():
-        page.keyboard.press("Escape")
-    knob.click()
+    seiten(page, False)
+    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
 
 
 def field(page):
-    return page.get_by_label("Lernwörter", exact=True)
+    return page.get_by_role("textbox", name="Lernwörter", exact=True)
 
 
 def undo(page):

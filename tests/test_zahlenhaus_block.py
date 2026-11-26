@@ -232,7 +232,6 @@ def test_a_house_on_page_2_keeps_its_props_through_a_save_and_a_reload(editor):
 def test_a_house_moved_to_page_2_keeps_its_props(editor):
     """A: block actions: a house cut on page 1 and pasted on page 2 keeps type and props there."""
     client = user()
-    # theme="" opens the panel Seiten, which holds the page thumbnails.
     page = editor(
         house(),
         text(),
