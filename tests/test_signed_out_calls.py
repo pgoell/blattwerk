@@ -159,6 +159,14 @@ def before(window, server, call):
             page.expect_response(re.compile("/api/connections$")),
         ):
             page.goto(start)
+    elif start == server + "/":
+        # The list asks for its sheets and for the Schulordner after its heading shows. One of them
+        # still out when the test takes the cookies brings the login before the call.
+        with (
+            page.expect_response(re.compile("/api/sheets$")),
+            page.expect_response(re.compile(r"/api/folder\?")),
+        ):
+            page.goto(start)
     else:
         page.goto(start)
     shown(page, server, start)
