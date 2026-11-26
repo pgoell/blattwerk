@@ -35,7 +35,16 @@ def test_with_cells_picked_their_settings_stand_under_their_own_heading(editor):
     expect(heading(page, "Ausgewählte Zellen (4)").filter(visible=True)).to_have_count(1)
     tab(page, "Aussehen").click()
     shown = page.locator(".panel h2").filter(visible=True)
-    expect(shown).to_have_text(["Ganze Tabelle", "Ausgewählte Zellen (4)", "Nummerierung"])
+    # The cells' padding and lines lie folded under headings of their own (#1189).
+    expect(shown).to_have_text(
+        [
+            "Ganze Tabelle",
+            "Ausgewählte Zellen (4)",
+            "Innenabstand",
+            "Linien und Rahmen",
+            "Nummerierung",
+        ]
+    )
     # Each font list has its name over it, and the size and the marks belong to the cells.
     expect(page.locator(".panel .cap").filter(visible=True)).to_have_text(["Schriftart"] * 2)
     cells = heading(page, "Ausgewählte Zellen (4)")

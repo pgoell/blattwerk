@@ -269,10 +269,9 @@ def test_tab_reaches_the_mix_controls_and_space_and_enter_press_them(editor):
     client = user()
     page = editor(box("a", "text", SCHUTTEL), client=client)
     pick(page, "a")
-    page.get_by_label("Zeilenabstand").focus()
-    # Zeichenabstand sits between Zeilenabstand and Nachspurtext, and Zeichen's
-    # six stops sit between Silbenfarbe and Lücke.
-    for _ in range(15):
+    page.locator(".panel").get_by_label("Nachspurtext").focus()
+    # Zeichen's six stops sit between Silbenfarbe and Lücke.
+    for _ in range(13):
         page.keyboard.press("Tab")
     expect(panel(page, "Lösungswörter")).to_be_focused()
     # The choice of the text's source stands between the gaps and the mix.

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TEMPLATES, embed, sane, type FormulaProps } from "../../formula";
 import { Formula } from "../../sheet/formulaView";
 import type { FormulaBlock } from "../../sheet";
+import { Fold } from "./pane";
 
 export function FormulaFields({ source, onChange }: { source: string; onChange: (source: string) => void }) {
   return (
@@ -44,12 +45,11 @@ export function FormulaPanel({ block, apply }: { block: FormulaBlock; apply: (pr
 export function FormulaInsert({ onInsert }: { onInsert: (text: string) => void }) {
   const [source, setSource] = useState<string>(TEMPLATES[0].source);
   return (
-    <>
-      <h2>Formel</h2>
+    <Fold title="Formel">
       <FormulaFields source={source} onChange={setSource} />
       <button type="button" aria-label="Formel einfügen" onClick={() => onInsert(embed(source))}>
         Einfügen
       </button>
-    </>
+    </Fold>
   );
 }

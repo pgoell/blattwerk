@@ -207,6 +207,18 @@
 .pane { display: contents; }
 .panel[data-open=Aufgaben] .pane:not([data-pane=Aufgaben]) > :not(.pane),
 .panel[data-open=Aussehen] .pane:not([data-pane=Aussehen]) > :not(.pane),
-.panel[data-open=Lage] .pane:not([data-pane=Lage]) > :not(.pane) { display: none; }
+.panel[data-open=Lage] .pane:not([data-pane=Lage]) > :not(.pane) { display: none !important; }
+/* A heading that folds its settings away: the whole line is the button, with the heading's own letters. */
+.panel h2.fold { padding: 6px 0 0; }
+.panel h2.fold button {
+  display: flex; align-items: center; justify-content: flex-start; gap: 4px; width: 100%; min-height: 28px; margin: 0 0 0 -3px; padding: 0;
+  border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.panel h2.fold button:hover { color: var(--ink); }
+/* A table's rows and columns are counted side by side; beside a cell being written they are buttons, row by row. */
+.panel .ranks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.panel .ranks.cut { display: contents; }
+.panel .ranks:not(.cut) .seg button { flex: 0 0 20px; padding: 0; }
+.panel .ranks:not(.cut) .seg output { flex: 1; min-width: 0; padding: 0; font-size: 11px; white-space: nowrap; }
 /* The name over a control that has none of its own beside it, such as a font list. */
 .panel .cap { margin: 0 0 4px; font-weight: 500; }

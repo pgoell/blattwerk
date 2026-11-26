@@ -58,6 +58,9 @@ ORDER = {
             "Text anpassen",
             *FONT,
             "Sonderzeichen",
+            *PLACE,
+            # Formel stands after the script, from Farbe to Zeichenabstand (#1189).
+            *TURN[:3],
             "Formel",
             "Bruch",
             "Gemischt",
@@ -66,8 +69,7 @@ ORDER = {
             "Index",
             "Leerstelle",
             "Formel einfügen",
-            *PLACE,
-            *TURN[:-2],
+            *TURN[3:-2],
             "Zeilennummern",
             *TURN[-2:],
             *OUTLINE,
@@ -227,7 +229,7 @@ def test_tab_walks_the_panel_in_its_order(editor, kind):
 
 
 def test_tab_walks_the_new_settings_of_vergleichen(editor):
-    """I4: After Vergleichen, Tab walks Seiten, the Abstand and = buttons, then the count."""
+    """I4: After Vergleichen, Tab walks Seiten, the Abstand and = buttons, then the rarer settings."""
     client = user()
     page = editor(box("a", "maths", maths(client, format="compare")), client=client)
     press(page, at(page, "a"))
@@ -242,7 +244,7 @@ def test_tab_walks_the_new_settings_of_vergleichen(editor):
         page.keyboard.press("Tab")
     expect(page.locator(":focus")).to_have_text("Vergleichen")
     # Each button of a seg is a stop of its own, as the buttons of Wörterliste and Nur Anzahl are.
-    order = ["Seiten", "Beliebig", "Knapp", "Keine mit =", "Einige mit =", "Eine Aufgabe weniger"]
+    order = ["Seiten", "Beliebig", "Knapp", "Keine mit =", "Einige mit =", "Aufgaben mit 0"]
     for label in order:
         page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
@@ -250,7 +252,7 @@ def test_tab_walks_the_new_settings_of_vergleichen(editor):
 
 
 def test_tab_walks_the_new_settings_of_three_numbers(editor):
-    """I4: After Vergleichen, Tab walks 2 Zahlen, 3 Zahlen, Punkt vor Strich, mit Klammern."""
+    """I4: Among the rarer settings Tab walks 2 Zahlen, 3 Zahlen, Punkt vor Strich, mit Klammern."""
     client = user()
     # + and * with three numbers leave nothing greyed, so Tab reaches every switch.
     page = editor(
@@ -259,15 +261,15 @@ def test_tab_walks_the_new_settings_of_three_numbers(editor):
     press(page, at(page, "a"))
     expect_picked(page, "a")
     # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
-    # there to the formats.
+    # there to the numbers of a sum.
     for _ in range(3):
         page.keyboard.press("F6")
-    for _ in range(60):
-        if page.locator(":focus").inner_text() == "Vergleichen":
+    for _ in range(80):
+        if page.locator(":focus").get_attribute("aria-label") == "2 Zahlen":
             break
         page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_text("Vergleichen")
-    order = ["2 Zahlen", "3 Zahlen", "Punkt vor Strich", "mit Klammern", "Eine Aufgabe weniger"]
+    expect(page.locator(":focus")).to_have_accessible_name("2 Zahlen")
+    order = ["3 Zahlen", "Punkt vor Strich", "mit Klammern", "Eine Aufgabe weniger"]
     for label in order:
         page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
@@ -275,22 +277,22 @@ def test_tab_walks_the_new_settings_of_three_numbers(editor):
 
 
 def test_the_decimal_controls_stand_in_the_tab_order_and_work_from_the_keyboard(editor):
-    """I6: After Zahlenraum, Tab walks the Nachkommastellen and Geld; Enter on 1 sets it."""
+    """I6: Tab walks the Nachkommastellen and Geld, one after the other; Enter on 1 sets it."""
     client = user()
     page = editor(box("a", "maths", maths(client, ops=["+"], max=20)), client=client)
     press(page, at(page, "a"))
     expect_picked(page, "a")
     # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
-    # there to the Zahlenraum.
+    # there to the first of them, among the rarer settings.
     for _ in range(3):
         page.keyboard.press("F6")
-    for _ in range(60):
-        if page.locator(":focus").get_attribute("aria-label") == "Zahlenraum":
+    for _ in range(80):
+        if page.locator(":focus").get_attribute("aria-label") == "0 Nachkommastellen":
             break
         page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name("Zahlenraum")
     for label in ["0 Nachkommastellen", "1 Nachkommastelle", "2 Nachkommastellen", "Geld"]:
-        page.keyboard.press("Tab")
+        if label != "0 Nachkommastellen":
+            page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
         if label == "1 Nachkommastelle":
             page.keyboard.press("Enter")
@@ -329,7 +331,7 @@ def test_tab_reaches_the_families_and_the_keyboard_sets_them(editor):
 
 
 def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(editor):
-    """I1: Tab from the Rechenart buttons reaches the four switches, then the Lücke boxes."""
+    """I1: Tab reaches the Lücke boxes after the formats, then the four switches."""
     client = user()
     props = maths(client, ops=["+", "*"], max=20, count=4, format="gap")
     page = editor(box("a", "maths", props), client=client)
@@ -338,26 +340,7 @@ def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(e
     # F6 goes from the sheet to the bar Einfügen, the header and the panel, as in the test above.
     for _ in range(3):
         page.keyboard.press("F6")
-    # The switches come straight after the Rechenart buttons: Tab from the last one, ":".
-    for _ in range(60):
-        if page.locator(":focus").inner_text() == ":":
-            break
-        page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name(":")
-    page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name("Aufgaben mit 0")
-    page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name(
-        "Aufgaben mit 1 beim Malnehmen und Teilen"
-    )
-    page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name("Kleines Einmaleins")
-    page.keyboard.press("Tab")
-    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
-    page.keyboard.press("Space")
-    expect_lit(page.locator(":focus"), "true")
-    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
-    # The gap boxes come after the Format buttons; Tab walks there.
+    # The gap boxes come after the Format buttons; Tab walks there from the panel's top.
     for _ in range(60):
         if page.locator(":focus").get_attribute("aria-label") == "Lücke: 1. Zahl":
             break
@@ -370,3 +353,21 @@ def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(e
     page.keyboard.press("Enter")
     expect_lit(page.locator(":focus"), "true")
     expect_picked(page, "a")
+
+    # The four switches are the first of the rarer settings, after the gap boxes.
+    for _ in range(60):
+        if page.locator(":focus").get_attribute("aria-label") == "Aufgaben mit 0":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Aufgaben mit 0")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name(
+        "Aufgaben mit 1 beim Malnehmen und Teilen"
+    )
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Kleines Einmaleins")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
+    page.keyboard.press("Space")
+    expect_lit(page.locator(":focus"), "true")
+    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
