@@ -211,7 +211,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 }
                 onInsert={typeChar}
                 markEven={session.markEven}
-                toList={() => setTab("Lernwörter")}
+                listing={{ write: session.listWords, crowded: session.crowded, aim: session.aimList }}
               />
               {helping && help && (
                 <TextHelp

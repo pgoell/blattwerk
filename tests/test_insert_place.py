@@ -52,7 +52,7 @@ INSERTS = {
     "Tabelle": (add_by_button, "Tabelle"),
     "Lineatur": (add_by_button, "Lineatur"),
     "Namenszeile": (add_by_button, "Namenszeile"),
-    "Punkte": (add_by_button, "Punkte"),
+    "Punkte": (add_by_button, "Punktefeld"),
     "Suchsel": (add_by_button, "Suchsel"),
     "Symbol": (add_by_button, "Symbol"),
     "Strecke": (add_by_button, "Strecke"),
@@ -84,7 +84,7 @@ def test_an_insert_with_no_room_below_takes_the_first_free_spot(editor):
     so it takes the first free spot of the page, the top-left margin."""
     client = user()
     page = editor(box("low", "text", TEXT, y=260, h=10, w=180), client=client)
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, {"low"})
     assert (block["x"], block["y"]) == (15, 15)
 
@@ -124,7 +124,7 @@ def test_an_insert_on_an_empty_page_lands_as_before(editor):
     """#293: with no block to go under, the block comes centred to the top of the view."""
     client = user()
     page = editor(client=client)
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, set())
     assert (block["x"], block["y"]) == (85, 15)
 
@@ -134,7 +134,7 @@ def test_an_insert_while_a_block_is_picked_takes_the_same_spot(editor):
     client = user()
     page = editor(*TOP, client=client)
     pick(page, "heading")
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, {"name", "heading"})
     assert (block["x"], block["y"]) == (15, 51)
     expect(page.locator(".block.sel")).to_have_attribute("data-id", block["id"])
@@ -149,14 +149,13 @@ def test_an_insert_under_a_block_at_the_right_stays_on_the_page(editor):
     assert (block["x"], block["y"]) == (15, 115)
 
 
-def test_the_knickblatt_button_goes_under_the_lowest_block(editor):
-    """#293: the Knickblatt is 180 mm wide and six rows high, and lands 5 mm under the heading."""
+def test_the_lernwoerter_tool_goes_under_the_lowest_block(editor):
+    """#293: the Lernwörter are 180 mm wide and five rows high, and land 5 mm under the heading."""
     client = user()
     page = editor(*TOP, client=client, seiten=True, words=["Hund", "Katze", "Maus"])
     list_tab(page)
-    page.get_by_role("button", name="Knickblatt", exact=True).click()
-    [blatt] = rulings(doc(page, client))
-    assert (blatt["x"], blatt["y"]) == (15, 51)
+    [lines] = rulings(doc(page, client))
+    assert (lines["x"], lines["y"], lines["w"], lines["h"]) == (15, 51, 180, 100)
 
 
 def test_a_block_under_the_view_is_brought_into_it(editor):
@@ -166,7 +165,7 @@ def test_a_block_under_the_view_is_brought_into_it(editor):
     wheel(page, -300)
     page.locator(".desk").evaluate("d => (d.scrollTop = 0)")
     expect(at(page, "low")).not_to_be_in_viewport()
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, {"low"})
     assert (block["x"], block["y"]) == (15, 219)
     expect(at(page, block["id"])).to_be_in_viewport()
@@ -227,7 +226,7 @@ def test_on_a_later_page_the_block_goes_under_its_lowest_block_first(editor):
     # Down to 275 mm: no room for a Punkte box under it, nor anywhere else on page 1.
     fuller = box("full", "text", TEXT, x=15, y=50, h=225, w=180)
     page = editor(*TOP, fuller, pages=[{"blocks": [top]}], client=client)
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, {"name", "heading", "full", "top"})
     assert page_of(client, page, block["id"]) == 1
     assert (block["x"], block["y"]) == (15, 50)
@@ -269,7 +268,7 @@ def test_a_turned_block_counts_by_the_box_it_fills(editor):
     """#630: a text turned upright fills 100 to 110 mm across: a Punkte goes under it."""
     client = user()
     page = editor(box("up", "text", TEXT, x=15, y=100, w=180, h=10, angle=90), client=client)
-    add_by_button(page, "Punkte")
+    add_by_button(page, "Punktefeld")
     block = new_block(page, client, {"up"})
     assert (block["x"], block["y"]) == (100, 200)
     assert drawn_overlaps(page, block["id"]) == []

@@ -12,7 +12,7 @@ from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_gaps import panel, step
 from test_painter import held
-from test_words import field, list_tab, redo, undo
+from test_words import field, redo, undo
 from ui import (
     FIELD,
     LINE,
@@ -123,7 +123,7 @@ def test_a_change_to_the_list_reaches_every_fed_block_in_one_undo_step(editor):
 
     for block in fed():
         expect(block).to_have_count(len(WORDS))
-    list_tab(page)
+    pick(page, "k")
     field(page).press("Control+End")
     field(page).press_sequentially("\nIgel")
     for block in fed():
@@ -220,13 +220,17 @@ def test_a_linked_text_opens_no_field(editor, how):
     assert stored["words"] == WORDS
 
 
-def test_lernwoerter_bearbeiten_leads_to_the_list(editor):
-    """I1: "Lernwörter bearbeiten" opens the list in its tab, with the words in it."""
+def test_a_linked_text_has_the_list_in_its_panel(editor):
+    """I1: the panel of a text that shows the list has the list's field, with the words in it,
+    and a word typed there is on the text."""
     client = user()
     page = editor(box("a", "text", LISTED), client=client, words=WORDS)
     pick(page, "a")
-    panel(page, "Lernwörter bearbeiten").click()
     expect(field(page)).to_have_value("\n".join(WORDS))
+    field(page).press("Control+End")
+    field(page).press_sequentially("\nIgel")
+    expect(at(page, "a").locator(".frame.listed .rich p")).to_have_count(len(WORDS) + 1)
+    assert doc(page, client)["words"] == [*WORDS, "Igel"]
 
 
 def test_a_linked_block_grows_to_hold_the_list(editor):
@@ -238,7 +242,6 @@ def test_a_linked_block_grows_to_hold_the_list(editor):
     page.get_by_label(CHOICE).select_option(label="Text aus Lernwörtern")
     grown = heights(page, client)["a"]
     assert grown > 10
-    list_tab(page)
     field(page).press("Control+End")
     field(page).press_sequentially("\nIgel")
     assert heights(page, client)["a"] > grown

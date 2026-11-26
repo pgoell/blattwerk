@@ -60,10 +60,11 @@ describe("INSERTS", () => {
     expect(INSERTS.shape("triangle")).toMatchObject({ w: 40, h: 40, props: { kind: "triangle", inside: true } });
   });
 
-  it("the Lernwörter-Liste: a row per word, at least one row", () => {
-    // Edge: no words still gives one row (row 11.5 mm, page 210 x 297, margin 15).
-    expect(INSERTS.wordList(0, [210, 297], 11.5)).toMatchObject({ w: 180, h: 11.5, type: "ruling", props: { kind: "l3", list: "fold", folds: 2 } });
-    expect(INSERTS.wordList(3, [210, 297], 11.5)).toMatchObject({ w: 180, h: 34.5 });
+  it("the Lernwörter: a row per word, five rows at least, and no more than the page holds", () => {
+    // Edge: no words still gives five rows (row 20 mm, page 210 x 297, margin 15).
+    expect(INSERTS.learn(0, [210, 297], 20)).toMatchObject({ w: 180, h: 100, type: "ruling", props: { kind: "l1", list: "copy" } });
+    expect(INSERTS.learn(7, [210, 297], 20)).toMatchObject({ w: 180, h: 140 });
+    expect(INSERTS.learn(40, [210, 297], 20)).toMatchObject({ w: 180, h: 260 });
   });
 });
 

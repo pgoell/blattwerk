@@ -5,18 +5,13 @@ from itertools import pairwise
 from playwright.sync_api import expect
 from test_templates_panel import apply as apply_template
 from test_templates_panel import open_panel
-from test_words import doc, field, rulings, store_words, undo
-from ui import TEXT, box, user
-
-
-def list_tab(page):
-    """Blattform has no tab for the list: Start in the bar, then the button Lernwörter."""
-    page.get_by_role("tab", name="Start").click()
-    page.get_by_role("button", name="Lernwörter", exact=True).click()
-
+from test_words import blatt, doc, field, rulings, undo
+from ui import TEXT, at, box, user
 
 SIX = ["Hund", "Katze", "Maus", "Reh", "Igel", "Fuchs"]
 FOURTEEN = [f"Wort{i}" for i in range(14)]
+# Six rows of Lineatur 1, 20 mm each, from 55 mm down.
+ONE = {"kind": "l1", "color": "#555555", "list": "copy"}
 
 
 def linked(stored, n=0):
@@ -24,19 +19,18 @@ def linked(stored, n=0):
 
 
 def add_word(page, word):
-    list_tab(page)
+    """Types a word more into the list, in the panel of the page's first block that shows it."""
+    if not field(page).count():
+        page.locator(".sheet .block:has(.listed)").first.click()
     field(page).focus()
     page.keyboard.press("Control+End")
     page.keyboard.press("Enter")
     page.keyboard.type(word)
 
 
-def test_a_word_added_later_adds_a_row_to_the_template_ruling(editor):
+def test_a_word_added_later_adds_a_row_to_the_ruling(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=SIX)
-    open_panel(page)
-    apply_template(page, "Lernwörter")
-    assert linked(doc(page, client))[0]["h"] == 120
+    page = editor(box("r", "ruling", ONE, y=55, h=120), client=client, words=SIX)
     add_word(page, "Garten")
     assert linked(doc(page, client))[0]["h"] == 140
     expect(page.locator(".panel [role=status]")).to_have_count(0)
@@ -44,32 +38,34 @@ def test_a_word_added_later_adds_a_row_to_the_template_ruling(editor):
 
 def test_the_ruling_stops_at_the_margin_and_warns(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=FOURTEEN)
-    open_panel(page)
-    apply_template(page, "Lernwörter")
+    page = editor(box("r", "ruling", ONE, y=55, h=120), client=client, words=SIX)
+    at(page, "r").click()
+    field(page).fill("\n".join(FOURTEEN))
     grown = linked(doc(page, client))[0]
     # Eleven rows reach 275 mm; the margin lies at 282 mm.
     assert grown["h"] == 220
     assert grown["y"] + grown["h"] <= 282
-    list_tab(page)
-    warning = "In einer Lineatur passen 3 Wörter nicht in die Zeilen."
-    expect(page.locator(".panel [role=status]")).to_have_text(warning)
+    expect(page.locator(".panel [role=status]")).to_have_text(
+        "3 Wörter passen nicht in die Zeilen."
+    )
 
 
 def test_a_template_applied_over_a_longer_list_shows_every_word(editor):
+    """The template's page holds six words; the two more go on a second page, for each exercise."""
     client = user()
     words = [f"Wort{i}" for i in range(8)]
     page = editor(box("a", "text", TEXT), client=client, words=words)
     open_panel(page)
     apply_template(page, "Lernwörter")
-    assert linked(doc(page, client))[0]["h"] == 160
+    stored = doc(page, client)
+    assert len(stored["pages"]) == 2
+    assert [rows_of(b) for b in linked(stored)] == [6, 6, 6]
+    assert [(b["props"]["from"], rows_of(b)) for b in linked(stored, 1)] == [(6, 2)] * 3
 
 
 def test_undo_takes_back_the_word_and_its_row_in_one_step(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=SIX)
-    open_panel(page)
-    apply_template(page, "Lernwörter")
+    page = editor(box("r", "ruling", ONE, y=55, h=120), client=client, words=SIX)
     add_word(page, "Garten")
     assert linked(doc(page, client))[0]["h"] == 140
     undo(page)
@@ -86,19 +82,15 @@ def rows_of(block):
     return round(block["h"] / 11.5)
 
 
-def test_a_word_added_to_the_blatt_reaches_copy_trace_and_row(editor):
+def test_a_word_added_to_the_three_exercises_reaches_copy_trace_and_row(editor):
     """#739: five words leave room once the lower rulings move down, so the sixth reaches every ruling."""
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    store_words(page, client, FIVE)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
-    before = sorted(linked(doc(page, client), 1), key=lambda b: b["y"])
-    assert [b["props"]["kind"] for b in before] == ["l3", "l3", "l3"]
+    page = editor(*blatt(5), client=client, words=FIVE)
+    before = sorted(linked(doc(page, client)), key=lambda b: b["y"])
     assert [rows_of(b) for b in before] == [5, 5, 5]
     add_word(page, "Garten")
     stored = doc(page, client)
-    lines = sorted(linked(stored, 1), key=lambda b: b["y"])
+    lines = sorted(linked(stored), key=lambda b: b["y"])
     assert [rows_of(b) for b in lines] == [6, 6, 6]
     assert lines[0]["y"] == before[0]["y"]
     assert lines[1]["y"] > before[1]["y"]
@@ -106,28 +98,25 @@ def test_a_word_added_to_the_blatt_reaches_copy_trace_and_row(editor):
     assert lines[2]["y"] + lines[2]["h"] <= 282
     for upper, lower in pairwise(lines):
         assert upper["y"] + upper["h"] <= lower["y"]
-    assert len(stored["pages"]) == 2
+    assert len(stored["pages"]) == 1
     expect(page.locator(".panel [role=status]")).to_have_count(0)
     undo(page)
     back = doc(page, client)
-    assert len(back["pages"]) == 2
-    assert [rows_of(b) for b in sorted(linked(back, 1), key=lambda b: b["y"])] == [5, 5, 5]
+    assert len(back["pages"]) == 1
+    assert [rows_of(b) for b in sorted(linked(back), key=lambda b: b["y"])] == [5, 5, 5]
     assert len(back["words"]) == 5
 
 
-def test_a_word_past_the_blatt_page_runs_on_for_every_ruling(editor):
+def test_a_word_past_the_page_runs_on_for_every_ruling(editor):
     """#739: six words already fill the page. The seventh is a new page of copy, trace and row."""
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    store_words(page, client, SIX)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    page = editor(*blatt(6), client=client, words=SIX)
     add_word(page, "Garten")
     stored = doc(page, client)
-    first = sorted(linked(stored, 1), key=lambda b: b["y"])
+    first = sorted(linked(stored), key=lambda b: b["y"])
     assert [rows_of(b) for b in first] == [6, 6, 6]
-    assert len(stored["pages"]) == 3
-    second = sorted(linked(stored, 2), key=lambda b: b["y"])
+    assert len(stored["pages"]) == 2
+    second = sorted(linked(stored, 1), key=lambda b: b["y"])
     assert [b["props"]["list"] for b in second] == ["copy", "trace", "row"]
     assert [b["props"].get("from") for b in second] == [6, 6, 6]
     assert [rows_of(b) for b in second] == [1, 1, 1]
@@ -135,18 +124,15 @@ def test_a_word_past_the_blatt_page_runs_on_for_every_ruling(editor):
     expect(page.locator(".panel [role=status]")).to_have_count(0)
     undo(page)
     back = doc(page, client)
-    assert len(back["pages"]) == 2
+    assert len(back["pages"]) == 1
     assert len(back["words"]) == 6
 
 
-def test_the_lernwoerter_blatt_rulings_do_not_overlap_when_a_word_comes(editor):
+def test_the_three_exercises_do_not_overlap_when_a_word_comes(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    store_words(page, client, SIX)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    page = editor(*blatt(5), client=client, words=FIVE)
     add_word(page, "Garten")
-    lines = sorted(linked(doc(page, client), 1), key=lambda b: b["y"])
+    lines = sorted(linked(doc(page, client)), key=lambda b: b["y"])
     assert len(lines) == 3
     for upper, lower in pairwise(lines):
         assert upper["y"] + upper["h"] <= lower["y"]
@@ -166,4 +152,4 @@ def test_a_template_over_two_words_keeps_its_six_rows(editor):
     page = editor(box("a", "text", TEXT), client=client, words=["Hund", "Katze"])
     open_panel(page)
     apply_template(page, "Lernwörter")
-    assert linked(doc(page, client))[0]["h"] == 120
+    assert [b["h"] for b in linked(doc(page, client))] == [69, 69, 69]

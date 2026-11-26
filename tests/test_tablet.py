@@ -5,7 +5,7 @@ from playwright.sync_api import expect
 from ui import RECT, TEXT, at, bar, box, centre, expect_lit, expect_picked, maths, user
 from ui_touch import swipe
 
-GROUPS = ["Mehrere", "Text", "Bild", "Schreiben", "Mathe", "Tabelle", "Formen", "Seiten"]
+GROUPS = ["Mehrere", "Einfügen", "Deutsch", "Mathe", "Formen", "Seiten"]
 BLOCKS = ".block[data-id]"
 
 
@@ -54,9 +54,11 @@ def test_the_rail_holds_each_group_with_its_name_and_no_dock(editor):
 @pytest.mark.parametrize(
     ("name", "tools"),
     [
-        ("Text", ["Text", "Überschrift"]),
-        ("Bild", ["Bild", "Symbol"]),
-        ("Schreiben", ["Lineatur", "Namenszeile", "Punkte", "Suchsel"]),
+        (
+            "Einfügen",
+            ["Text", "Überschrift", "Bild", "Symbol", "Tabelle", "Namenszeile", "Punktefeld"],
+        ),
+        ("Deutsch", ["Lineatur", "Lernwörter", "Suchsel"]),
     ],
 )
 def test_a_group_of_several_tools_lists_them_and_a_tap_adds_one(editor, name, tools):
@@ -70,13 +72,6 @@ def test_a_group_of_several_tools_lists_them_and_a_tap_adds_one(editor, name, to
     menu.get_by_role("menuitem", name=tools[-1], exact=True).tap()
     expect(menu).to_have_count(0)
     expect(page.locator(BLOCKS)).to_have_count(2)
-
-
-def test_tabelle_adds_a_table_at_once(editor):
-    page = upright(editor)
-    group(page, "Tabelle").tap()
-    expect(page.locator(f"{BLOCKS} .table")).to_have_count(1)
-    expect(page.locator("dialog.menu")).to_have_count(0)
 
 
 def test_formen_lists_every_shape(editor):

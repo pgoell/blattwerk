@@ -72,7 +72,7 @@ Build each one on a new sheet from `Meine Blätter` (`Neues Blatt`, then `Leeres
 
 1. Click `Überschrift`, type `Seite eins`. Click `Text`, type `Lies den Text und male ein Bild dazu.`
 2. Click `Neue Seite`. A second, empty page comes and is the one in use.
-3. On page 2: click `Überschrift`, type `Seite zwei`. Click `Punkte`.
+3. On page 2: click `Überschrift`, type `Seite zwei`. Click `Punktefeld`.
 4. Click the tab `Ansicht`. Under `Format, Raster und Hilfslinien für` pick `Nur diese Seite`, then under `Format` pick `Quer`. Page 2 now lies on its side and page 1 stands upright.
 5. Set the title in the window that built the sheet, before you change windows:
    - built in the MCP page: `take_snapshot`, click `Titel` by its uid, `press_key` Control+A, `type_text` `TR4 Zwei Seiten`, `press_key` Enter, then `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. Remember that the MCP page cannot scroll back to page 1: it has no wheel and `PageUp` does nothing there.

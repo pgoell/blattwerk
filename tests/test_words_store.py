@@ -8,6 +8,7 @@ from test_feed_print import sheet_id
 from test_words import (
     LINKED,
     LONG,
+    blatt,
     editor,  # noqa: F401
     field,
     list_tab,
@@ -17,11 +18,11 @@ from test_words import (
     store_words,
 )
 from ui import (
-    TEXT,
     at,
     box,
     copy_text,
     doc,
+    pick,
     sheet,
     user,
 )
@@ -30,11 +31,12 @@ from ui import (
 def test_a_paste_beside_a_word_joins_no_word_to_it(editor):
     """Review: pasted words keep to lines of their own, behind a word and before one."""
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    list_tab(page)
+    page = editor(box("r", "ruling", LINKED), client=client)
+    pick(page, "r")
     field(page).click()
     page.keyboard.type("Igel")
     copy_text(page, "Hund, Katze")
+    pick(page, "r")
     field(page).focus()
     page.keyboard.press("Control+End")
     page.keyboard.press("Control+v")
@@ -94,31 +96,37 @@ def test_a_change_kept_by_an_older_build_takes_the_sheets_list_and_deletes_none(
     assert rulings(back)[0]["x"] == 30
 
 
-def test_the_run_on_blatt_prints_its_later_words_on_its_later_pages(editor, server):
-    """#416 the PDF has a page per sheet page, and the Blatt's page 2 shows the 10th word on."""
+def run_on(editor, client):
+    """The three exercises with six rows each, and a list of 25 words typed over their six: it
+    runs on over four pages, as a page without the heading holds seven rows to a Lineatur."""
+    page = editor(*blatt(6), client=client, words=LONG[:6])
+    pick(page, "copy")
+    field(page).fill("\n".join(LONG))
+    assert len(doc(page, client)["pages"]) == 4
+    return page
+
+
+def test_the_run_on_pages_print_their_later_words(editor, server):
+    """#416 the PDF has a page per sheet page, and page 2 shows the 7th word on."""
     client = user()
-    page = editor(client=client, words=LONG)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
-    assert len(doc(page, client)["pages"]) == 3
+    page = run_on(editor, client)
     texts = pdf_pages(server, client, sheet_id(page))
-    assert len(texts) == 3
-    assert "Wort00" in texts[0] and "Wort09" not in texts[0]
-    assert "Wort09" in texts[1] and "Wort00" not in texts[1]
-    assert "Wort18" in texts[2] and "Wort17" not in texts[2]
+    assert len(texts) == 4
+    assert "Wort00" in texts[0] and "Wort06" not in texts[0]
+    assert "Wort06" in texts[1] and "Wort00" not in texts[1]
+    assert "Wort24" in texts[3] and "Wort19" not in texts[3]
 
 
 def test_words_taken_out_leave_the_run_on_page_empty_with_no_warning(editor, server):
-    """#416 a Blatt page past the list shows empty rows and the tab says nothing."""
+    """#416 a run-on page past the list shows empty rows and the panel says nothing."""
     client = user()
-    page = editor(client=client, words=LONG)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
-    assert len(doc(page, client)["pages"]) == 3
-    store_words(page, client, LONG[:12])
+    page = run_on(editor, client)
+    store_words(page, client, LONG[:8])
+    pick(page, "copy")
+    expect(field(page)).to_be_visible()
     expect(page.locator(".panel [role=status]")).to_have_count(0)
     texts = pdf_pages(server, client, sheet_id(page))
-    assert "Wort09" in texts[1] and "Wort11" in texts[1]
+    assert "Wort06" in texts[1] and "Wort07" in texts[1]
     assert "Wort" not in texts[2]
 
 

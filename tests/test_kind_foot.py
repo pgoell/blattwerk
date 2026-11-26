@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_fix_blatt import pdf_pages
+from test_words import pdf_pages
 from ui import RULING, TEXT, box, pick, saved, thumb, user
 
 SENTENCE = "Am Montag gehen wir mit der ganzen Klasse in den Wald und sammeln bunte Blaetter, Eicheln und Kastanien fuer unser grosses Herbstbild im Klassenzimmer. Danach malen wir Regenschirme."

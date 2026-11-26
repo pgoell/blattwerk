@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MARGIN, rowsOf, type Block, type Doc, type RulingBlock } from "./sheet";
-import { blatt, follow, followDoc } from "./words";
+import { follow, followDoc } from "./words";
+import { blatt } from "./words.fixture";
 
 const words = (n: number) => Array.from({ length: n }, (_, i) => `wort${i}`);
 
@@ -12,7 +13,7 @@ function lines(blocks: Block[]): RulingBlock[] {
   return blocks.filter((b): b is RulingBlock => b.type === "ruling").sort((a, b) => a.y - b.y);
 }
 
-describe("a stacked Lernwörter-Blatt", () => {
+describe("the three exercises of the template Lernwörter, stacked", () => {
   it("gives every ruling the new word when the page can hold the stack", () => {
     const out = lines(follow(laid(5), words(6), 210, 297));
     expect(out.map(rowsOf)).toEqual([6, 6, 6]);

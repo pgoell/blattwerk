@@ -9,9 +9,11 @@ from test_words import (
     MODES,
     editor,  # noqa: F401
     field,
+    link,
     list_tab,
     ready,
     rulings,
+    sollen,
     store_words,
     undo,
 )
@@ -27,29 +29,50 @@ from ui import (
 )
 
 
-def test_the_list_typed_in_the_tab_is_stored_with_the_sheet(editor):
+def test_the_tool_puts_lines_on_the_sheet_and_the_list_typed_there_is_stored(editor):
+    """The tool "Lernwörter" adds a Lineatur that shows the list, picked, and on a sheet without
+    words the list's field has the keys."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
-    list_tab(page)
-    field(page).click()
+    page.locator(".insert, .dock").get_by_role("button", name="Lernwörter", exact=True).click()
+    expect(field(page)).to_be_focused()
     page.keyboard.type("Hund")
     page.keyboard.press("Enter")
     page.keyboard.type("Katze")
-    assert doc(page, client)["words"] == ["Hund", "Katze"]
+    stored = doc(page, client)
+    assert stored["words"] == ["Hund", "Katze"]
+    (made,) = rulings(stored)
+    assert made["props"]["list"] == "copy"
+    assert (made["w"], made["h"]) == (180, 100)
+    expect(at(page, made["id"]).locator(".listed .row span").first).to_have_text("Hund")
     page.reload()
     ready(page)
-    list_tab(page)
+    at(page, made["id"]).click()
     expect(field(page)).to_have_value("Hund\nKatze")
+    expect(field(page)).not_to_be_focused()
+
+
+def test_the_tool_on_a_sheet_with_words_gives_each_word_a_row_and_leaves_the_keys(editor):
+    client = user()
+    words = ["Hund", "Katze", "Maus", "Reh", "Igel", "Kuh", "Esel"]
+    page = editor(box("a", "text", TEXT), client=client, words=words)
+    list_tab(page)
+    (made,) = rulings(doc(page, client))
+    assert made["h"] == 140
+    expect(page.locator(".block.sel")).to_have_count(1)
+    expect(field(page)).not_to_be_focused()
+    expect(sollen(page)).to_have_value("copy")
 
 
 def test_a_pasted_list_lands_one_word_to_a_line(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    list_tab(page)
+    page = editor(box("r", "ruling", LINKED), client=client)
+    pick(page, "r")
     field(page).click()
     page.keyboard.type("Igel")
     page.keyboard.press("Enter")
     copy_text(page, "Hund, Katze;Maus\r\nReh")
+    pick(page, "r")
     field(page).focus()
     page.keyboard.press("Control+End")
     page.keyboard.press("Control+v")
@@ -63,8 +86,7 @@ def test_the_choice_links_a_lineatur(editor, mode):
     page = editor(box("r", "ruling", RULING), client=client)
     store_words(page, client, ["Hund", "Katze"])
     pick(page, "r")
-    page.get_by_label("Text der Lineatur").select_option(mode)
-    expect(page.get_by_label("Text der Lineatur")).to_have_value(mode)
+    link(page, mode)
     assert rulings(doc(page, client))[0]["props"]["list"] == mode
     expect(page.get_by_label("Nachspurtext", exact=True)).to_have_count(0)
     expect(page.get_by_text("Lineatur anklicken und lostippen")).to_have_count(0)
@@ -76,7 +98,7 @@ def test_a_linked_block_grows_to_hold_every_word(editor):
     page = editor(box("r", "ruling", RULING, h=20), client=client)
     store_words(page, client, ["Hund", "Katze", "Maus", "Reh", "Igel"])
     pick(page, "r")
-    page.get_by_label("Text der Lineatur").select_option("copy")
+    link(page, "copy")
     grown = rulings(doc(page, client))[0]
     assert grown["h"] == 50
     assert grown["props"]["list"] == "copy"
@@ -99,7 +121,7 @@ def test_a_block_that_cannot_grow_says_how_many_words_do_not_fit(editor, case):
         words, warning = ["Hund", "Katze", "Maus"], "1 Wort passt nicht in die Zeilen."
     store_words(page, client, words)
     pick(page, "r")
-    page.get_by_label("Text der Lineatur").select_option("copy")
+    link(page, "copy")
     expect(page.locator(".panel [role=status]")).to_have_text(warning)
     assert rulings(doc(page, client))[0]["h"] == 20
 
@@ -112,7 +134,7 @@ def test_a_list_that_grows_later_warns_and_moves_no_block(editor):
     under = box("u", "ruling", RULING, z=2, y=70, h=20)
     page = editor(box("r", "ruling", LINKED, h=20), under, client=client)
     store_words(page, client, ["Hund", "Katze"])
-    list_tab(page)
+    pick(page, "r")
     field(page).focus()
     page.keyboard.press("Control+End")
     page.keyboard.press("Enter")
@@ -120,8 +142,6 @@ def test_a_list_that_grows_later_warns_and_moves_no_block(editor):
     expect(field(page)).to_have_value("Hund\nKatze\nMaus")
     assert rulings(doc(page, client))[0]["h"] == 20
     assert rulings(doc(page, client))[1]["y"] == 70
-    page.get_by_role("tab", name="Format").click()
-    pick(page, "r")
     expect(page.locator(".panel [role=status]")).to_have_text("1 Wort passt nicht in die Zeilen.")
 
 
@@ -131,7 +151,7 @@ def test_cut_loose_keeps_the_words_as_plain_text(editor, mode):
     page = editor(box("r", "ruling", {**RULING, "list": mode}), client=client)
     store_words(page, client, ["Hund", "Katze"])
     pick(page, "r")
-    page.get_by_label("Text der Lineatur").select_option("own")
+    link(page, "own")
     props = rulings(doc(page, client))[0]["props"]
     assert "list" not in props
     assert props["text"] == "Hund\nKatze"

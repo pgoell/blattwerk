@@ -13,6 +13,7 @@ import { Symbols } from "./format/symbols";
 import { TablePanel, type CellLooks } from "./format/table";
 import { TextPanel } from "./format/text";
 import { Pane } from "./format/pane";
+import type { Listing } from "./format/wordlist";
 
 export { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaled, scaledGroup, sized, swung, unfit } from "../arrange";
 
@@ -83,8 +84,8 @@ type Props = {
   // Every Lineatur of the sheet: a picked one that a run-on Lineatur goes on from cuts off no word.
   lineaturen: RulingBlock[];
   list: (mode?: ListMode) => void;
-  // Shows the list of the Lernwörter in the panel.
-  toList: () => void;
+  // The field of the sheet's Lernwörter, in the panel of each block that shows them.
+  listing: Listing;
   cropping: boolean;
   // Turns what is selected by so many degrees: a group picked whole as one, a loose block about its own centre.
   spin: (by: number) => void;
@@ -110,7 +111,7 @@ type Props = {
   markEven: (on: boolean) => void;
 };
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, cellLook, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe, onHelp, onInsert, markEven }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, cellLook, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, listing, owe, onHelp, onInsert, markEven }: Props) {
   const schools = useSchools({ sel, style, place, H });
   const { mark } = sel[0];
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
@@ -122,8 +123,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       <Pane tab="Lage">
         <Place sel={sel} place={place} lock={lock} setLock={setLock} from={from} setFrom={setFrom} W={W} H={H} spin={spin} onSize={onSize} alone={alone} />
       </Pane>
-      <TextPanel sel={sel} part={part} look={look} style={style} paint={paint} itemize={itemize} traced={traced} link={link} feed={feed} gap={gap} every={every} cell={cell} mendWord={mendWord} doc={doc} words={words} toList={toList} onInsert={onInsert} onHelp={onHelp} />
-      <RulingPanel sel={sel} style={style} place={place} words={words} lineaturen={lineaturen} list={list} toList={toList} part={part} look={look} mendWord={mendWord} doc={doc} traced={traced} W={W} H={H} />
+      <TextPanel sel={sel} part={part} look={look} style={style} paint={paint} itemize={itemize} traced={traced} link={link} feed={feed} gap={gap} every={every} cell={cell} mendWord={mendWord} doc={doc} words={words} listing={listing} onInsert={onInsert} onHelp={onHelp} />
+      <RulingPanel sel={sel} style={style} place={place} words={words} lineaturen={lineaturen} list={list} listing={listing} part={part} look={look} mendWord={mendWord} doc={doc} traced={traced} W={W} H={H} />
       <TablePanel sel={sel} style={style} part={part} look={look} mendWord={mendWord} doc={doc} words={words} cell={cell} reach={reach} rank={rank} merge={merge} unmerge={unmerge} laid={laid} sizeCells={sizeCells} evenCells={evenCells} lines={lines} cutting={cutting} border={border} cellLook={cellLook} traced={traced} gap={gap} every={every} />
       <Pane tab="Aufgaben">
       <SchoolPanels {...schools} style={style} doc={doc} words={words} owe={owe} H={H} markEven={markEven} />

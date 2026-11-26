@@ -1,5 +1,5 @@
-// The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
-// Lernwörter page. Pure functions, so the editor and the tests share them.
+// The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how the linked Lineaturen grow
+// with it. Pure functions, so the editor and the tests share them.
 import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, sizeOf, startOf, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Page, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -33,7 +33,7 @@ export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock
   return Math.max(0, ...blocks.map((b) => (runsOn(b, all) ? 0 : short(b, words))));
 }
 
-// The gap a Lernwörter-Blatt leaves between its rulings. A gap no wider than that is a stack: the rulings make room
+// The gap the template "Lernwörter" leaves between its rulings. A gap no wider than that is a stack: the rulings make room
 // for each other. A wider gap is free room, and the ruling above grows into it alone.
 const STACKED = 6.05;
 
@@ -43,7 +43,7 @@ const canGrow = (b: Block, rulings: RulingBlock[]): b is RulingBlock => b.type =
 
 const rowHeight = (b: RulingBlock) => RULINGS[kindOf(b.props.kind)].row;
 
-// Linked rulings one under the next, each the first block under the one above and no further than the Blatt's gap.
+// Linked rulings one under the next, each the first block under the one above and no further than the template's gap.
 function chainsOf(blocks: Block[], rulings: RulingBlock[]): RulingBlock[][] {
   const open = blocks.filter((b): b is RulingBlock => canGrow(b, rulings)).sort((a, b) => a.y - b.y || a.x - b.x);
   const used = new Set<string>();
@@ -115,7 +115,7 @@ function placeStack(chain: RulingBlock[], blocks: Block[], words: string[], H: n
 // A linked ruling grows by a row for each word the list has past its rows, as far as the page margin and the top of
 // a block below it that it overlaps. A block that reaches past its foot, over it or round it, leaves it no room. It
 // never shrinks, and a turned or locked ruling, or one a run-on block among `all` (the rulings of every page) goes on
-// from, keeps its height. Rulings stacked with the Blatt's gap grow together and the ones below move down, as far as
+// from, keeps its height. Rulings stacked with the template's gap grow together and the ones below move down, as far as
 // the page allows. Any other block stays where it is.
 export function follow(blocks: Block[], words: string[], W: number, H: number, all: Block[] = blocks): Block[] {
   const rulings = all.filter((o): o is RulingBlock => o.type === "ruling");
@@ -187,7 +187,7 @@ function carry(pages: Page[], words: string[], doc: Doc): Page[] | undefined {
 }
 
 // The list changed. Every page's linked rulings grow, and a stack the page cannot hold runs on to a new page, as a
-// long Lernwörter-Blatt does. The caller makes it one step.
+// long list on the template "Lernwörter" does. The caller makes it one step.
 export function followDoc(doc: Doc): Doc {
   const words = wordsIn(doc);
   let pages = doc.pages;
@@ -264,38 +264,4 @@ export function landed(blocks: Block[], from: unknown, doc: Doc): { blocks: Bloc
     return b.type === "text" || b.type === "shape" ? ({ ...b, props: looseText(b.props, theirs) } as Block) : b;
   };
   return { blocks: blocks.map((b) => (tied(b) ? cut(b) : b)) };
-}
-
-// The blocks of a ready Lernwörter sheet: a heading, a name line, and three rulings that take the list in copy,
-// trace and row. Each ruling is as tall as the room of a third of the page, or as many rows as there are words.
-type Fresh = Omit<Block, "id" | "z" | "locked">;
-// A list longer than one page's rows runs on: each further page holds the three rulings again, each from the word
-// after the last one shown, and no heading. A short list gives one page, as before.
-export function blatt(words: string[], W: number, H: number): Fresh[][] {
-  const x = MARGIN;
-  const w = W - 2 * MARGIN;
-  // The room for the three rulings, with a gap of 6 mm between them.
-  const third = (H - MARGIN - (MARGIN + 32) - 2 * 6) / 3;
-  // The first Lineatur that gives every word its own row in a third, else the lines.
-  const kind: Ruling = (["l2", "l3", "l4", "lines"] as Ruling[]).find((k) => Math.floor(third / RULINGS[k].row) >= words.length) ?? "lines";
-  const { row } = RULINGS[kind];
-  const perPage = Math.max(1, Math.floor(third / row));
-  const pages = Math.max(1, Math.ceil(words.length / perPage));
-  return Array.from({ length: pages }, (_, p): Fresh[] => {
-    const first = p * perPage;
-    const rows = Math.max(1, Math.min(perPage, words.length - first));
-    const from = p > 0 ? { from: first } : {};
-    let y = p === 0 ? MARGIN + 32 : MARGIN;
-    const rulings = (["copy", "trace", "row"] as ListMode[]).map((list): Fresh => {
-      const block = { type: "ruling" as const, x, y, w, h: rows * row, props: { kind, color: "#222222", list, ...from } };
-      y += rows * row + 6;
-      return block;
-    });
-    if (p > 0) return rulings;
-    return [
-      { type: "text", x, y: MARGIN, w, h: 12, props: { text: "Lernwörter", size: 20, align: "left", bold: true } },
-      { type: "name", x, y: MARGIN + 16, w, h: 10, props: {} },
-      ...rulings,
-    ];
-  });
 }

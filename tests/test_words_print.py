@@ -5,7 +5,7 @@ from io import BytesIO
 import pytest
 from PIL import Image
 from playwright.sync_api import expect
-from ui import at, box, pick
+from ui import at, box, pick, unpick
 
 WORDS = ["Hund", "Katze", "Maus"]
 GREY = "rgb(170, 170, 170)"
@@ -212,16 +212,13 @@ def test_a_word_stands_where_a_typed_text_stands(editor, kind, font):
         assert abs(top - top2) <= 1 and abs(mid - mid2) <= 1, (typed, drawn)
 
 
-def test_the_default_layout_reaches_the_list_from_the_bar(editor):
-    """Blattform has no tabs in its panel: the tool under "Deutsch" at the left and a linked Lineatur
-    lead to the list, and Start in the bar leads back."""
+def test_a_linked_lineatur_has_the_list_in_its_panel(editor):
+    """The list's field stands in the panel of a Lineatur that shows the list, and a word typed
+    there is on its rows."""
     page = editor(linked("a", "l4", "copy", h=40))
-    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
+    pick(page, "a")
     field = page.get_by_role("textbox", name="Lernwörter", exact=True)
     field.press_sequentially("Hund")
     expect(at(page, "a").locator(".listed .row span")).to_have_text("Hund")
-    page.locator(".modes").get_by_role("tab", name="Start").click()
+    unpick(page)
     expect(field).to_have_count(0)
-    pick(page, "a")
-    page.get_by_role("button", name="Lernwörter bearbeiten").click()
-    expect(field).to_have_value("Hund")

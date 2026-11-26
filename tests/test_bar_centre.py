@@ -39,26 +39,24 @@ def test_the_shapes_start_where_the_icons_of_the_other_tools_start(editor):
 
 
 def test_the_left_panel_leads_to_the_lernwoerter(editor):
-    """Under "Deutsch" at the left, the tool opens the sheet's list at the right, and shuts it again."""
+    """Under "Deutsch" at the left, the tool puts writing lines on the sheet, picked, and the
+    sheet's list stands in their panel at the right."""
     page = editor(box("a", "text", TEXT))
     tool = page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True)
     expect(page.locator('.insert .sep[data-name="Deutsch"]')).to_be_visible()
     tool.click()
+    expect(page.locator(".block.sel")).to_have_count(1)
     expect(
         page.locator(".panel").get_by_role("textbox", name="Lernwörter", exact=True)
     ).to_be_visible()
-    expect(tool).to_have_attribute("aria-pressed", "true")
-    tool.click()
-    expect(
-        page.locator(".panel").get_by_role("textbox", name="Lernwörter", exact=True)
-    ).to_be_hidden()
-    expect(tool).to_have_attribute("aria-pressed", "false")
+    expect(tool).not_to_have_attribute("aria-pressed", "true")
 
 
-def test_a_narrow_window_keeps_its_tab_and_has_no_tool_for_the_lernwoerter(editor):
+def test_a_narrow_window_has_the_tool_for_the_lernwoerter_and_no_tab_for_them(editor):
     page = editor(box("a", "text", TEXT))
     page.set_viewport_size({"width": 1000, "height": 900})
     expect(
-        page.locator(".dock, .insert").get_by_role("button", name="Lernwörter", exact=True)
-    ).to_have_count(0)
-    expect(page.get_by_role("tab", name="Lernwörter")).to_be_visible()
+        page.locator(".dock").get_by_role("button", name="Lernwörter", exact=True)
+    ).to_be_visible()
+    expect(page.get_by_role("tab", name="Format")).to_be_visible()
+    expect(page.get_by_role("tab", name="Lernwörter")).to_have_count(0)

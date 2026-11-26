@@ -17,13 +17,14 @@ import { Tracking } from "./tracking";
 import { syllabled, worded } from "./words";
 import { Switch } from "../../components/Switch";
 import { Fold, Pane } from "./pane";
+import type { Listing } from "./wordlist";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 
 export function TextPanel({
-  sel, part, look, style, paint, itemize, traced, link, feed, gap, every, cell, mendWord, doc, words, toList, onInsert, onHelp,
+  sel, part, look, style, paint, itemize, traced, link, feed, gap, every, cell, mendWord, doc, words, listing, onInsert, onHelp,
 }: {
   sel: Block[];
   part?: Picked;
@@ -40,7 +41,7 @@ export function TextPanel({
   mendWord: (keys: string[], counts: number[] | undefined, id: string) => void;
   doc: Doc;
   words: string[];
-  toList: () => void;
+  listing: Listing;
   onInsert: (ch: string) => void;
   onHelp?: () => void;
 }) {
@@ -114,7 +115,7 @@ export function TextPanel({
           <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />
           <Letters sel={sel} look={look} style={style} />
           <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />
-          <Fed sel={sel} words={words} toList={toList} look={look} link={link} feed={feed} />
+          <Fed sel={sel} words={words} doc={doc} listing={listing} look={look} link={link} feed={feed} />
           <Mix sel={sel} look={look} words={words} />
           {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
           {texts.length > 0 && (

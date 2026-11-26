@@ -3,6 +3,7 @@ import { useState, type MouseEvent } from "react";
 import { BookA, Calculator, Files, Shapes, Sigma, CircleHelp, Grid3x3, Fullscreen, Heading, ImagePlus, MessageSquare, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
+import { RULINGS } from "../../sheet";
 import { INSERTS } from "../../insert";
 import type { Command } from "./useMenus";
 import { Named, Tool } from "./Tool";
@@ -24,8 +25,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const showLeft = session.showLeft;
   const setLens = session.setLens;
   const leaf = session.leaf;
-  const tab = session.tab;
-  const setTab = session.setTab;
   const bar = session.bar;
   const fits = session.fits;
   const feedback = session.feedback;
@@ -83,6 +82,13 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
   const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
+  // "Lernwörter": writing lines that show the sheet's words, picked as every new block is, so their panel stands open
+  // with the list in it.
+  // On a sheet without words yet the list's field takes the keys, so the teacher types them right away.
+  const addLearn = () => {
+    if (!session.learnt.length) session.aimList.current = true;
+    addInsert(INSERTS.learn(session.learnt.length, [session.W, session.H], RULINGS.l1.row));
+  };
   // What can go on the page. A divider's name is its group's heading in the wide window's left panel.
   const tools = (
     <>
@@ -111,20 +117,13 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       />
       <Tool icon={Smile} label="Symbol" onClick={() => addInsert(INSERTS.symbol())} />
       <Tool icon={Table} label="Tabelle" onClick={() => addInsert(INSERTS.table())} />
-      <i className="sep" data-name="Schule" />
-      <Tool icon={Rows3} label="Lineatur" onClick={() => addInsert(INSERTS.ruling())} />
       <Tool icon={UserPen} label="Namenszeile" onClick={() => addInsert(INSERTS.name())} />
-      <Tool icon={SquareSlash} label="Punkte" onClick={() => addInsert(INSERTS.points())} />
-      <Tool icon={Grid3x3} label="Suchsel" onClick={() => addInsert(INSERTS.suchsel(newSeed()))} />
+      <Tool icon={SquareSlash} label="Punktefeld" onClick={() => addInsert(INSERTS.points())} />
       {/* What makes exercises, a group to a subject. */}
-      {/* The sheet's list of words is no block, so its tool opens the list in the panel at the right. A wide window
-          has no tab for it; a narrow one has. */}
-      {leaf && (
-        <>
-          <i className="sep" data-name="Deutsch" />
-          <Tool icon={BookA} label="Lernwörter" className={tab === "Lernwörter" ? "on" : ""} aria-pressed={tab === "Lernwörter"} onClick={() => setTab(tab === "Lernwörter" ? "Format" : "Lernwörter")} />
-        </>
-      )}
+      <i className="sep" data-name="Deutsch" />
+      <Tool icon={Rows3} label="Lineatur" onClick={() => addInsert(INSERTS.ruling())} />
+      <Tool icon={BookA} label="Lernwörter" onClick={addLearn} />
+      <Tool icon={Grid3x3} label="Suchsel" onClick={() => addInsert(INSERTS.suchsel(newSeed()))} />
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
       <Tool
@@ -164,7 +163,8 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     </>
   );
   // The tablet held upright has a rail at its left instead: a group to a button, each with its name under its icon.
-  // A group of several tools opens their list beside it, Mathe the library, and Seiten the drawer of pages.
+  // A group of several tools opens their list beside it, Mathe the library, and Seiten the drawer of pages. The groups
+  // have the names they have in the wide window.
   const lists = (items: Item[]) => (e: MouseEvent<HTMLButtonElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
     setRailMenu({ x: box.right + 6, y: box.top, items });
@@ -174,21 +174,17 @@ export function useTools(session: ReturnType<typeof useMenus>) {
       <Named icon={SquareDashedMousePointer} label="Mehrere" data-tour="multi" className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)} />
       <Named
         icon={Type}
-        label="Text"
+        label="Einfügen"
         data-tour="text"
         aria-haspopup="menu"
         onClick={lists([
           { label: "Text", icon: Type, run: () => addInsert(INSERTS.text()) },
           { label: "Überschrift", icon: Heading, run: () => addInsert(INSERTS.heading()) },
-        ])}
-      />
-      <Named
-        icon={ImagePlus}
-        label="Bild"
-        aria-haspopup="menu"
-        onClick={lists([
           { label: "Bild", icon: ImagePlus, run: () => picker.current!.click() },
           { label: "Symbol", icon: Smile, run: () => addInsert(INSERTS.symbol()) },
+          { label: "Tabelle", icon: Table, run: () => addInsert(INSERTS.table()) },
+          { label: "Namenszeile", icon: UserPen, run: () => addInsert(INSERTS.name()) },
+          { label: "Punktefeld", icon: SquareSlash, run: () => addInsert(INSERTS.points()) },
         ])}
       />
       <input
@@ -202,13 +198,12 @@ export function useTools(session: ReturnType<typeof useMenus>) {
         }}
       />
       <Named
-        icon={Rows3}
-        label="Schreiben"
+        icon={BookA}
+        label="Deutsch"
         aria-haspopup="menu"
         onClick={lists([
           { label: "Lineatur", icon: Rows3, run: () => addInsert(INSERTS.ruling()) },
-          { label: "Namenszeile", icon: UserPen, run: () => addInsert(INSERTS.name()) },
-          { label: "Punkte", icon: SquareSlash, run: () => addInsert(INSERTS.points()) },
+          { label: "Lernwörter", icon: BookA, run: addLearn },
           { label: "Suchsel", icon: Grid3x3, run: () => addInsert(INSERTS.suchsel(newSeed())) },
         ])}
       />
@@ -223,7 +218,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
           setMathMenu({ x: box.right + 8, y: Math.min(box.top, 120) });
         }}
       />
-      <Named icon={Table} label="Tabelle" onClick={() => addInsert(INSERTS.table())} />
       <Named
         icon={Shapes}
         label="Formen"

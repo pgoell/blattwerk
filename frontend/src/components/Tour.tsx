@@ -26,7 +26,7 @@ const STEPS: Step[] = [
   {
     title: "Ein Textfeld einfügen",
     text: ["Klicke auf Text. Ein Textfeld landet auf dem Blatt.", "Tippe auf Text. Ein Textfeld landet auf dem Blatt."],
-    rail: "Tippe links auf Text und dann in der Liste noch einmal auf Text. Ein Textfeld landet auf dem Blatt.",
+    rail: "Tippe links auf Einfügen und dann in der Liste auf Text. Ein Textfeld landet auf dem Blatt.",
     find: "[data-tour=text]",
     done: (now, start) => now.blocks > start.blocks,
   },

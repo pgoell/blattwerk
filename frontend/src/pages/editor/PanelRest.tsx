@@ -1,23 +1,15 @@
-// The Lernwörter and the Ansicht of the format panel.
+// The Ansicht of the format panel.
 import { Eraser, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
 import { RULINGS, type PageNumbers } from "../../sheet";
 import { MONTESSORI, NAMES, storedPlaces, type PlaceName } from "../../places";
 import { KEY_RED } from "../../sheet/doc";
-import { pasted } from "../../words";
 import Format from "../Format";
-import { INSERTS } from "../../insert";
 import { GRIDS, NONE } from "./palette";
 import { useTools } from "./useTools";
 import { Switch } from "../../components/Switch";
 
 export default function PanelRest({ s: session }: { s: ReturnType<typeof useTools> }) {
-  const H = session.H;
-  const W = session.W;
-  const addBlatt = session.addBlatt;
-  const addInsert = session.addInsert;
   const at = session.at;
-  const caretAt = session.caretAt;
-  const crowded = session.crowded;
   const field = session.field;
   const folio = session.folio;
   const from = session.from;
@@ -25,9 +17,6 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   const guides = session.guides;
   const hist = session.hist;
   const lay = session.lay;
-  const learnt = session.learnt;
-  const listField = session.listField;
-  const listWords = session.listWords;
   const mine = session.mine;
   const numbering = session.numbering;
   const onPaste = session.onPaste;
@@ -85,59 +74,6 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   };
   return (
     <>
-          {tab === "Lernwörter" && (
-            <>
-              <h2>Lernwörter</h2>
-              <textarea
-                aria-label="Lernwörter"
-                className="wordlist"
-                rows={10}
-                // The browser's check knows no German on most machines and marks every word (#580).
-                spellCheck={false}
-                placeholder="Ein Wort pro Zeile"
-                ref={listField}
-                value={Array.isArray(hist.doc.words) ? hist.doc.words.filter((w) => typeof w === "string").join("\n") : ""}
-                onChange={(e) => listWords(e.target.value)}
-                // A paste brings its words one to a line, in place of what is picked in the field.
-                onPaste={(e) => {
-                  e.preventDefault();
-                  const field = e.currentTarget;
-                  const [from, to] = [field.selectionStart, field.selectionEnd];
-                  // A paste that holds no word changes nothing.
-                  if (!pasted(e.clipboardData.getData("text/plain")).length) return;
-                  const [before, after] = [field.value.slice(0, from), field.value.slice(to)];
-                  // The pasted words keep to lines of their own: a word before or behind them is not joined to one.
-                  const words = (/[^\n]$/.test(before) ? "\n" : "") + pasted(e.clipboardData.getData("text/plain")).join("\n") + (/^[^\n]/.test(after) ? "\n" : "");
-                  caretAt.current = from + words.length;
-                  listWords(before + words + after);
-                }}
-              />
-              <p className="hint">Ein Wort pro Zeile. Eine Lineatur oder ein Text nimmt die Wörter unter Format, „Text“.</p>
-              {/* Said here too: the list is where a word too many comes from, and the Lernwörter-Blatt picks no block. */}
-              {crowded > 0 && (
-                <p className="hint" role="status">
-                  {crowded === 1 ? "In einer Lineatur passt 1 Wort nicht in die Zeilen." : `In einer Lineatur passen ${crowded} Wörter nicht in die Zeilen.`}
-                </p>
-              )}
-              <button
-                disabled={!learnt.length}
-                onClick={addBlatt}
-                title="Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter."
-              >
-                Lernwörter-Blatt
-              </button>
-              <p className="hint">Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter.</p>
-              {/* A Lineatur as wide as the page between the margins, a row for each word, at most as many as a page holds. */}
-              <button
-                disabled={!learnt.length}
-                title="Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis."
-                onClick={() => addInsert(INSERTS.wordList(learnt.length, [W, H], RULINGS.l3.row))}
-              >
-                Knickblatt
-              </button>
-              <p className="hint">Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis.</p>
-            </>
-          )}
           {tab === "Ansicht" && (
             <>
               <h2>Format, Raster und Hilfslinien für</h2>

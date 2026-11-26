@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { fresh } from "../../history";
 import { FIELDS, K, RULINGS, boxed, colsOf, kindOf, rowsOf, sizeOf, squares, sum, tall, type Block, type Box, type Guides, type ListMode, type NameBlock, type TableBlock, type TextProps } from "../../sheet";
-import { blatt, followDoc, linked, loose as cutLoose, looseText } from "../../words";
+import { followDoc, linked, loose as cutLoose, looseText } from "../../words";
 import { list } from "../Field";
 import { EDGE, basisOf, heightsOf, next } from "../../cells";
 import { grown } from "../../insert";
@@ -89,44 +89,15 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
       key,
     );
   }
-  // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
+  // The list field in a linked block's panel shows the sheet's list, one word to a line. An empty field removes the list.
   // A changed list changes every linked text on the page, which the grow effect measures. Linked rulings grow in the
   // same step, and a stack the page cannot hold runs on to a new page.
   function listWords(value: string) {
     tight.current = true;
     update((doc) => followDoc({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
   }
-  // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
-  const listField = useRef<HTMLTextAreaElement>(null);
-  const caretAt = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (caretAt.current === undefined) return;
-    listField.current?.setSelectionRange(caretAt.current, caretAt.current);
-    caretAt.current = undefined;
-  });
-  // The Lernwörter-Blatt comes behind the page in use, and is the page in use from then on. On an empty page it fills
-  // that page instead. Its size is the sheet's, or the empty page's own.
-  function addBlatt() {
-    const n = page;
-    const empty = live.current.doc.pages[n].blocks.length === 0;
-    const [w, h] = empty ? sizeOf(live.current.doc, n) : live.current.doc.landscape ? [297, 210] : [210, 297];
-    // One undo step for every page of the Blatt: the first fills the empty page or comes after the page in use, the rest follow it.
-    const [first, ...rest] = blatt(learnt, w, h).map((page) => page.map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block));
-    if (empty) {
-      // The empty page keeps what is its own, and the run-on pages lie as it does.
-      const { landscape } = live.current.doc.pages[n];
-      const lie = landscape === undefined ? {} : { landscape };
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n), { ...doc.pages[n], blocks: first }, ...rest.map((blocks) => ({ ...lie, blocks })), ...doc.pages.slice(n + 1)] }), "", n);
-      setIds([]);
-      return;
-    }
-    flushSync(() => {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: first }, ...rest.map((blocks) => ({ blocks })), ...doc.pages.slice(n + 1)] }), "", n + 1);
-      setAt(n + 1);
-      setIds([]);
-    });
-    seek();
-  }
+  // Set by the tool "Lernwörter" on a sheet without words: the list's field takes the focus once it is drawn.
+  const aimList = useRef(false);
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
     if (n === undefined) update((doc) => ({ ...doc, guides: fn(doc.guides) }), key);
@@ -242,5 +213,5 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
       }),
     );
   }
-    return Object.assign(session, { change, scoreOn, bump, takeList, takeText, feed, listWords, listField, caretAt, addBlatt, rules, screenRows, snug, boxOf, place, style, typeRuling, onlyShown, showField, markEven });
+    return Object.assign(session, { change, scoreOn, bump, takeList, takeText, feed, listWords, aimList, rules, screenRows, snug, boxOf, place, style, typeRuling, onlyShown, showField, markEven });
 }

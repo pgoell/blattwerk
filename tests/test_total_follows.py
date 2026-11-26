@@ -203,7 +203,7 @@ def add_points_on_page_2(page, client):
     """A Punkte box of 10 from the left panel, on an empty part of page 2. Gives its id."""
     before = ids_of(page, client)
     page.locator(".sheet").nth(1).click(position={"x": 5, "y": 5})
-    page.locator(".dock, .insert").get_by_label("Punkte", exact=True).click()
+    page.locator(".dock, .insert").get_by_label("Punktefeld", exact=True).click()
     return fresh(page, client, before)
 
 
