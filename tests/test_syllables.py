@@ -230,10 +230,8 @@ def test_tab_reaches_the_switch_and_space_and_enter_press_it(editor):
     """I7: by keyboard alone, and the switch says its state."""
     page = editor(box("a", "text", WORDS))
     pick(page, "a")
-    page.get_by_label("Zeilenabstand").focus()
-    # Zeichenabstand, then Nachspurtext, then the switch.
-    page.keyboard.press("Tab")
-    page.keyboard.press("Tab")
+    page.locator(".panel").get_by_label("Nachspurtext").focus()
+    # The switch is the next stop after Nachspurtext.
     page.keyboard.press("Tab")
     expect(switch(page)).to_be_focused()
     expect_switch(page, False)
