@@ -185,8 +185,11 @@ useEffect(() => {
     function onWheel(e: globalThis.WheelEvent) {
       const on = e.target as Element;
       if (!e.ctrlKey && !e.metaKey) {
-        // The hand lies over the desk, so a wheel on it scrolls the desk from here.
+        // The hand lies over the desk, so a wheel on it scrolls the desk from here. The browser's own scroll is
+        // called off: right after the hand has come, a busy machine's compositor still finds the desk under the
+        // pointer and scrolls it too, so one turn of the wheel went twice as far.
         if (on.closest(".hand")) {
+          e.preventDefault();
           steer();
           desk.current!.scrollBy(e.deltaX, e.deltaY);
         }
