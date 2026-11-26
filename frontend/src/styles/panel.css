@@ -79,9 +79,9 @@
 .symbols img { width: 26px; height: 26px; }
 /* Silbenbögen: a block's words as they are split, in a box that scrolls, and the open word's letters with a
    button in each gap. A word split by hand is underlined. */
-.words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; margin-bottom: 8px; overflow: auto; }
-.words button { min-height: 28px; padding: 0 8px; }
-.words .own { text-decoration: underline; }
+.panel .words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; margin-bottom: 8px; overflow: auto; }
+.panel .words button { min-height: 28px; padding: 0 8px; }
+.panel .words .own { text-decoration: underline; }
 .gaps { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: 18px; }
 .gaps button { min-width: 16px; min-height: 28px; padding: 0; border-color: transparent; background: none; color: var(--faint); }
 .gaps button.on { color: var(--accent); font-weight: 700; }
@@ -128,7 +128,8 @@
 .insert .sep::before { content: attr(data-name); }
 /* The shapes stand in rows, without their names. */
 .shapes { display: contents; }
-.insert .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The shapes start where the icons of the rows above start: a row's button has 4 px of its own before its icon. */
+.insert .shapes { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
 .insert .shapes .ib { padding: 0; }
 .insert .shapes .ib::after { content: none; }
 .leaf .dock { left: 16px; translate: none; }
