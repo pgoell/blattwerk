@@ -14,7 +14,7 @@ import { FRAMES, DASHES, LABELS, ALIGNS, pickName, TABS, lines, step } from "./p
 import { useTools } from "./useTools";
 import PanelRest from "./PanelRest";
 import { Switch } from "../../components/Switch";
-import { Pane, PaneTabs, usePanes } from "../format/pane";
+import { Fold, Pane, PaneTabs, usePanes } from "../format/pane";
 
 export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTools> }) {
   // The button that asked for the text help: its dialog gives the focus back to it.
@@ -275,7 +275,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
               <Pane tab="Aussehen">
               {boxes.length > 0 && (
                 <>
-                  <h2>Füllung und Rand</h2>
+                  {/* A text is set by its script first: its fill and border lie folded. A shape shows them. */}
+                  <Fold title="Füllung und Rand" id={boxes.some((b) => b.type === "text") ? "Füllung und Rand des Texts" : "Füllung und Rand"} open={!boxes.some((b) => b.type === "text")}>
                   {/* A line stays a line. */}
                   {!rulers.length && (
                     <div className="seg">
@@ -348,6 +349,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
                     <Switch label="An Text anpassen" on={boxes[0].props.fit === true} onChange={(on) => look({ fit: on || undefined })} />
                   )}
+                  </Fold>
                 </>
               )}
               {rulers.length > 0 && rulers.length === sel.length && (
@@ -392,6 +394,9 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                   <Tool key={label} icon={icon} label={label} title={label} disabled={!things.length} onClick={() => align(axis, at)} />
                 ))}
               </div>
+              {/* Folded, so Lage fits a 1280 x 800 window: these are for several blocks at once, and the layers are in
+                  the right click too. */}
+              <Fold title="Verteilen und angleichen">
               <h2>Verteilen</h2>
               <div className="acts">
                 <button disabled={among ? things.length < 3 : !things.length} onClick={() => distribute("x")}>Waagerecht</button>
@@ -402,7 +407,8 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 <button disabled={sizable.length < 2} onClick={() => same("w")}>Gleiche Breite</button>
                 <button disabled={sizable.length < 2} onClick={() => same("h")}>Gleiche Höhe</button>
               </div>
-              <h2>Ebene</h2>
+              </Fold>
+              <Fold title="Ebene">
               <div className="acts">
                 <button disabled={!stacked(true)} onClick={(e) => layer(e, true)}>Nach vorn</button>
                 <button disabled={!stacked(false)} onClick={(e) => layer(e, false)}>Nach hinten</button>
@@ -411,6 +417,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 <button disabled={!stacked(true, true)} onClick={(e) => layer(e, true, true)}>Eine nach vorn</button>
                 <button disabled={!stacked(false, true)} onClick={(e) => layer(e, false, true)}>Eine nach hinten</button>
               </div>
+              </Fold>
               <Switch label="Gesperrt" on={locked} onChange={() => session.lockIt.run()} />
               </Pane>
             </>

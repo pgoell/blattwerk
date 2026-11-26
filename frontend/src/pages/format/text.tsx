@@ -16,7 +16,7 @@ import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
 import { syllabled, worded } from "./words";
 import { Switch } from "../../components/Switch";
-import { Pane } from "./pane";
+import { Fold, Pane } from "./pane";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
@@ -60,7 +60,8 @@ export function TextPanel({
               Text anpassen
             </button>
           )}
-          <h2>Schrift</h2>
+          {/* A shape is set by its fill and border first: the script of the words in it lies folded. */}
+          <Fold title="Schrift" id={texts.length ? "Schrift" : "Schrift in der Form"} open={texts.length > 0}>
           <FontSelect label="Schriftart" value={fontOf(text.font)} unknown={unknownFont(sel.map((b) => boxed(b)?.font))} onChange={(font) => look({ font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
@@ -75,7 +76,6 @@ export function TextPanel({
             ))}
           </div>
           <Chars family={FONTS[fontOf(text.font)][1]} onInsert={onInsert} />
-          {texts.length > 0 && <FormulaInsert onInsert={onInsert} />}
           <div className="seg">
             {LISTS.map(([value, label, Icon]) => (
               <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>
@@ -106,6 +106,8 @@ export function TextPanel({
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
           <Tracking value={text.tracking} warn={sel.some((b) => cursive(boxed(b)?.font))} onChange={(n) => look({ tracking: n }, "tracking")} />
+          </Fold>
+          {texts.length > 0 && <FormulaInsert onInsert={onInsert} />}
       </Pane>
       <Pane tab="Aufgaben">
           <TraceControls props={text} font={text.font} onChange={traced} />

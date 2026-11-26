@@ -8,7 +8,7 @@ import { useFlight } from "./maths/flight";
 import Muster from "./maths/muster";
 import Schriftlich from "./maths/schriftlich";
 import { Switch } from "../components/Switch";
-import { Pane } from "./format/pane";
+import { Fold, Pane } from "./format/pane";
 
 export { generate, kept, newSeed } from "./maths/ask";
 
@@ -25,19 +25,6 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           </button>
         ))}
       </div>
-      <Switch label="Aufgaben mit 0" on={p.zero !== false} onChange={() => limit({ zero: p.zero === false })} />
-      <Switch label="Aufgaben mit 1 beim Malnehmen und Teilen" on={p.one !== false} disabled={!times} onChange={() => limit({ one: p.one === false })} />
-      <Switch label="Kleines Einmaleins" on={!!p.small} disabled={!times || three} onChange={() => limit({ small: !p.small })} />
-      <Switch label="keine gleichen Zahlen" on={!!p.distinct} onChange={() => limit({ distinct: !p.distinct })} />
-      {times && !three && (
-        <>
-          <h2>Einmaleins-Reihen</h2>
-          <Reihen
-            reihen={p.reihen?.length ? p.reihen : p.small ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : []}
-            onChange={(next) => (next.length === 10 ? limit({ small: true, reihen: [] }) : limit({ small: false, reihen: next }))}
-          />
-        </>
-      )}
       <h2>Zahlenraum</h2>
       <select
         aria-label="Zahlenraum"
@@ -68,41 +55,6 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
         />
       )}
       {own && wrong && <p className="hint" role="status">{wrong} Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
-      <h2>Nachkommastellen</h2>
-      <div className="seg">
-        {([0, 1, 2] as const).map((n) => (
-          // With Geld on, a number takes its place in one step: Geld goes off and the number is lit.
-          <button key={n} aria-label={NACH[n]} className={dec === n && !money ? "on" : ""} aria-pressed={dec === n && !money} disabled={!open} onClick={() => limit({ decimals: n, money: false })}>
-            {n}
-          </button>
-        ))}
-        <button className={money ? "on" : ""} aria-pressed={money} disabled={!open} onClick={() => limit({ money: !p.money })}>
-          Geld
-        </button>
-      </div>
-      {(["a", "b", "c"] as const).slice(0, three ? 3 : 2).map((who) => {
-        // One row of a place: its label, then the lowest and the highest digit.
-        const row = (key: Key, i: number, label: string, name: string) => [
-          <span key={i}>{label}</span>,
-          ...([0, 1] as const).map((end) => (
-            <select key={`${i}${end}`} aria-label={`${name} ${end ? "bis" : "von"}`} value={ranges(key)[i][end]} onChange={(e) => digit(key, i, end, +e.target.value)}>
-              {DIGITS.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-          )),
-        ];
-        return (
-          <div key={who}>
-            <h2>{who === "b" && stack ? "weitere Zahlen" : NTH[who]}: Ziffern von, bis</h2>
-            <div className="places">
-              {ranges(who).map((_, i) => row(who, i, PLACES[i], PLACES[i])).reverse()}
-              {ranges(AFTER[who]).slice(0, dec).map((_, i) => row(AFTER[who], i, FRACTIONS[i][0], FRACTIONS[i][1]))}
-            </div>
-          </div>
-        );
-      })}
-      <Muster p={p} limit={limit} plus={plus} times={times} decimals={open && (money || dec > 0)} />
       {plus &&
         Array.from({ length: carryCount(p.max, dec) }, (_, i) => {
           const label = carryLabel(i, dec);
@@ -144,19 +96,6 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
             </div>
           );
         })}
-      {p.ops.includes("/") && p.format !== "compare" && !three && (
-        <>
-          <h2>Division</h2>
-          <div className="seg">
-            {/* An Umkehraufgabe leaves no Rest: the buttons are greyed and show that, and keep their value. */}
-            <button className={p.rest && !whole ? "" : "on"} disabled={whole} onClick={() => limit({ rest: false })}>Ohne Rest</button>
-            <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
-          </div>
-          {p.rest && !whole && (
-            <Switch label="Rest 0 vermeiden" on={p.avoid0 !== false} onChange={() => limit({ avoid0: p.avoid0 === false })} />
-          )}
-        </>
-      )}
       <h2>Format</h2>
       <div className="seg">
         {FORMATS.map(([format, label]) => (
@@ -176,6 +115,92 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
               </button>
             ))}
           </div>
+        </>
+      )}
+      {p.format === "compare" && (
+        <>
+          <h2>Seiten</h2>
+          <select aria-label="Seiten" value={p.sides ?? "tn"} onChange={(e) => limit({ sides: e.target.value as Limits["sides"] })}>
+            {SIDES.map(([sides, label]) => (
+              <option key={sides} value={sides}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <h2>Abstand</h2>
+          <div className="seg">
+            <button className={p.close ? "" : "on"} aria-pressed={!p.close} onClick={() => limit({ close: false })}>Beliebig</button>
+            <button className={p.close ? "on" : ""} aria-pressed={!!p.close} onClick={() => limit({ close: true })}>Knapp</button>
+          </div>
+          <h2>Aufgaben mit =</h2>
+          <div className="seg">
+            <button className={p.equal === "none" ? "on" : ""} aria-label="Keine mit =" aria-pressed={p.equal === "none"} onClick={() => limit({ equal: "none" })}>Keine</button>
+            <button className={p.equal === "none" ? "" : "on"} aria-label="Einige mit =" aria-pressed={p.equal !== "none"} onClick={() => limit({ equal: "some" })}>Einige</button>
+          </div>
+        </>
+      )}
+      {/* What few sheets change lies folded, so Aufgaben fits a 1280 x 800 window: the kind of sum, the range of the numbers,
+          the carry and the format stay in view. */}
+      <Fold title="Weitere Einstellungen" id="Rechnen: Weitere Einstellungen">
+      <Switch label="Aufgaben mit 0" on={p.zero !== false} onChange={() => limit({ zero: p.zero === false })} />
+      <Switch label="Aufgaben mit 1 beim Malnehmen und Teilen" on={p.one !== false} disabled={!times} onChange={() => limit({ one: p.one === false })} />
+      <Switch label="Kleines Einmaleins" on={!!p.small} disabled={!times || three} onChange={() => limit({ small: !p.small })} />
+      <Switch label="keine gleichen Zahlen" on={!!p.distinct} onChange={() => limit({ distinct: !p.distinct })} />
+      {times && !three && (
+        <>
+          <h2>Einmaleins-Reihen</h2>
+          <Reihen
+            reihen={p.reihen?.length ? p.reihen : p.small ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : []}
+            onChange={(next) => (next.length === 10 ? limit({ small: true, reihen: [] }) : limit({ small: false, reihen: next }))}
+          />
+        </>
+      )}
+      <h2>Nachkommastellen</h2>
+      <div className="seg">
+        {([0, 1, 2] as const).map((n) => (
+          // With Geld on, a number takes its place in one step: Geld goes off and the number is lit.
+          <button key={n} aria-label={NACH[n]} className={dec === n && !money ? "on" : ""} aria-pressed={dec === n && !money} disabled={!open} onClick={() => limit({ decimals: n, money: false })}>
+            {n}
+          </button>
+        ))}
+        <button className={money ? "on" : ""} aria-pressed={money} disabled={!open} onClick={() => limit({ money: !p.money })}>
+          Geld
+        </button>
+      </div>
+      {(["a", "b", "c"] as const).slice(0, three ? 3 : 2).map((who) => {
+        // One row of a place: its label, then the lowest and the highest digit.
+        const row = (key: Key, i: number, label: string, name: string) => [
+          <span key={i}>{label}</span>,
+          ...([0, 1] as const).map((end) => (
+            <select key={`${i}${end}`} aria-label={`${name} ${end ? "bis" : "von"}`} value={ranges(key)[i][end]} onChange={(e) => digit(key, i, end, +e.target.value)}>
+              {DIGITS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          )),
+        ];
+        return (
+          <div key={who}>
+            <h2>{who === "b" && stack ? "weitere Zahlen" : NTH[who]}: Ziffern von, bis</h2>
+            <div className="places">
+              {ranges(who).map((_, i) => row(who, i, PLACES[i], PLACES[i])).reverse()}
+              {ranges(AFTER[who]).slice(0, dec).map((_, i) => row(AFTER[who], i, FRACTIONS[i][0], FRACTIONS[i][1]))}
+            </div>
+          </div>
+        );
+      })}
+      <Muster p={p} limit={limit} plus={plus} times={times} decimals={open && (money || dec > 0)} />
+      {p.ops.includes("/") && p.format !== "compare" && !three && (
+        <>
+          <h2>Division</h2>
+          <div className="seg">
+            {/* An Umkehraufgabe leaves no Rest: the buttons are greyed and show that, and keep their value. */}
+            <button className={p.rest && !whole ? "" : "on"} disabled={whole} onClick={() => limit({ rest: false })}>Ohne Rest</button>
+            <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
+          </div>
+          {p.rest && !whole && (
+            <Switch label="Rest 0 vermeiden" on={p.avoid0 !== false} onChange={() => limit({ avoid0: p.avoid0 === false })} />
+          )}
         </>
       )}
       {numbered && (
@@ -216,28 +241,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           {numbered && !three && p.family === "swap" && (p.ops.includes("-") || p.ops.includes("/")) && <p className="hint" role="status">Tauschaufgaben gibt es nur für + und ·.</p>}
         </>
       )}
-      {p.format === "compare" && (
-        <>
-          <h2>Seiten</h2>
-          <select aria-label="Seiten" value={p.sides ?? "tn"} onChange={(e) => limit({ sides: e.target.value as Limits["sides"] })}>
-            {SIDES.map(([sides, label]) => (
-              <option key={sides} value={sides}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <h2>Abstand</h2>
-          <div className="seg">
-            <button className={p.close ? "" : "on"} aria-pressed={!p.close} onClick={() => limit({ close: false })}>Beliebig</button>
-            <button className={p.close ? "on" : ""} aria-pressed={!!p.close} onClick={() => limit({ close: true })}>Knapp</button>
-          </div>
-          <h2>Aufgaben mit =</h2>
-          <div className="seg">
-            <button className={p.equal === "none" ? "on" : ""} aria-label="Keine mit =" aria-pressed={p.equal === "none"} onClick={() => limit({ equal: "none" })}>Keine</button>
-            <button className={p.equal === "none" ? "" : "on"} aria-label="Einige mit =" aria-pressed={p.equal !== "none"} onClick={() => limit({ equal: "some" })}>Einige</button>
-          </div>
-        </>
-      )}
+      </Fold>
       <h2>Anzahl</h2>
       <div className="seg">
         <button aria-label="Eine Aufgabe weniger" onClick={() => limit({ count: Math.max(1, p.count - 1) })}>−</button>

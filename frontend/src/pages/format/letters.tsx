@@ -3,6 +3,7 @@ import { COLOURS, GROUP_COLOURS, hex, tidy, type LetterMarks, type Where } from 
 import type { Block } from "../../sheet";
 import { both, syllabled } from "./words";
 import { Switch } from "../../components/Switch";
+import { Fold } from "./pane";
 
 const KINDS = [
   ["vowels", "Vokale", "Farbe der Vokale"],
@@ -32,7 +33,8 @@ export function Letters({ sel, look, style }: { sel: Block[]; look: (props: obje
   const groups = (base().groups ?? []).slice(0, 3);
   return (
     <>
-      <h2>Zeichen</h2>
+      {/* Folded while no letter is coloured, so Aufgaben fits a 1280 x 800 window. */}
+      <Fold title="Zeichen" open={KINDS.some(([key]) => on(key)) || groups.length > 0}>
       {KINDS.map(([key, label, colour]) => (
         <span key={key}>
           <Switch label={label} on={on(key)} onChange={() => write({ ...base(), [key]: on(key) ? undefined : COLOURS[key] }, `marks-${key}`)} />
@@ -70,6 +72,7 @@ export function Letters({ sel, look, style }: { sel: Block[]; look: (props: obje
           Buchstabengruppe
         </button>
       )}
+      </Fold>
     </>
   );
 }

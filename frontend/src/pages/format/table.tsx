@@ -17,7 +17,7 @@ import { TraceControls } from "./trace";
 import { syllabled, worded } from "./words";
 import type { Doc } from "../../sheet";
 import { Switch } from "../../components/Switch";
-import { Pane } from "./pane";
+import { Fold, Pane } from "./pane";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 
@@ -162,12 +162,17 @@ export function TablePanel({
                 <input type="color" value={firstLook.fill ?? "#ffffff"} disabled={fixed} onChange={(e) => cellLook.cells({ fill: e.target.value }, "fill")} />
               </label>
               <button className="wide" aria-disabled={!filled} onClick={() => filled && !fixed && cellLook.cells({ fill: undefined })}>Kein Hintergrund</button>
+            </>
+  );
+  // Folded, with the lines below, so Aussehen fits a 1280 x 800 window: few tables change them.
+  const padCtl = (which: string) => tables.length === 1 && (
+            <Fold title="Innenabstand" id={`Innenabstand ${which}`}>
               <div role="group" aria-label="Innenabstand">
                 {SIDES.map((side, i) => (
                   <Num key={side} label={`Abstand ${side}`} value={padShown[i]} disabled={fixed} onCommit={(n) => setPad(i, n)} />
                 ))}
               </div>
-            </>
+            </Fold>
   );
   const penCtl = (
     <>
@@ -213,7 +218,8 @@ export function TablePanel({
           {open ? <h2>Ausgewählte Zellen ({formatted.length})</h2> : <h2>Ganze Tabelle</h2>}
           {tables.length === 1 && cell !== undefined && <FormulaInsert onInsert={putFormula} />}
           {/* More or fewer rows and columns, for one table: each has cells of its own. They come and go at the end,
-              or beside the cell being edited, as in PowerPoint. */}
+              or beside the cell being edited, as in PowerPoint. The two counts stand side by side. */}
+          <div className={cell === undefined ? "ranks" : "ranks cut"}>
           {tables.length === 1 &&
             (["Zeile", "Spalte"] as const).map((name, i) => {
               const axis = i ? "col" : "row";
@@ -236,6 +242,7 @@ export function TablePanel({
                 </div>
               );
             })}
+          </div>
           {/* The last row or column stays. A disabled button would take the focus from the cell. */}
           {tables.length === 1 && cell !== undefined && (
             <div className="acts">
@@ -288,8 +295,6 @@ export function TablePanel({
             Linien
             <input type="color" value={tables[0].props.line} onChange={(e) => style("table", { line: e.target.value }, "line")} />
           </label>
-          {!open && penCtl}
-          {!open && bordersCtl}
           <Switch
             label={
               <>
@@ -302,6 +307,13 @@ export function TablePanel({
             onChange={cutting}
           />
           <Switch label="Kopfzeile" on={!!tables[0].props.head} onChange={(head) => style("table", { head })} />
+          {!open && padCtl("der Tabelle")}
+          {!open && (
+            <Fold title="Linien und Rahmen" id="Linien und Rahmen der Tabelle">
+              {penCtl}
+              {bordersCtl}
+            </Fold>
+          )}
           {open && (
             <>
               <h2>Ausgewählte Zellen ({formatted.length})</h2>
@@ -310,16 +322,22 @@ export function TablePanel({
               {sizeCtl}
               {flagsCtl}
               {fillCtl}
-              {penCtl}
-              {bordersCtl}
+              {padCtl("der Zellen")}
+              <Fold title="Linien und Rahmen" id="Linien und Rahmen der Zellen">
+                {penCtl}
+                {bordersCtl}
+              </Fold>
             </>
           )}
       </Pane>
       <Pane tab="Aufgaben">
+          {/* With a cell picked the rows, columns and sizes come first, and these fold so the tab fits 1280 x 800. */}
+          <Fold title="Nachspuren, Silben und Lücken" bare={cell === undefined && !open}>
           <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
           {!text && <Letters sel={sel} look={look} style={style} />}
           {!text && <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />}
+          </Fold>
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
       </Pane>
     </>

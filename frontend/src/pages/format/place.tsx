@@ -148,8 +148,8 @@ export function Turns({ sel, alone, spin, mirror }: { sel: Block[]; alone: (b: B
   const plain = fixed || !sel.some((b) => !alone(b) || b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
   return (
     <>
-      <h2>Drehen</h2>
-      <div className="seg">
+      {/* No heading: the buttons stand under Drehung, and Lage has the room for a picture's Originalgröße. */}
+      <div className="seg" role="group" aria-label="Drehen und Spiegeln">
         {TURNS.map(([label, Icon, by]) => (
           <button key={label} aria-label={label} title={label} disabled={by ? level : plain} onClick={() => (by ? spin(by) : mirror(label[0] === "H" ? "x" : "y"))}>
             <Icon size={14} aria-hidden />
