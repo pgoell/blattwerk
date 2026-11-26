@@ -141,7 +141,7 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   const [pane, setPane] = useState(true);
-  // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
+  // A wide window lays the editor out anew: the left panel holds what can be inserted, and Start,
   // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. `opening`
   // tells when the layout is that one and how the panel of pages and templates starts.
   const { leafy } = opening();

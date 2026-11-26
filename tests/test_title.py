@@ -36,9 +36,9 @@ TITLE = """() => {
 }"""
 
 
-def titled(editor, width, title, theme=None):
+def titled(editor, width, title):
     """The editor at that width with the title typed in, and the field, which has the focus."""
-    page = sized(editor, text("a"), width=width, height=1024, touch=False, theme=theme)
+    page = sized(editor, text("a"), width=width, height=1024, touch=False)
     field = page.get_by_label("Titel")
     field.fill(title)
     expect(field).to_be_focused()
@@ -113,7 +113,7 @@ def test_a_title_shows_whole_while_it_is_edited_and_is_cut_again_after(editor, w
 @ENDS
 def test_a_title_past_its_share_of_the_bar_gives_the_room_back_when_the_edit_ends(editor, end):
     """I8: edited, a title takes all that folds; left, a third of the window at most."""
-    page, _ = titled(editor, 1280, TOO, theme="")
+    page, _ = titled(editor, 1280, TOO)
     wide = expect_title(page, 1280, whole=False, focused=True)
     assert page.evaluate(BAR)["names"] == []
     leave(page, end)
@@ -125,7 +125,7 @@ def test_a_title_past_its_share_of_the_bar_gives_the_room_back_when_the_edit_end
 
 def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(editor):
     """I8: the buttons the bar unfolds when the edit ends move the one under the pointer."""
-    page, field = titled(editor, 1280, TOO, theme="")
+    page, field = titled(editor, 1280, TOO)
     expect_title(page, 1280, focused=True)
     pin = page.get_by_label("Format und Ansicht", exact=True)
     expect_lit(pin, "true")
@@ -250,7 +250,7 @@ def test_a_double_click_on_a_real_title_selects_a_word(editor):
 def test_a_press_that_ends_the_edit_finds_its_button_still_under_the_pointer(editor):
     """I8: Rückgängig lies right after the title and moves with its end. A press there takes the
     focus from the title when the mouse button goes down, and the bar waits until it is up."""
-    page, field = titled(editor, 1280, SHORT, theme="")
+    page, field = titled(editor, 1280, SHORT)
     pick(page, "a")
     page.keyboard.press("Delete")
     expect(page.locator(".block[data-id]")).to_have_count(0)

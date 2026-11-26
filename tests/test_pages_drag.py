@@ -229,7 +229,7 @@ def test_i1_the_outer_edge_of_the_zone_scrolls_slowly_on_a_fast_screen_and_does_
 def test_i1_a_held_finger_near_the_lower_edge_scrolls_the_panel(editor):
     """I1"""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in NAMES[1:]]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="", touch=True)
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True, touch=True)
     drawer(page, "left")
     with finger(page, centre(thumb(page, 0))) as touch:
         # The hold is over once the thumbnail says so; the finger then moves on.
@@ -325,7 +325,7 @@ def test_a_click_on_a_thumbnail_with_a_block_picked_moves_the_page_not_the_block
     """D3"""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)]}, {"blocks": [box("c", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, seiten=True)
     pick(page, "a")
     before = doc(page, client)["pages"][0]["blocks"][0]
     thumb(page, 1).click()

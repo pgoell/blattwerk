@@ -4,8 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1f2023" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Blattomat" />
@@ -14,8 +13,6 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Blattomat</title>
     <script>
-      // The theme chosen on the account page, set before the first paint; without one it is Blattform.
-      document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "leaf";
       // The app's bar and the footer make way on a sheet. The rule is in this script, not only in the
       // stylesheet: the build links that file after the module, so the module can paint the bar first (#466).
       const sheetBar = document.createElement("style");

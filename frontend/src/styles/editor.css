@@ -23,7 +23,7 @@
 .top input { flex: 0 1 auto; width: auto; min-width: 80px; max-width: 34vw; field-sizing: content; margin-left: 4px; padding: 0 6px; background: none; border-color: transparent; font-weight: 500; text-overflow: ellipsis; }
 /* While it is edited the title takes what its text needs: the editor folds more of the bar away for it. */
 .top input:focus { max-width: none; }
-/* Beside Blattform's green panel the bar is short: a title with no focus takes less, and leaves commands in it. */
+/* Beside a wide window's green panel the bar is short: a title with no focus takes less, and leaves commands in it. */
 .leaf .top input:not(:focus) { max-width: 20vw; }
 .top input:hover { border-color: var(--line); }
 .top .hint { margin: 0 auto 0 4px; color: var(--faint); white-space: nowrap; }
@@ -37,7 +37,7 @@
 .top .sw.key { width: auto; min-height: 0; height: var(--ctl); align-items: center; gap: 8px; margin-left: 8px; padding: 0 4px; white-space: nowrap; font-size: 13px; color: var(--muted); }
 /* In a narrow bar both keep their sign and lose their words: the eye with its slider, and the file with its arrow. */
 @media (max-width: 1000px) { .top .sw.key .words, .pdf .words { display: none; } .top .sw.key { margin-left: 2px; } }
-/* Blattform's bar is the shorter one: there the words go sooner, so that no command folds under Mehr at 1280 px. */
+/* The wide window's bar is the shorter one: there the words go sooner, so that no command folds under Mehr at 1280 px. */
 @media (max-width: 1499px) { .leaf .top .sw.key .words { display: none; } }
 @media (max-width: 1399px) { .leaf .pdf .words { display: none; } }
 /* Wider than a phone, the bar is one row and nothing cuts it off: the editor takes out what has no room and lists

@@ -4,7 +4,7 @@ import re
 
 from playwright.sync_api import expect
 from test_pages import expect_order, three, write
-from ui import TEXT, at, bar, box, doc, pick, thumb, user
+from ui import TEXT, at, box, doc, pick, seiten, thumb, user
 
 ON = re.compile(r"\bon\b")
 
@@ -21,7 +21,7 @@ def test_delete_on_a_focused_thumbnail_deletes_its_page_and_undo_brings_it_back(
 
 
 def test_the_last_page_is_not_deleted(editor):
-    page = editor(box("a", "text", TEXT), theme="")
+    page = editor(box("a", "text", TEXT), seiten=True)
     thumb(page, 0).focus()
     page.keyboard.press("Delete")
     expect_order(page, "a")
@@ -178,10 +178,11 @@ def on_page(page, n):
 def test_a_block_added_after_page_down_lands_on_page_3(editor):
     client = user()
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, seiten=True)
     click_desk_beside_pages(page)
     scroll_to_page(page, "PageDown", lambda: desk_bottom(page))
     on_page(page, 2)
+    seiten(page, False)
     page.locator(".dock, .insert").get_by_label("Text", exact=True).click()
     saved_pages = doc(page, client)["pages"]
     assert [len(p["blocks"]) for p in saved_pages] == [1, 1, 2]
@@ -218,7 +219,7 @@ def test_delete_in_a_number_field_does_not_touch_the_page(editor):
 def test_tab_reaches_a_thumbnail_and_delete_removes_its_page(editor):
     page = three(editor)
     pick(page, "a")
-    bar(page, "left").focus()
+    page.get_by_role("tab", name="Vorlagen").focus()
     for _ in range(40):
         if thumb(page, 1).evaluate("el => el === document.activeElement"):
             break

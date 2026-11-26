@@ -32,7 +32,7 @@ from ui import (
 
 def test_a_command_in_mehr_is_off_where_its_button_is_off(editor):
     """A3"""
-    page = sized(editor, text("a"), text("b", 2), width=701, height=1000, touch=False, theme="")
+    page = sized(editor, text("a"), text("b", 2), width=701, height=1000, touch=False)
     expect_fitted(page)
     needs = ["Format übertragen", "Duplizieren", "Löschen", "Sperren"]
     more(page).click()
@@ -57,7 +57,7 @@ def test_commands_run_from_mehr_do_what_their_buttons_do(editor):
     """A3"""
     client = user()
     blocks = [text("a"), box("m", "maths", maths(client), z=2)]
-    page = sized(editor, *blocks, client=client, width=768, height=1024, touch=True, theme="")
+    page = sized(editor, *blocks, client=client, width=768, height=1024, touch=True)
     expect_fitted(page)
     assert "Löschen" not in page.evaluate(BAR)["names"]
     at(page, "a").tap()
@@ -102,7 +102,7 @@ def test_format_uebertragen_from_mehr_stays_on_until_it_is_picked_again(editor):
     blocks = apart(
         box("a", "text", {**TEXT, "bold": True}), text("b", 2), text("c", 3), text("d", 4)
     )
-    page = sized(editor, *blocks, client=client, width=701, height=1000, touch=True, theme="")
+    page = sized(editor, *blocks, client=client, width=701, height=1000, touch=True)
     expect_fitted(page)
     assert "Format übertragen" not in page.evaluate(BAR)["names"]
     at(page, "a").tap()
@@ -147,7 +147,7 @@ def test_mehr_opens_by_a_tap(editor):
 
 def test_mehr_opens_and_runs_by_the_keys(editor):
     """A4"""
-    page = sized(editor, text("a"), width=900, height=1200, touch=False, theme="")
+    page = sized(editor, text("a"), width=900, height=1200, touch=False)
     expect_fitted(page)
     page.get_by_label("Titel").focus()
     for _ in range(30):
@@ -183,7 +183,7 @@ def test_mehr_opens_and_runs_by_the_keys(editor):
 
 def test_a_command_from_mehr_acts_on_the_whole_selection_as_one_step_of_undo(editor):
     """I1"""
-    page = sized(editor, text("a"), text("b", 2), width=768, height=1024, touch=False, theme="")
+    page = sized(editor, text("a"), text("b", 2), width=768, height=1024, touch=False)
     expect_fitted(page)
     undo = page.get_by_label("Rückgängig", exact=True)
     pick(page, "a", "b")
@@ -197,7 +197,7 @@ def test_a_command_from_mehr_acts_on_the_whole_selection_as_one_step_of_undo(edi
 def test_mehr_shows_what_is_on(editor):
     """I2"""
     blocks = [text("a"), text("b", 2, locked=True)]
-    page = sized(editor, *blocks, width=701, height=1000, touch=False, theme="")
+    page = sized(editor, *blocks, width=701, height=1000, touch=False)
     expect_fitted(page)
     pick(page, "a")
     more(page).click()

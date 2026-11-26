@@ -136,7 +136,7 @@ def test_seite_loeschen_takes_the_thumbnails_page_away(editor):
 
 def test_seite_loeschen_is_off_with_one_page(editor):
     """I4"""
-    page = editor(*texts("a"), theme="")
+    page = editor(*texts("a"), seiten=True)
     right_thumb(page, 0)
     expect(item(page, "Seite löschen")).to_be_disabled()
     expect(item(page, "Neue Seite")).to_be_enabled()

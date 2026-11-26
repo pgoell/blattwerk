@@ -116,7 +116,7 @@ def test_text_starts_right_of_the_house_in_every_font(editor, look):
         )
         for i, font in enumerate(FONTS)
     ]
-    page = editor(*blocks, theme="")
+    page = editor(*blocks)
     for i, font in enumerate(FONTS):
         house = houses(page, f"f{i}").first.bounding_box()
         written = at(page, f"f{i}").locator("textarea.written")
@@ -409,7 +409,7 @@ def test_no_ink_of_the_text_reaches_into_the_house(editor, look):
         )
         for i, font in enumerate(FONTS)
     ]
-    page = editor(*blocks, theme="")
+    page = editor(*blocks)
     for i, font in enumerate(FONTS):
         ink, house = at(page, f"j{i}").evaluate(INK_OF_J, look == "outline")
         assert math.floor(ink) >= math.ceil(house), (font, ink, house)

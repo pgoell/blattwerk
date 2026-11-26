@@ -16,7 +16,6 @@ from ui import (
     tool,  # noqa: F401  # test_variants_door imports this from here
 )
 
-THEMES = pytest.mark.parametrize("theme", [None, ""], ids=["blattform", "plain"])
 # The windows the bar is pinned at: the iPad upright and on its side and a smaller one upright,
 # with fingers, and a desktop and an upright window with a mouse.
 PINNED = pytest.mark.parametrize(
@@ -115,11 +114,10 @@ def listed(page):
     return names
 
 
-@THEMES
 @PINNED
-def test_the_bar_is_one_row_with_pdf_and_undo_in_the_window(editor, theme, width, height, touch):
+def test_the_bar_is_one_row_with_pdf_and_undo_in_the_window(editor, width, height, touch):
     """A1"""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme=theme)
+    page = sized(editor, text("a"), width=width, height=height, touch=touch)
     expect_fitted(page)
     for name in ("Herunterladen", "Weitere Formate und Optionen"):
         expect(page.get_by_role("button", name=name, exact=True)).to_be_in_viewport(ratio=1)
@@ -129,12 +127,11 @@ def test_the_bar_is_one_row_with_pdf_and_undo_in_the_window(editor, theme, width
     )
 
 
-@THEMES
 @pytest.mark.parametrize("touch", [True, False], ids=["fingers", "mouse"])
 @pytest.mark.parametrize("turned", [False, True], ids=["upright", "on-its-side"])
-def test_the_bar_is_one_row_at_every_width_from_700_to_1400(editor, theme, touch, turned):
+def test_the_bar_is_one_row_at_every_width_from_700_to_1400(editor, touch, turned):
     """A2"""
-    page = editor(text("a"), theme=theme, touch=touch)
+    page = editor(text("a"), touch=touch)
     for width in sorted({*range(700, 1401, 50), 701, 1023, 1024, 1099, 1100}):
         resize(page, width, width - 250 if turned else width + 300)
         # A phone's bar, at 700, wraps as before.
@@ -147,7 +144,7 @@ def test_the_bar_is_measured_when_its_layout_changes_in_the_render_that_measures
 
     The window's resize event runs before its media queries are reported, so the blur lands first.
     """
-    page = editor(text("a"), theme=None)
+    page = editor(text("a"))
     expect_fitted(page)
     page.get_by_label("Titel").focus()
     page.evaluate('addEventListener("resize", () => document.activeElement.blur(), { once: true })')
@@ -155,27 +152,26 @@ def test_the_bar_is_measured_when_its_layout_changes_in_the_render_that_measures
     expect_fitted(page)
 
 
-@THEMES
 @pytest.mark.parametrize(
     "size", [(1023, 768), (1024, 768), (1024, 1366), (744, 1133), (820, 1180), (1100, 800)]
 )
-def test_the_bar_is_one_row_in_a_window_that_opens_at_its_size(editor, theme, size):
+def test_the_bar_is_one_row_in_a_window_that_opens_at_its_size(editor, size):
     """A2: Blattform's layout goes by the window's width as the editor draws, so a page that
     loads at a size can differ from one that was resized to it."""
-    page = editor(text("a"), theme=theme, touch=True)
+    page = editor(text("a"), touch=True)
     resize(page, *size)
     page.reload()
     expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
     expect(page.locator(".block[data-id]")).to_have_count(1)
     expect_fitted(page)
     # Blattform's own layout starts at 1024 px, on its side.
-    leaf = theme is None and size[0] >= 1024 and size[0] > size[1]
+    leaf = size[0] >= 1024 and size[0] > size[1]
     expect(page.locator("main.editor.leaf")).to_have_count(int(leaf))
 
 
 def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
     """Review: "Mehr" leaves the bar while it is measured, and took the focus along."""
-    page = sized(editor, text("a"), width=900, height=1200, touch=False, theme="")
+    page = sized(editor, text("a"), width=900, height=1200, touch=False)
     expect_fitted(page)
     more(page).focus()
     resize(page, 890, 1200)
@@ -185,7 +181,7 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
 
 def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
     """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
-    page = sized(editor, text("a"), width=1050, height=700, touch=False, theme=None)
+    page = sized(editor, text("a"), width=1050, height=700, touch=False)
     expect_fitted(page)
     expect(page.locator("main.editor.leaf")).to_have_count(1)
     more(page).focus()
@@ -198,7 +194,7 @@ def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
 def test_mehr_gets_the_focus_back_when_the_bar_was_fitted_anew_under_its_menu(editor):
     """#287: the bar's width changes under the open menu, as when its type loads late. "Mehr" left
     the bar to be measured, and the menu handed the focus back to a button that was gone."""
-    page = editor(text("a"), theme="", touch=True)
+    page = editor(text("a"), touch=True)
     expect_fitted(page)
     more(page).focus()
     page.keyboard.press("Enter")
@@ -220,7 +216,7 @@ def test_mehr_gets_the_focus_back_when_the_bar_was_fitted_anew_under_its_menu(ed
 def test_the_bar_is_fitted_anew_when_a_right_click_beside_the_menu_shuts_it(editor):
     """Review: the bar waited under the open menu, and a right click beside it shuts the menu with
     no close of its own. The bar is measured then, or it stays too wide for its place."""
-    page = editor(text("a"), theme="", touch=True)
+    page = editor(text("a"), touch=True)
     expect_fitted(page)
     more(page).focus()
     page.keyboard.press("Enter")
@@ -242,7 +238,7 @@ def test_the_bar_is_fitted_anew_when_a_right_click_beside_the_menu_shuts_it(edit
 
 def test_a_turn_gives_the_focus_back_to_mehr_that_the_keys_opened(editor):
     """Review"""
-    page = editor(text("a"), theme="", touch=True)
+    page = editor(text("a"), touch=True)
     expect_fitted(page)
     more(page).focus()
     page.keyboard.press("Enter")
@@ -253,15 +249,14 @@ def test_a_turn_gives_the_focus_back_to_mehr_that_the_keys_opened(editor):
     expect(more(page)).to_be_focused()
 
 
-@THEMES
 @PINNED
-def test_the_bar_and_mehr_hold_every_command_once(editor, theme, width, height, touch):
+def test_the_bar_and_mehr_hold_every_command_once(editor, width, height, touch):
     """A3"""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme=theme)
+    page = sized(editor, text("a"), width=width, height=height, touch=touch)
     expect_fitted(page)
     # Blattform's own layout has the zoom over the desk, not in the bar.
     leaf = page.locator("main.editor.leaf").count() == 1
-    assert leaf == (theme is None and width > height)
+    assert leaf == (width > height)
     want = [*EDITS, *([] if leaf else ZOOM), *LAST]
     # The bar's zoom button is titled "Zoom", as is its command in "Mehr".
     in_bar = page.evaluate(BAR)["names"]

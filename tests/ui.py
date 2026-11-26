@@ -439,6 +439,21 @@ def drawer(page, side):
     expect_lit(knob, "true")
 
 
+def seiten(page, shown=True):
+    """Shows the panel of pages. In a wide window it takes the place of the tools at the left:
+    `shown=False` brings those back."""
+    modes = page.locator("header .modes")
+    if modes.count():
+        tab = modes.get_by_role("tab", name="Vorlagen" if shown else "Start")
+        tab.click()
+        expect(tab).to_have_attribute("aria-selected", "true")
+        return
+    knob = bar(page, "left")
+    if (knob.get_attribute("aria-pressed") == "true") != shown:
+        knob.click()
+    expect_lit(knob, "true" if shown else "false")
+
+
 def thumb(page, n):
     """Page n's thumbnail in the panel Seiten."""
     return page.locator(f'.pages button[data-thumb="{n}"]')

@@ -9,7 +9,6 @@ from test_bar import (
     BAR,
     EDITS,
     LAST,
-    THEMES,
     ZOOM,
     expect_fitted,
     listed,
@@ -32,7 +31,7 @@ from ui import (
 @pytest.mark.parametrize("touch", [True, False], ids=["fingers", "mouse"])
 def test_a_text_stays_open_with_its_caret_while_mehr_opens_and_shuts(editor, touch):
     """I3"""
-    page = sized(editor, text("a"), width=834, height=1194, touch=touch, theme="")
+    page = sized(editor, text("a"), width=834, height=1194, touch=touch)
     expect_fitted(page)
     if touch:
         at(page, "a").tap()
@@ -60,19 +59,17 @@ def test_a_text_stays_open_with_its_caret_while_mehr_opens_and_shuts(editor, tou
     expect(at(page, "a")).to_contain_text("Halloxy")
 
 
-@THEMES
-def test_where_all_fits_there_is_no_mehr(editor, theme):
+def test_where_all_fits_there_is_no_mehr(editor):
     """I4"""
-    page = editor(text("a"), theme=theme)
+    page = editor(text("a"))
     expect_fitted(page)
     expect(more(page)).to_have_count(0)
     expect(page.get_by_label("Feedback", exact=True)).to_be_visible()
 
 
-@THEMES
-def test_a_turn_of_the_ipad_shuts_mehr_and_fits_the_bar_anew(editor, theme):
+def test_a_turn_of_the_ipad_shuts_mehr_and_fits_the_bar_anew(editor):
     """I4"""
-    page = editor(text("a"), theme=theme, touch=True)
+    page = editor(text("a"), touch=True)
     expect_fitted(page)
     upright = page.evaluate(BAR)["names"]
     for size in (TURNED, IPAD):
@@ -89,7 +86,7 @@ def test_a_turn_of_the_ipad_shuts_mehr_and_fits_the_bar_anew(editor, theme):
 @pytest.mark.parametrize("size", [(834, 1194), (768, 1024)], ids=["ipad", "small-ipad"])
 def test_a_long_title_pushes_neither_pdf_nor_undo_out_of_the_window(editor, size):
     """I5"""
-    page = sized(editor, text("a"), width=size[0], height=size[1], touch=True, theme="")
+    page = sized(editor, text("a"), width=size[0], height=size[1], touch=True)
     expect_fitted(page)
     before = page.evaluate(BAR)["names"]
     title = page.get_by_label("Titel")

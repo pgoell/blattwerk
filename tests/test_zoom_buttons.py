@@ -45,7 +45,7 @@ def test_fit_takes_the_page_in_use(editor):
         {"blocks": [box("b", "text", TEXT)], "landscape": True},
         {"blocks": [box("c", "text", TEXT)]},
     ]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True)
     for n, (w, h) in ((1, (297, 210)), (2, (210, 297)), (0, (210, 297))):
         thumb(page, n).click()
         expect_in_use(page, n)

@@ -38,12 +38,11 @@ def overflow(page):
     return over
 
 
-@pytest.mark.parametrize("theme", [None, ""], ids=["blattform", "plain"])
 @pytest.mark.parametrize("kind", KINDS)
-def test_each_tab_of_a_block_fits_the_small_window(editor, kind, theme):
+def test_each_tab_of_a_block_fits_the_small_window(editor, kind):
     client = user()
     block = box("a", "shape" if kind == "line" else kind, props(client, kind), w=80, h=40)
-    page = editor(block, client=client, tabs=True, theme=theme)
+    page = editor(block, client=client, tabs=True)
     page.set_viewport_size(SMALL)
     pick(page, "a")
     over = overflow(page)

@@ -26,7 +26,7 @@ def editor(editor):
     """The editor without a theme, as the Zahlenmauer tests of the format panel have it."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **more)
 
     return start
 

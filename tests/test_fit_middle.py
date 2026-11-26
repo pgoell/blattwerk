@@ -127,7 +127,7 @@ def test_the_page_keys_on_a_thumbnail_page_the_strip_not_the_desk(editor):
     page = editor(
         box("a", "text", TEXT),
         pages=[{"blocks": [box(f"p{n}", "text", TEXT)]} for n in range(14)],
-        theme="",
+        seiten=True,
     )
     window(page, 1280, 700)
     thumb(page, 0).click()

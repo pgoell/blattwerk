@@ -329,7 +329,7 @@ def test_a_press_beside_the_menu_closes_it_and_changes_nothing(editor):
 
 def test_a_right_click_elsewhere_moves_the_menu_there(editor):
     """I2"""
-    page = editor(*texts(*"ab"), pages=[{"blocks": [box("c", "text", TEXT)]}], theme="")
+    page = editor(*texts(*"ab"), pages=[{"blocks": [box("c", "text", TEXT)]}], seiten=True)
     right(page, "b")
     first = menu(page).bounding_box()
     watch(page)

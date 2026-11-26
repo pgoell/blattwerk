@@ -39,7 +39,7 @@ OWN = {"guides": {"x": [70], "y": [120, 200]}, "grid": 5, "landscape": True}
 def three(editor, **more):
     """Three pages with one text each, "a", "b" and "c", and the panel Seiten open."""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="", **more)
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True, **more)
     if more.get("touch") is True:
         # The iPad upright starts with the panel shut.
         drawer(page, "left")
@@ -136,7 +136,7 @@ def test_a_moved_page_keeps_its_blocks_guide_lines_grid_and_format(editor):
     """A1"""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], **OWN}, {"blocks": [box("c", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, seiten=True)
     pull(page, 1, 0, "left")
     expect_order(page, "bac")
     first, second, third = doc(page, client)["pages"]
@@ -253,7 +253,7 @@ def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor
     """A2"""
     names = "abcdefghijklmn"
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in names[1:]]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="", touch=True)
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True, touch=True)
     drawer(page, "left")
     panel = page.locator("aside.left")
     assert panel.evaluate("el => el.scrollHeight > el.clientHeight")

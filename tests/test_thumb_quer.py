@@ -43,7 +43,7 @@ def test_a_quer_thumbnail_lies_whole_inside_the_panel_at_1000_by_800(editor):
     """#633, the issue's case: page 2 on its side ends inside the panel and the strip's gutter."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], "landscape": True}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme=None, client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     open_panel(page, 1000, 800)
     expect(thumb(page, 1)).to_be_visible()
     shown, panel = inside(page, 1)
@@ -56,14 +56,13 @@ def test_a_hoch_thumbnail_beside_a_quer_one_keeps_its_size(editor):
     """#633: page 1 upright keeps the size it has on a sheet without a Quer page."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], "landscape": True}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme=None, client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     open_panel(page, 1000, 800)
     expect(thumb(page, 1)).to_be_visible()
     beside = paper(page, 0).bounding_box()
     alone = editor(
         box("a", "text", TEXT),
         pages=[{"blocks": [box("b", "text", TEXT)]}],
-        theme=None,
         client=client,
     )
     open_panel(alone, 1000, 800)
@@ -82,7 +81,7 @@ def test_a_quer_thumbnail_lies_whole_inside_the_panel_at_1400_by_900(editor):
     """#633 beyond the brief: the wide layout too, page 2 on its side inside the panel."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], "landscape": True}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     open_panel(page, 1400, 900)
     expect(thumb(page, 1)).to_be_visible()
     shown, panel = inside(page, 1)
@@ -97,7 +96,7 @@ def test_two_quer_pages_after_the_first_lie_whole_inside_the_panel_at_1000_by_80
         {"blocks": [box("b", "text", TEXT)], "landscape": True},
         {"blocks": [box("c", "text", TEXT)], "landscape": True},
     ]
-    page = editor(box("a", "text", TEXT), pages=rest, theme=None, client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     open_panel(page, 1000, 800)
     expect(thumb(page, 2)).to_be_visible()
     panel = page.locator("aside.left").bounding_box()

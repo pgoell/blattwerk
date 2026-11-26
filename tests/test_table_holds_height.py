@@ -131,7 +131,7 @@ def test_a_height_set_on_a_table_grown_by_its_text_holds(editor):
 def test_a_shrunk_table_agrees_on_screen_thumb_and_pdf(editor, browser, server):
     """Issue 520: a table that shrank back to its height draws alike on screen, thumb and PDF."""
     client = user()
-    page = editor(box("t", "table", GRID, h=H), client=client, theme="")
+    page = editor(box("t", "table", GRID, h=H), client=client, seiten=True)
     open_cell(page, "t", 4)
     page.keyboard.type(LONG)
     page.keyboard.press("Control+a")

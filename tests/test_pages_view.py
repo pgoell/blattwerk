@@ -30,7 +30,7 @@ def test_a_text_lands_on_the_page_the_wheel_brings_into_view(editor):
     """#579: page 3 fills the view, the counter says so, and the text lands there."""
     client = user()
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     wheel(page, 5000)
     expect(page.locator(COUNTER)).to_have_text("Seite 3 von 3")
     add_text(page, "Wort")
@@ -43,7 +43,7 @@ def test_a_text_lands_on_page_2_of_a_two_page_sheet_scrolled_to_it(editor):
     """#579 with two pages: the second one is in view and gets the text."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     wheel(page, 5000)
     expect(page.locator(COUNTER)).to_have_text("Seite 2 von 2")
     add_text(page, "Wort")
@@ -56,7 +56,7 @@ def test_a_text_lands_on_page_1_after_the_wheel_brings_page_1_back(editor):
     """#579: scrolled down to page 3 and back up, the text lands on page 1 again."""
     client = user()
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     wheel(page, 5000)
     expect(page.locator(COUNTER)).to_have_text("Seite 3 von 3")
     wheel(page, -5000)
@@ -72,7 +72,7 @@ def test_typing_goes_on_while_the_wheel_scrolls_to_another_page(editor):
     page into view; the next keys still go into it."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     add_text(page, "Erst")
     wheel(page, 5000)
     page.keyboard.type("dann")
@@ -85,7 +85,7 @@ def test_a_text_after_an_edit_lands_on_the_page_scrolled_to_during_it(editor):
     it closes, page 2 is in use and the next text lands there."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     add_text(page, "Erst")
     wheel(page, 5000)
     page.keyboard.press("Escape")
@@ -99,7 +99,7 @@ def test_a_maths_block_from_the_dock_lands_on_the_page_in_view(editor):
     """#579: an item of "Mathe-Blöcke" lands on page 2 with page 2 in view, as a text does."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    page = editor(box("a", "text", TEXT), pages=rest, client=client)
     wheel(page, 5000)
     expect(page.locator(COUNTER)).to_have_text("Seite 2 von 2")
     insert(page, "Zahlenstrahl")

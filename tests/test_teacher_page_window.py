@@ -104,7 +104,7 @@ def test_406_8_where_prints_a_controls_name_for_a_part_of_it(editor):
 
 def test_where_says_that_a_name_may_lie_under_mehr_in_a_narrow_window(editor):
     # Issue #321: at 820 wide the zoom's buttons have no room in the bar.
-    page = editor(box("a", "text", ONE), theme="")
+    page = editor(box("a", "text", ONE))
     assert tool.where(page, "Ganze Seite").startswith("Ganze Seite at ")
     tool.resize(page, "820", "1180")
     expect(page.get_by_label("Mehr", exact=True)).to_be_visible()

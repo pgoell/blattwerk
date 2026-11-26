@@ -287,7 +287,7 @@ def test_dashes_grow_with_the_zoom_and_are_the_same_in_a_thumbnail(editor, kind)
     look = {**RECT, "strokeWidth": 2, "dash": "dashed"}
     props = {**TEXT, **look} if kind == "text" else {**look, "kind": kind}
     # With the panel Seiten open.
-    page = editor(box("a", "text" if kind == "text" else "shape", props, **ROOM), theme="")
+    page = editor(box("a", "text" if kind == "text" else "shape", props, **ROOM), seiten=True)
     stroke = at(page, "a").locator(DASHES)
     wide = "el.closest('.sheet, .paper').getBoundingClientRect().width"
     mm = f"el => el.getScreenCTM().a * 210 / {wide}"

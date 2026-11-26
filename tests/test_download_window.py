@@ -111,13 +111,11 @@ def test_undo_and_redo_say_their_names_under_the_mouse(editor):
 
 
 def test_no_command_folds_under_mehr_at_1280(editor):
-    """Both looks of the editor: the bar holds every command, the answers' switch and the download."""
-    for theme in (None, ""):
-        page = editor(box("a", "text", TEXT), theme=theme)
-        page.set_viewport_size({"width": 1280, "height": 800})
-        bar = page.locator("header .top")
-        expect(bar.get_by_label("Feedback", exact=True)).to_be_visible()
-        expect(bar.get_by_label("Mehr", exact=True)).to_have_count(0)
-        expect(bar.get_by_role("switch", name="Lösungen zeigen", exact=True)).to_be_visible()
-        expect(bar.get_by_label("Herunterladen", exact=True)).to_be_visible()
-        page.context.close()
+    """The bar holds every command, the answers' switch and the download."""
+    page = editor(box("a", "text", TEXT))
+    page.set_viewport_size({"width": 1280, "height": 800})
+    bar = page.locator("header .top")
+    expect(bar.get_by_label("Feedback", exact=True)).to_be_visible()
+    expect(bar.get_by_label("Mehr", exact=True)).to_have_count(0)
+    expect(bar.get_by_role("switch", name="Lösungen zeigen", exact=True)).to_be_visible()
+    expect(bar.get_by_label("Herunterladen", exact=True)).to_be_visible()

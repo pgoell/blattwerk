@@ -238,7 +238,6 @@ def test_a_house_moved_to_page_2_keeps_its_props(editor):
         text(),
         pages=[{"blocks": [box("u", "text", TEXT, z=1)]}],
         client=client,
-        theme="",
         touch=True,
     )
     drawer(page, "left")

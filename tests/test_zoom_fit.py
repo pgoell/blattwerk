@@ -130,7 +130,7 @@ def test_the_fit_follows_the_panel_beside_the_desk(editor):
 def test_the_fit_keeps_the_page_in_use(editor):
     """The second page is in use: the fit and a window change keep it, not another page."""
     rest = [{"blocks": [box("b", "text", TEXT)]}, {"blocks": [box("c", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), pages=rest, seiten=True)
     thumb(page, 1).click()
     expect_in_use(page, 1)
     fit(page).click()

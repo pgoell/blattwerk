@@ -8,13 +8,13 @@ from test_clipboard_account import logout, origin, someone
 from test_pages import OWN, three
 from test_pages_many import expect_chosen, pick_many
 from test_words import LINKED, go, rulings, store_words
-from ui import BROWSER, PASSWORD, RECT, TEXT, box, doc, pick, sheet, thumb, user
+from ui import BROWSER, PASSWORD, RECT, TEXT, box, doc, pick, seiten, sheet, thumb, user
 
 
 def lettered(editor, **more):
     """Pages a, b and c, whose one text reads "A", "B" and "C": the copies show their order."""
     rest = [{"blocks": [box(name, "text", {**TEXT, "text": name.upper()})]} for name in "bc"]
-    return editor(box("a", "text", {**TEXT, "text": "A"}), pages=rest, theme="", **more)
+    return editor(box("a", "text", {**TEXT, "text": "A"}), pages=rest, seiten=True, **more)
 
 
 def words(page):
@@ -169,6 +169,7 @@ def test_a_page_copied_in_one_tab_pastes_in_another(editor):
     other = page.context.new_page()
     other.goto(page.url)
     expect(other.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+    seiten(other)
     expect(thumb(other, 2)).to_be_visible()
     menu_run(other, 2, "Einfügen")
     expect(other.locator(".sheet[data-page]")).to_have_count(4)
@@ -207,7 +208,7 @@ def test_a_pasted_page_keeps_its_guide_lines_grid_and_format(editor):
     """Einfügen brings the page's own guide lines, grid and format, as Seite duplizieren does."""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], **OWN}]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, seiten=True)
     thumb(page, 1).click()
     page.keyboard.press("Control+c")
     thumb(page, 0).focus()
@@ -222,7 +223,7 @@ def test_a_pasted_page_keeps_its_guide_lines_grid_and_format(editor):
 def test_a_pasted_page_with_a_linked_lineatur_takes_the_list_to_a_sheet_without_one(editor):
     """The page's linked Lineatur brings the word list along, as a copied linked block does."""
     client = user()
-    page = editor(box("r", "ruling", LINKED), client=client, theme="")
+    page = editor(box("r", "ruling", LINKED), client=client, seiten=True)
     store_words(page, client, ["Hund", "Katze"])
     other = sheet(client, [box("t", "text", TEXT, z=3)])
     thumb(page, 0).click()

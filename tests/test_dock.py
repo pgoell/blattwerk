@@ -6,7 +6,7 @@ a finger it still scrolls.
 
 import pytest
 from playwright.sync_api import expect
-from test_bar import THEMES, TIP, text
+from test_bar import TIP, text
 from test_keys_reach import KINDS, low
 from ui import at, expect_picked, pick, user
 
@@ -32,9 +32,9 @@ DOCK = """() => {
 }"""
 
 
-def narrow(editor, width, touch=False, theme="", more=(), client=None):
+def narrow(editor, width, touch=False, more=(), client=None):
     """The editor in a window of that width, opened anew at it, with fingers or a mouse."""
-    page = editor(text("a"), theme=theme, touch=touch, more=more, client=client)
+    page = editor(text("a"), touch=touch, more=more, client=client)
     # The panels a window starts with go by its width as the editor opens.
     page.set_viewport_size({"width": width, "height": 900})
     page.reload()
@@ -57,11 +57,10 @@ def test_a_tools_name_shows_whole_over_it_on_hover_in_a_narrow_window(editor):
         assert tip["box"]["top"] >= 0 and tip["box"]["bottom"] <= tip["window"][1], tip
 
 
-@THEMES
 @pytest.mark.parametrize("width", [360, 600, 700])
-def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(editor, theme, width):
+def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(editor, width):
     """A2, I2, I3"""
-    page = narrow(editor, width, theme=theme)
+    page = narrow(editor, width)
     tools = page.locator(TOOLS).all()
     assert len(tools) > 10
     # Since the dock's tools are 2 px narrower (#83), the name at the end of the first row has room
@@ -84,13 +83,12 @@ def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(ed
     assert len(shifted) < len(tools) / 2, shifted
 
 
-@THEMES
-def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(editor, theme):
+def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(editor):
     """I3"""
-    page = editor(text("a"), theme=theme)
-    # Only Blattform has the shapes in a panel, at the window's left.
+    page = editor(text("a"))
+    # A wide window has the shapes in a panel, at its left.
     shapes = page.locator(".insert .shapes .ib")
-    assert (shapes.count() > 1) == (theme is None)
+    assert shapes.count() > 1
     # The shapes at the first row's ends have no room in the panel; the others have.
     roomy = [button for button in shapes.all() if button.get_attribute("aria-label") not in ENDS]
     assert len(roomy) == max(shapes.count() - len(ENDS), 0)
@@ -161,22 +159,20 @@ def test_for_a_finger_no_shapes_name_shows_in_blattforms_left_panel_and_nothing_
         assert shift in ("", "0px"), shift
 
 
-@THEMES
-def test_for_a_mouse_the_dock_wraps_in_a_narrow_window_as_in_a_wider_one(editor, theme):
+def test_for_a_mouse_the_dock_wraps_in_a_narrow_window_as_in_a_wider_one(editor):
     """B2"""
-    wide = narrow(editor, 700, theme=theme).evaluate(DOCK)
-    small = narrow(editor, 600, theme=theme).evaluate(DOCK)
+    wide = narrow(editor, 700).evaluate(DOCK)
+    small = narrow(editor, 600).evaluate(DOCK)
     for got in (wide, small):
         assert got["wrap"] == "wrap" and got["flow"] == "visible" and not got["scrolls"], got
         # The tools need more than one row there.
         assert got["rows"] > 1, got
 
 
-@THEMES
 @pytest.mark.parametrize("width", [600, 360])
-def test_for_a_finger_the_dock_still_scrolls_in_a_narrow_window(editor, theme, width):
+def test_for_a_finger_the_dock_still_scrolls_in_a_narrow_window(editor, width):
     """I5"""
-    page = narrow(editor, width, touch=True, theme=theme)
+    page = narrow(editor, width, touch=True)
     assert page.evaluate("matchMedia('(pointer: coarse)').matches")
     got = page.evaluate(DOCK)
     assert got["wrap"] == "nowrap" and got["flow"] == "auto" and got["scrolls"], got
@@ -188,11 +184,10 @@ def test_for_a_finger_the_dock_still_scrolls_in_a_narrow_window(editor, theme, w
     expect(last).to_be_in_viewport(ratio=1)
 
 
-@THEMES
 @pytest.mark.parametrize("width", [600, 360])
-def test_for_a_mouse_every_tool_of_the_wrapped_dock_lies_in_the_window(editor, theme, width):
+def test_for_a_mouse_every_tool_of_the_wrapped_dock_lies_in_the_window(editor, width):
     """I6"""
-    page = narrow(editor, width, theme=theme)
+    page = narrow(editor, width)
     got = page.evaluate(DOCK)
     assert got["inside"] and got["dock"], got
     for button in page.locator(TOOLS).all():
@@ -218,20 +213,19 @@ ROOM = """() => {
 }"""
 
 
-@THEMES
 @pytest.mark.parametrize("width", [360, 700])
 def test_for_a_mouse_the_dock_lies_over_no_part_of_the_sheet_scrolled_to_its_end(
-    editor, theme, width
+    editor, width
 ):
     """A1, I2"""
     # A second page, so the desk has an end to scroll to and Blattform shows its page number.
-    got = narrow(editor, width, theme=theme, more=[text("b")]).evaluate(ROOM)
+    got = narrow(editor, width, more=[text("b")]).evaluate(ROOM)
     assert got["over"] <= 0 and got["desk"] >= got["needs"], got
 
 
 def test_the_room_under_the_sheet_follows_the_dock_as_the_window_narrows(editor):
     """I1"""
-    page = editor(text("a"), theme="", more=[text("b")])
+    page = editor(text("a"), more=[text("b")])
     wide = page.evaluate(ROOM)
     assert wide["rows"] == 1 and wide["desk"] == 88, wide
     page.set_viewport_size({"width": 360, "height": 900})

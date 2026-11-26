@@ -1,11 +1,11 @@
 """The browser, and an editor page on a sheet of the given blocks."""
 
-import json
 import os
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
 from ui import BROWSER, SETTLED, sheet, user
+from ui import seiten as show_pages
 
 WEBKIT = BROWSER == "webkit"
 # The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
@@ -102,7 +102,7 @@ def editor(browser, server, playwright):
         client=None,
         more=(),
         pages=(),
-        theme=None,
+        seiten=False,
         touch=False,
         words=None,
         wait=1100,
@@ -112,8 +112,8 @@ def editor(browser, server, playwright):
         and with `touch="landscape"` the iPad lies on its side.
 
         `pages` holds the pages after the first, each a whole page: its blocks and, where it has
-        them, its own guides, grid and landscape. `theme` is the one picked on the account page:
-        "" opens the panel Seiten, none is Blattform, which starts with that panel shut. `words`
+        them, its own guides, grid and landscape. With `seiten` the panel of pages is open, which
+        starts shut. `words`
         are the sheet's Lernwörter. `wait` is the time in ms from a change to its save: a test
         that counts on a change being unsaved for a while asks for a teacher's 2000. With `tabs`
         the format panel shows one of its three tabs, as a teacher has it; without, all three
@@ -138,8 +138,6 @@ def editor(browser, server, playwright):
             context.add_init_script(READ_PICTURE)
         # The tour would open on the first visit and lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
-        if theme is not None:
-            context.add_init_script(f"localStorage.setItem('theme', {json.dumps(theme)})")
         client = client or user()
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies(
@@ -164,6 +162,8 @@ def editor(browser, server, playwright):
         # The browser fixture is one browser for the run, and every context shares its clipboard.
         # A picture an earlier test left there would paste into this one (#182).
         page.evaluate("navigator.clipboard.writeText('')")
+        if seiten:
+            show_pages(page)
         return page
 
     yield start

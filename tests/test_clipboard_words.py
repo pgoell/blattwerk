@@ -154,7 +154,7 @@ def test_another_accounts_copy_pastes_nothing_into_an_open_text(editor):
 def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
     client = user()
     shape = box("a", "table", TABLE) if kind == "cell" else box("a", "text", TEXT)
-    page = editor(shape, client=client, theme="", words=["Hund"])
+    page = editor(shape, client=client, words=["Hund"])
     # Words with a tab: a paste into a cell would spread them over the cells.
     copy_text(page, "Ge\theim")
     page.evaluate(MARK, "Ge\theim")

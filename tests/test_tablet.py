@@ -6,7 +6,6 @@ from ui import RECT, TEXT, at, bar, box, centre, expect_lit, expect_picked, math
 from ui_touch import swipe
 
 GROUPS = ["Mehrere", "Text", "Bild", "Schreiben", "Mathe", "Tabelle", "Formen", "Seiten"]
-THEMES = pytest.mark.parametrize("theme", [None, ""], ids=["blattform", "plain"])
 BLOCKS = ".block[data-id]"
 
 
@@ -34,9 +33,8 @@ def upright(editor, *blocks, **more):
     return editor(*(blocks or [box("a", "text", TEXT, y=20)]), touch=True, **more)
 
 
-@THEMES
-def test_the_rail_holds_each_group_with_its_name_and_no_dock(editor, theme):
-    page = upright(editor, theme=theme)
+def test_the_rail_holds_each_group_with_its_name_and_no_dock(editor):
+    page = upright(editor)
     expect(rail(page)).to_have_class("rail")
     expect(rail(page).get_by_role("button")).to_have_text(GROUPS)
     expect(page.locator(".dock")).to_have_count(0)
@@ -123,9 +121,8 @@ def test_seiten_opens_and_shuts_the_drawer_of_pages(editor):
     expect(page.locator("aside.left")).to_have_count(0)
 
 
-@THEMES
-def test_a_tap_on_a_block_brings_the_panel_up_from_below(editor, theme):
-    page = upright(editor, box("a", "text", TEXT, y=20), box("b", "shape", RECT, y=60), theme=theme)
+def test_a_tap_on_a_block_brings_the_panel_up_from_below(editor):
+    page = upright(editor, box("a", "text", TEXT, y=20), box("b", "shape", RECT, y=60))
     expect(panel(page)).to_have_count(0)
     at(page, "a").tap()
     expect_picked(page, "a")

@@ -154,7 +154,7 @@ def command(page, road, name):
 
 
 # The window in which, under a long title, "Mehr" holds Ausschneiden, Kopieren, Löschen and Sperren.
-NARROW = {"width": 701, "height": 1000, "touch": False, "theme": ""}
+NARROW = {"width": 701, "height": 1000, "touch": False}
 ROADS = ["bar", "mehr", "right"]
 
 

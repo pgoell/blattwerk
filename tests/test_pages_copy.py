@@ -40,7 +40,7 @@ def test_seite_duplizieren_puts_a_copy_right_after_the_page_in_use(editor):
 def test_the_left_bar_of_the_leaf_theme_copies_the_page_too(editor):
     """A3"""
     rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf")
+    page = editor(box("a", "text", TEXT), pages=rest)
     page.locator("aside.left .insert").get_by_role("button", name="Seite duplizieren").click()
     expect_order(page, "a+b")
 
@@ -49,7 +49,7 @@ def test_the_copy_holds_every_block_of_every_type_under_new_names(editor):
     """A4"""
     client = user()
     blocks = every(client)
-    page = editor(*blocks, client=client, theme="")
+    page = editor(*blocks, client=client, seiten=True)
     copy(page).click()
     expect(page.locator('.sheet[data-page="1"] .block[data-id]')).to_have_count(len(blocks))
     old, new = (sorted(p["blocks"], key=lambda b: b["z"]) for p in doc(page, client)["pages"])
@@ -66,7 +66,7 @@ def test_the_copy_holds_every_block_of_every_type_under_new_names(editor):
 
 def test_a_change_to_the_copy_leaves_the_original_alone(editor):
     """A4"""
-    page = editor(box("a", "text", TEXT), theme="")
+    page = editor(box("a", "text", TEXT), seiten=True)
     copy(page).click()
     expect_order(page, "a+")
     before = left(page, "a")
@@ -83,7 +83,7 @@ def test_the_copy_holds_the_pages_own_guide_lines_grid_and_format(editor):
     """A5"""
     client = user()
     rest = [{"blocks": [box("b", "text", TEXT)], **OWN}]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, seiten=True)
     thumb(page, 1).click()
     expect_in_use(page, 1)
     copy(page).click()

@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from ui import (
     RULING,
     doc,  # noqa: F401
+    seiten,
 )
 
 LINKED = {**RULING, "list": "copy"}
@@ -20,10 +21,10 @@ WORDS = ["Hund", "Katze", "Igel"]
 
 @pytest.fixture
 def editor(editor):
-    """The editor with its panel open, with the tabs. `theme=None` is Blattform."""
+    """The editor as the tests of the word list open it."""
 
     def start(*blocks, **more):
-        return editor(*blocks, **{"theme": "", **more})
+        return editor(*blocks, **more)
 
     return start
 
@@ -33,7 +34,15 @@ def ready(page):
 
 
 def list_tab(page):
-    page.get_by_role("tab", name="Lernwörter").click()
+    """Opens the word list: by the panel's tab in a narrow window, by the panel's button in a wide
+    one, which shows it while nothing is picked."""
+    tab = page.get_by_role("tab", name="Lernwörter")
+    if tab.count():
+        return tab.click()
+    knob = page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True)
+    if not knob.count():
+        page.keyboard.press("Escape")
+    knob.click()
 
 
 def field(page):
@@ -50,18 +59,24 @@ def redo(page):
 
 def store_words(page, client, words):
     """Stores the sheet's list as the server holds it, then opens the sheet again."""
+    shown = page.locator(".pages").count()
     sheet_id = page.url.rsplit("/", 1)[1]
     got = client.get(f"/api/sheets/{sheet_id}").json()
     body = {"doc": {**got["doc"], "words": words}, "version": got["version"]}
     assert client.patch(f"/api/sheets/{sheet_id}", json=body).status_code == 200
     page.reload()
     ready(page)
+    if shown:
+        seiten(page)
 
 
 def go(page, other):
-    """Opens another sheet of the same user in this tab."""
+    """Opens another sheet of the same user in this tab, with the panel of pages as it was."""
+    shown = page.locator(".pages").count()
     page.goto(f"{page.url.rsplit('/blatt/', 1)[0]}/blatt/{other['id']}")
     ready(page)
+    if shown:
+        seiten(page)
     page.bring_to_front()
 
 

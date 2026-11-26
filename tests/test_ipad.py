@@ -27,7 +27,6 @@ from ui import (
     user,
 )
 
-THEMES = pytest.mark.parametrize("theme", [None, ""], ids=["blattform", "plain"])
 PARTS = ["header", ".left", ".stage", ".panel", ".sheet", ".dock"]
 MEASURE = """(parts) => Object.fromEntries(parts.map((css) => {
     const box = document.querySelector("main.editor " + css)?.getBoundingClientRect();
@@ -38,23 +37,12 @@ MEASURE = """(parts) => Object.fromEntries(parts.map((css) => {
 # 1400 by 1000, on a phone of 600 by 900 and, with fingers, on the iPad on its side. Blattform's
 # green panel runs the window's height beside the bar.
 DESKTOP = {
-    None: {
-        "header": [236, 0, 1164, 44],
-        ".left": [0, 0, 236, 1000],
-        ".stage": [236, 44, 900, 956],
-        ".panel": [1136, 44, 264, 956],
-        ".sheet": [268, 76, 821, 1161.1],
-        ".dock": [252, 938, 166, 46],
-    },
-    "": {
-        "header": [0, 0, 1400, 44],
-        ".left": [0, 44, 236, 956],
-        ".stage": [236, 44, 900, 956],
-        ".panel": [1136, 44, 264, 956],
-        ".sheet": [268, 76, 821, 1161.1],
-        # One button wider than before #835: "Weitere Formen" sits at the end of the one row.
-        ".dock": [264, 938, 844, 46],
-    },
+    "header": [236, 0, 1164, 44],
+    ".left": [0, 0, 236, 1000],
+    ".stage": [236, 44, 900, 956],
+    ".panel": [1136, 44, 264, 956],
+    ".sheet": [268, 76, 821, 1161.1],
+    ".dock": [252, 938, 166, 46],
 }
 PHONE = {
     "header": [0, 0, 600, 67],
@@ -68,22 +56,12 @@ PHONE = {
 # On its side the bar had two rows and was 91 px high. It is one row now (#272), 49 px high, so all
 # under it lies 42 px higher and the desk and the panels are as much higher.
 ON_ITS_SIDE = {
-    None: {
-        "header": [236, 0, 958, 49],
-        ".left": [0, 0, 236, 834],
-        ".stage": [236, 49, 694, 785],
-        ".panel": [930, 49, 264, 785],
-        ".sheet": [268, 81, 615, 869.8],
-        ".dock": [252, 760, 202, 58],
-    },
-    "": {
-        "header": [0, 0, 1194, 49],
-        ".left": [0, 49, 236, 785],
-        ".stage": [236, 49, 694, 785],
-        ".panel": [930, 49, 264, 785],
-        ".sheet": [268, 81, 615, 869.8],
-        ".dock": [248, 760, 670, 58],
-    },
+    "header": [236, 0, 958, 49],
+    ".left": [0, 0, 236, 834],
+    ".stage": [236, 49, 694, 785],
+    ".panel": [930, 49, 264, 785],
+    ".sheet": [268, 81, 615, 869.8],
+    ".dock": [252, 760, 202, 58],
 }
 
 
@@ -132,10 +110,9 @@ def text(name, z, **more):
     return box(name, "text", TEXT, z=z, **more)
 
 
-@THEMES
-def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor, theme):
+def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor):
     """A1"""
-    page = editor(text("a", 1), theme=theme, touch=True)
+    page = editor(text("a", 1), touch=True)
     expect_wide(page)
     for side in ("left", "right"):
         expect_lit(bar(page, side), "false")
@@ -147,7 +124,7 @@ def test_upright_both_panels_start_shut_and_the_sheet_is_wide(editor, theme):
 @pytest.mark.parametrize("side", ["left", "right"])
 def test_a_drawer_opens_and_shuts_by_its_button_and_lies_over_the_sheet(editor, side):
     """A2"""
-    page = editor(text("a", 1), theme="", touch=True)
+    page = editor(text("a", 1), touch=True)
     expect_wide(page)
     panel = page.locator("aside.left" if side == "left" else "aside.panel")
     before = sheet(page).bounding_box()
@@ -174,10 +151,9 @@ def test_a_drawer_opens_and_shuts_by_its_button_and_lies_over_the_sheet(editor, 
     assert sheet(page).bounding_box() == before
 
 
-@THEMES
-def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor, theme):
+def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor):
     """A3"""
-    page = editor(text("a", 1), theme=theme, touch=True)
+    page = editor(text("a", 1), touch=True)
     expect_wide(page)
     top = page.locator("header .top")
     # Two rows of buttons would be twice a button's height.
@@ -194,20 +170,18 @@ def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor
     assert inside(page, page.get_by_label("Mehr", exact=True))
 
 
-@THEMES
-def test_on_its_side_the_ipad_keeps_three_columns(editor, theme):
+def test_on_its_side_the_ipad_keeps_three_columns(editor):
     """A4"""
-    page = editor(text("a", 1), theme=theme, touch="landscape")
+    page = editor(text("a", 1), touch="landscape")
     expect(page.locator("aside.left")).to_be_visible()
     expect(page.locator("aside.panel")).to_be_visible()
-    expect_places(page, ON_ITS_SIDE[theme], [268, 81, 630, 891])
+    expect_places(page, ON_ITS_SIDE, [268, 81, 630, 891])
 
 
-@THEMES
-def test_a_desktop_window_lies_as_before(editor, theme):
+def test_a_desktop_window_lies_as_before(editor):
     """A5"""
-    page = editor(text("a", 1), theme=theme)
-    expect_places(page, DESKTOP[theme], [268, 76, 836, 1182.3])
+    page = editor(text("a", 1))
+    expect_places(page, DESKTOP, [268, 76, 836, 1182.3])
 
 
 def middle(page, kind, name):
@@ -258,13 +232,12 @@ def test_a_tap_on_the_middle_of_the_block_next_to_the_selected_one_selects_it(ed
         expect_picked(page, *((name + "1", name + "2") if kind == "group" else name))
 
 
-@THEMES
-def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(editor, theme):
+def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(editor):
     """I1"""
-    page = editor(text("a", 1), theme=theme, touch="landscape")
-    # Blattform's left panel holds the insert tools and has no button of its own.
-    shut, other = ("aside.left", "aside.panel") if theme == "" else ("aside.panel", "aside.left")
-    bar(page, "left" if theme == "" else "right").tap()
+    page = editor(text("a", 1), touch="landscape")
+    # The left panel holds the insert tools and has no button of its own.
+    shut, other = "aside.panel", "aside.left"
+    bar(page, "right").tap()
     expect(page.locator(shut)).to_have_count(0)
     at(page, "a").tap()
     expect_picked(page, "a")
@@ -275,7 +248,7 @@ def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(ed
     page.set_viewport_size(TURNED)
     expect(page.locator(other)).to_be_visible()
     expect(page.locator(shut)).to_have_count(0)
-    expect(page.locator(".insert")).to_have_count(0 if theme == "" else 1)
+    expect(page.locator(".insert")).to_have_count(1)
     expect_picked(page, "a")
     # A drawer left open upright is shut again after the next turn upright.
     page.set_viewport_size(IPAD)
@@ -376,10 +349,9 @@ def test_a_tap_on_a_block_above_the_open_format_panel_selects_it(editor):
     expect_lit(bar(page, "right"), "true")
 
 
-@THEMES
-def test_upright_a_tap_in_the_rail_inserts_a_block(editor, theme):
+def test_upright_a_tap_in_the_rail_inserts_a_block(editor):
     """I6"""
-    page = editor(text("a", 1), theme=theme, touch=True)
+    page = editor(text("a", 1), touch=True)
     expect_wide(page)
     rail = page.locator(".rail")
     assert inside(page, rail)
@@ -391,10 +363,9 @@ def test_upright_a_tap_in_the_rail_inserts_a_block(editor, theme):
     expect(page.locator(".block[data-id]")).to_have_count(3)
 
 
-@THEMES
-def test_a_phone_lies_as_before(editor, theme):
+def test_a_phone_lies_as_before(editor):
     """I8"""
-    page = editor(text("a", 1), theme=theme)
+    page = editor(text("a", 1))
     # The panels a window starts with go by its width as the editor opens.
     page.set_viewport_size({"width": 600, "height": 900})
     page.reload()

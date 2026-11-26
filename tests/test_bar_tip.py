@@ -5,7 +5,6 @@ The bar helpers live in test_bar.py."""
 import pytest
 from test_bar import (
     HELD,
-    THEMES,
     TIP,
     expect_fitted,
     sized,
@@ -13,10 +12,9 @@ from test_bar import (
 )
 
 
-@THEMES
-def test_a_bar_buttons_name_shows_whole_under_it_on_hover(editor, theme):
+def test_a_bar_buttons_name_shows_whole_under_it_on_hover(editor):
     """A5"""
-    page = sized(editor, text("a"), width=900, height=1200, touch=False, theme=theme)
+    page = sized(editor, text("a"), width=900, height=1200, touch=False)
     expect_fitted(page)
     for name in ("Seiten und Vorlagen", "Einfügen", "Format und Ansicht", "Mehr"):
         button = page.locator("header .top").get_by_label(name, exact=True)
@@ -28,13 +26,12 @@ def test_a_bar_buttons_name_shows_whole_under_it_on_hover(editor, theme):
         assert tip["box"]["top"] >= 0 and tip["box"]["bottom"] <= tip["window"][1], tip
 
 
-@THEMES
 @pytest.mark.parametrize("width", [360, 600])
 def test_a_bar_buttons_name_stays_in_a_narrow_window_and_under_its_button_where_it_has_room(
-    editor, theme, width
+    editor, width
 ):
     """A2, I5, I7 (#284)"""
-    page = sized(editor, text("a"), width=width, height=900, touch=False, theme=theme)
+    page = sized(editor, text("a"), width=width, height=900, touch=False)
     buttons = page.locator("header .top .ib:visible").all()
     assert len(buttons) > 10
     shifted = []
@@ -60,10 +57,9 @@ def test_a_bar_buttons_name_stays_in_a_narrow_window_and_under_its_button_where_
     assert len(shifted) < len(buttons) / 2, shifted
 
 
-@THEMES
-def test_for_a_finger_no_name_shows_in_a_narrow_window_and_nothing_shifts(editor, theme):
+def test_for_a_finger_no_name_shows_in_a_narrow_window_and_nothing_shifts(editor):
     """I8 (#284)"""
-    page = sized(editor, text("a"), width=360, height=900, touch=True, theme=theme)
+    page = sized(editor, text("a"), width=360, height=900, touch=True)
     buttons = page.locator("header .top .ib:visible, .stage .dock .ib:visible").all()
     assert len(buttons) > 10
     for button in buttons:

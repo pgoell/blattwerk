@@ -5,7 +5,6 @@ loading page can paint the bar, and the watch keeps that. Holding the stylesheet
 order every time.
 """
 
-import json
 
 import pytest
 from conftest import WEBKIT
@@ -19,14 +18,12 @@ def window(browser, server):
     """A signed-in page with the loading watch, as `window` in test_loading.py."""
     contexts = []
 
-    def start(theme=None, dark=False):
+    def start(dark=False):
         context = browser.new_context(
             viewport={"width": 1400, "height": 1000}, color_scheme="dark" if dark else "light"
         )
         contexts.append(context)
         context.add_init_script("localStorage.setItem('tour', '1')")
-        if theme is not None:
-            context.add_init_script(f"localStorage.setItem('theme', {json.dumps(theme)})")
         context.add_init_script(WATCH)
         client = user()
         context.add_cookies(
@@ -42,9 +39,8 @@ def window(browser, server):
 # Chromium runs the module after the stylesheet, so holding the file holds the module too and the
 # bar never arrives. WebKit runs the module first: that is the flash (#466).
 @pytest.mark.skipif(not WEBKIT, reason="Chromium waits for the stylesheet")
-@pytest.mark.parametrize("theme", ["", None], ids=["plain", "blattform"])
-def test_a_late_stylesheet_does_not_show_the_bar_on_a_sheet(window, server, theme):
-    page, client = window(theme=theme, dark=True)
+def test_a_late_stylesheet_does_not_show_the_bar_on_a_sheet(window, server):
+    page, client = window(dark=True)
     late = []
     page.route("**/*.css", lambda route: late.append(route))
     go = hold(page, SCRIPT)

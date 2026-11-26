@@ -52,10 +52,10 @@ def part(page):
     return page.evaluate(PART)
 
 
-def opened(editor, name, theme=None):
+def opened(editor, name):
     """The editor on one block of every type, with the named one picked, or none."""
     client = user()
-    page = editor(*everything(client), client=client, theme=theme)
+    page = editor(*everything(client), client=client)
     if name:
         at(page, name).click()
         expect(at(page, name)).to_have_class("block sel")
@@ -111,8 +111,11 @@ def test_f6_goes_from_the_sheet_to_the_bar(editor, name):
     assert picked(page) == was
 
 
-def test_f6_finds_the_bar_of_the_other_theme(editor):
-    page = opened(editor, "text", theme="")
+def test_f6_finds_the_tools_of_a_narrow_window(editor):
+    page = opened(editor, "text")
+    # The row of tools at the foot is what a window under 1024 px has.
+    page.set_viewport_size({"width": 1000, "height": 900})
+    expect(page.locator(".dock").get_by_label("Mehrere")).to_be_visible()
     page.keyboard.press("F6")
     expect(page.locator(".dock").get_by_label("Mehrere")).to_be_focused()
     expect_picked(page, "text")
@@ -129,20 +132,15 @@ def test_shift_f6_goes_from_the_sheet_to_the_panel(editor, name):
 
 
 def test_shift_f6_with_nothing_picked(editor):
-    # The panel's tabs are its first controls.
-    page = opened(editor, None, theme="")
-    page.keyboard.press("Shift+F6")
-    expect(page.locator(".panel").get_by_role("tab", name="Format")).to_be_focused()
-    # Blattform has no tabs there: the button that leads to the Lernwörter is its panel's stop.
+    # A wide window has no tabs there: the button that leads to the Lernwörter is its panel's stop.
     page = opened(editor, None)
     page.keyboard.press("Shift+F6")
     assert part(page) == "panel"
     expect(page.locator(".panel").get_by_role("button", name="Lernwörter")).to_be_focused()
 
 
-@pytest.mark.parametrize("theme", [None, ""], ids=["leaf", "plain"])
-def test_f6_goes_round_and_keeps_the_selection(editor, theme):
-    page = opened(editor, "one", theme=theme)
+def test_f6_goes_round_and_keeps_the_selection(editor):
+    page = opened(editor, "one")
     for keys, parts in (
         ("F6", ["bar", "header", "panel", "sheet", "bar"]),
         ("Shift+F6", ["sheet", "panel", "header", "bar", "sheet"]),

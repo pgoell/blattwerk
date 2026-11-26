@@ -241,9 +241,16 @@ export function useMenus(session: ReturnType<typeof usePick>) {
   useLayoutEffect(() => {
     if (!fitted.current) return;
     const el = desk.current!;
-    const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
-    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
-    el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+    const align = () => {
+      const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
+      // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+      el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+    };
+    align();
+    // A smooth scroll to the page may still be on its way, from a click on its thumbnail: the browser ends it at this
+    // scroll, where the page lay at the old size. A frame later the page is put in its place again.
+    const again = requestAnimationFrame(align);
+    return () => cancelAnimationFrame(again);
   }, [fitTick]);
   const zoomer = (
     <>

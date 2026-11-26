@@ -21,7 +21,7 @@ def editor(editor):
     """The editor with its panel open, where the tabs Format and Lernwörter are."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **more)
 
     return start
 

@@ -29,7 +29,7 @@ SIZES = pytest.mark.parametrize(
 @SIZES
 def test_the_bar_holds_the_arrow_beside_herunterladen_at_every_size(editor, width, height, touch):
     """A10: the arrow stands in the bar on a desktop and on an iPad; "Mehr" does not list it."""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme="")
+    page = sized(editor, text("a"), width=width, height=height, touch=touch)
     expect_fitted(page)
     expect(bar_button(page)).to_be_in_viewport(ratio=1)
     if more(page).count():
@@ -42,7 +42,7 @@ def test_the_bar_holds_the_arrow_beside_herunterladen_at_every_size(editor, widt
 @SIZES
 def test_the_arrow_opens_the_window(editor, width, height, touch):
     """A10: the arrow opens the window, by a click and by a finger."""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme="")
+    page = sized(editor, text("a"), width=width, height=height, touch=touch)
     expect_fitted(page)
     bar_button(page).tap() if touch else bar_button(page).click()
     expect(dialog(page)).to_be_visible()
@@ -59,7 +59,7 @@ def test_the_panel_ansicht_has_no_door_of_its_own(editor):
 
 def test_the_tour_names_the_variants_beside_the_pdf(editor):
     """A12: the tour's step on the download names the button and what its arrow opens."""
-    page = editor(text("a"), theme="")
+    page = editor(text("a"))
     tool(page, "Rundgang").click()
     step = page.locator(".tour")
     for _ in range(20):
@@ -88,7 +88,7 @@ def test_shift_tab_from_the_first_choice_stays_in_the_dialog(editor, count):
 
 def test_escape_gives_the_focus_back_to_the_bar_button(editor):
     """I5: Escape shuts the dialog and the focus goes to the bar's button that opened it."""
-    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False)
     expect_fitted(page)
     bar_button(page).click()
     expect(dialog(page)).to_be_visible()
@@ -99,7 +99,7 @@ def test_escape_gives_the_focus_back_to_the_bar_button(editor):
 
 def test_escape_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
     """#641 for the variants: the page hears of no close, so Escape must shut the dialog itself."""
-    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False)
     expect_fitted(page)
     bar_button(page).click()
     expect(dialog(page)).to_be_visible()
@@ -111,7 +111,7 @@ def test_escape_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
 
 def test_schliessen_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
     """The button Schließen shuts the dialog itself, as Escape does, with no close from the page."""
-    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False)
     expect_fitted(page)
     bar_button(page).click()
     expect(dialog(page)).to_be_visible()

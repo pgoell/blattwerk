@@ -7,7 +7,6 @@ import json
 import pytest
 from playwright.sync_api import expect
 from test_ipad import (
-    THEMES,
     text,
     within,
 )
@@ -38,7 +37,7 @@ def test_on_its_side_a_finger_turns_a_block_by_its_handle(editor):
 
 def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(editor):
     """A8, #270"""
-    page = editor(text("a", 1), theme="", touch="landscape")
+    page = editor(text("a", 1), touch="landscape")
     dock, panel = page.locator(".dock"), page.locator("aside.panel")
     assert within(dock.bounding_box(), page.locator(".stage").bounding_box())
     # The panel's left part at the dock's height is the panel's own, with the dock at either end.
@@ -60,12 +59,11 @@ def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(edito
     expect(page.locator(".block[data-id]")).to_have_count(2)
 
 
-@THEMES
 @pytest.mark.parametrize("window", [(1400, 1000), (700, 1200)], ids=["wide", "narrow"])
-def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme, window):
+def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, window):
     """I8, #270. A narrow dock scrolled for a mouse too since #267. The upright tablet has a rail
     with each name drawn (#1187): tests/test_tablet.py."""
-    page = editor(text("a", 1), theme=theme)
+    page = editor(text("a", 1))
     page.set_viewport_size({"width": window[0], "height": window[1]})
     tool = page.locator(".dock .ib").first
     tool.hover()

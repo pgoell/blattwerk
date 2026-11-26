@@ -146,7 +146,7 @@ def test_a_page_with_a_format_of_its_own_brings_its_blocks_back(editor):
     """A11, A13: "Quer" for the second page alone."""
     client = user()
     low = [text("a", 230, group=["g"]), text("b", 265, group=["g"]), text("c", 140, angle=90)]
-    page = editor(text("z", 265), client=client, more=low, theme="")
+    page = editor(text("z", 265), client=client, more=low, seiten=True)
     before = doc(page, client)
     thumb(page, 1).click()
     page.get_by_role("tab", name="Ansicht").click()
@@ -177,7 +177,7 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
         text("d", 90, x=190, angle=90),
     ]
     rest = [{"blocks": far, "landscape": True}]
-    page = editor(text("z", 20), client=client, pages=rest, theme="")
+    page = editor(text("z", 20), client=client, pages=rest, seiten=True)
     before = doc(page, client)
     thumb(page, 1).click()
     page.get_by_role("tab", name="Ansicht").click()

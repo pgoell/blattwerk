@@ -81,7 +81,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
   const moreShapes: Item[] = MORE_SHAPES.map(([kind, label, icon]) => ({ label, icon, run: () => addInsert(INSERTS.shape(kind)) }));
-  // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
+  // What can go on the page. A divider's name is its group's heading in the wide window's left panel.
   const tools = (
     <>
       <Tool
