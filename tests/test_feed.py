@@ -33,7 +33,7 @@ from ui import (
 WORDS = ["Hund", "Katze", "Maus", "Vogel", "Pferd", "Schule"]
 LISTED = {**TEXT, "list": True}
 KNICK = {**RULING, "kind": "l3", "list": "fold", "folds": 2}
-CHOICE = "Text des Textfelds"
+CHOICE = "Lernwörter des Blatts"
 
 
 @pytest.fixture
@@ -64,8 +64,8 @@ def test_the_choice_links_a_text_and_it_lists_the_words(editor, kind, props):
     page = editor(box("a", kind, props), client=client, words=WORDS)
     pick(page, "a")
     choice = page.get_by_label(CHOICE)
-    choice.select_option(label="Text aus Lernwörtern")
-    expect(choice).to_have_value("list")
+    choice.click()
+    expect(choice).to_have_attribute("aria-checked", "true")
     stored = held(page, client)["a"]
     assert stored["list"] is True
     assert stored["text"] == "Hallo"
@@ -145,14 +145,14 @@ def test_undo_and_redo_walk_every_new_control(editor):
     pick(page, "a")
     choice = page.get_by_label(CHOICE)
     actions = [
-        lambda: choice.select_option(label="Text aus Lernwörtern"),
+        lambda: choice.click(),
         lambda: panel(page, "2 Spalten").click(),
         lambda: panel(page, "Lückenwörter").click(),
         lambda: panel(page, "Jeder zweite").click(),
         # Neu wählen shows in Ein Buchstabe alone (#428).
         lambda: panel(page, "Ein Buchstabe").click(),
         lambda: panel(page, "Neu wählen").click(),
-        lambda: choice.select_option(label="Eigener Text"),
+        lambda: choice.click(),
     ]
     states = [held(page, client)["a"]]
     for act in actions:
@@ -179,7 +179,7 @@ def test_a_text_in_a_group_takes_the_list(editor):
     at(page, "a").click()
     page.keyboard.press("Control+a")
     expect(page.locator(".block.sel")).to_have_count(2)
-    page.get_by_label(CHOICE).select_option(label="Text aus Lernwörtern")
+    page.get_by_label(CHOICE).click()
     for name in ("a", "b"):
         expect(at(page, name).locator(".frame.listed .rich p")).to_have_count(len(WORDS))
         assert held(page, client)[name]["list"] is True
@@ -190,11 +190,11 @@ def test_a_text_in_a_group_takes_the_list(editor):
     [
         pytest.param("shape", LINE, id="line"),
         pytest.param("table", TABLE, id="table"),
-        pytest.param("ruling", RULING, id="ruling"),
     ],
 )
 def test_a_block_that_holds_no_text_shows_no_choice(editor, kind, props):
-    """A11: a line, a table or a Lineatur has no choice of a text from the list."""
+    """A11: a line or a table has no switch for the list. A Lineatur has the same switch for its
+    rows (test_words_panel.py)."""
     page = editor(box("x", kind, props))
     pick(page, "x")
     expect(page.locator(".panel h2").first).to_be_visible()
@@ -239,7 +239,7 @@ def test_a_linked_block_grows_to_hold_the_list(editor):
     page = editor(box("a", "text", TEXT, h=10), client=client, words=WORDS)
     pick(page, "a")
     assert heights(page, client)["a"] == 10
-    page.get_by_label(CHOICE).select_option(label="Text aus Lernwörtern")
+    page.get_by_label(CHOICE).click()
     grown = heights(page, client)["a"]
     assert grown > 10
     field(page).press("Control+End")
@@ -307,4 +307,4 @@ def test_a_switch_is_on_only_when_all_have_it(editor):
     expect(panel(page, "Lückenwörter")).to_have_attribute("aria-checked", "false")
     unpick(page)
     pick(page, "a", "c")
-    expect(page.get_by_label(CHOICE)).to_have_value("own")
+    expect(page.get_by_label(CHOICE)).to_have_attribute("aria-checked", "false")

@@ -1,4 +1,4 @@
-"""Issue #76: the panel's choices for trace text (Nachspurtext): Aus, Grau, Umriss, Gepunktet.
+"""Issue #76: the panel's switch for trace text (Nachspurtext) and its kinds: Grau, Umriss, Gepunktet.
 
 Checklist ids are in each docstring.
 """
@@ -9,7 +9,7 @@ from test_painter import paint
 from test_undo_steps import step
 from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, doc, expect_lit, pick, user
 
-CHOICES = ["Aus", "Grau", "Umriss", "Gepunktet"]
+CHOICES = ["Grau", "Umriss", "Gepunktet"]
 KARO = {"kind": "k5", "color": "#222222"}
 DOTTED_HINT = "Gepunktet gibt es nur in der Grundschrift (Urff)."
 
@@ -26,29 +26,49 @@ def fade_of(page, client, name):
     return block(page, client, name)["props"].get("fade")
 
 
+def switch(page, which="only"):
+    """The switch of the trace, under the heading "Nachspuren"."""
+    found = page.get_by_role("switch", name="Nachspurtext", exact=True)
+    return found.last if which == "last" else found.first
+
+
+def kinds(page, which="only"):
+    """The list of the trace's kinds, which stands under the switch while it is on."""
+    found = page.get_by_label("Art des Nachspurtexts", exact=True)
+    return found.last if which == "last" else found.first
+
+
 def choose(page, key, which="only"):
-    select = page.get_by_label("Nachspurtext", exact=True)
-    (select.last if which == "last" else select.first).select_option(key)
+    """Sets the trace as a teacher does: the switch turns it on, as Grau, and off, and the list
+    under it has the other kinds."""
+    on = switch(page, which).get_attribute("aria-checked") == "true"
+    if on != (key != "off"):
+        switch(page, which).click()
+    if key not in ("off", "grey"):
+        kinds(page, which).select_option(key)
 
 
 def test_a_lineatur_has_four_choices(editor):
-    """B1: the Lineatur's select has four choices in order; each stores its trace."""
+    """B1: the Lineatur's switch stores the grey trace, its list has three kinds in order, and
+    the list stands there only while the switch is on."""
     client = user()
     page = editor(box("l1", "ruling", RULING), client=client)
     pick(page, "l1")
-    select = page.get_by_label("Nachspurtext", exact=True)
-    expect(select.locator("option")).to_have_text(CHOICES)
+    select = kinds(page)
+    expect(select).to_have_count(0)
     choose(page, "grey")
+    expect(select.locator("option")).to_have_text(CHOICES)
     expect(select).to_have_value("grey")
     assert trace_of(page, client, "l1") is True
     choose(page, "off")
-    expect(select).to_have_value("off")
+    expect(select).to_have_count(0)
     assert trace_of(page, client, "l1") is None
 
 
 @pytest.mark.parametrize("kind", ["text", "karo"])
 def test_dotted_is_off_for_a_font_without_a_cut(editor, kind):
-    """B4: Gepunktet is off in Andika and for Karo, with a hint; Urff enables it."""
+    """B4: Gepunktet is off in Andika and for Karo, with a hint; Urff enables it. The hint shows
+    only while the trace is on."""
     client = user()
     if kind == "text":
         page = editor(box("a", "text", TEXT), client=client)
@@ -56,12 +76,16 @@ def test_dotted_is_off_for_a_font_without_a_cut(editor, kind):
     else:
         page = editor(box("a", "ruling", KARO), client=client)
         pick(page, "a")
-    select = page.get_by_label("Nachspurtext", exact=True)
-    expect(select.locator("option", has_text="Gepunktet")).to_be_disabled()
+    expect(page.get_by_text(DOTTED_HINT)).to_have_count(0)
+    choose(page, "grey")
+    select = kinds(page)
+    expect(select.locator("option", has_text="Gepunktet")).to_have_js_property("disabled", True)
     expect(page.get_by_text(DOTTED_HINT)).to_be_visible()
     if kind == "text":
         page.get_by_label("Schriftart", exact=True).select_option("urff")
-        expect(select.locator("option", has_text="Gepunktet")).to_be_enabled()
+        expect(select.locator("option", has_text="Gepunktet")).to_have_js_property(
+            "disabled", False
+        )
         expect(page.get_by_text(DOTTED_HINT)).to_have_count(0)
         choose(page, "dotted")
         assert trace_of(page, client, "a") == "dotted"
@@ -72,7 +96,7 @@ def test_dotted_without_a_cut_shows_grey(editor):
     client = user()
     page = editor(box("a", "text", {**TEXT, "trace": "dotted"}), client=client)
     pick(page, "a")
-    expect(page.get_by_label("Nachspurtext", exact=True)).to_have_value("grey")
+    expect(kinds(page)).to_have_value("grey")
 
 
 @pytest.mark.parametrize("kind", ["text", "table", "lineatur"])
@@ -104,15 +128,17 @@ def test_each_choice_is_one_undo_step(editor, kind):
         box("a", "text", TEXT) if kind == "text" else box("a", "ruling", RULING), client=client
     )
     pick(page, "a")
+    # The switch, the kind, the fading and its direction: four steps.
     choose(page, "outline")
     page.get_by_role("switch", name="Ausblenden").click()
     page.get_by_role("button", name="Von Zeile zu Zeile").click()
-    for _ in range(3):
+    for _ in range(4):
         step(page, lambda: page.keyboard.press("Control+z"))
-    expect(page.get_by_label("Nachspurtext", exact=True)).to_have_value("off")
-    for _ in range(3):
+    expect(switch(page)).to_have_attribute("aria-checked", "false")
+    assert trace_of(page, client, "a") is None
+    for _ in range(4):
         step(page, lambda: page.keyboard.press("Control+y"))
-    expect(page.get_by_label("Nachspurtext", exact=True)).to_have_value("outline")
+    expect(kinds(page)).to_have_value("outline")
     assert fade_of(page, client, "a") == "rows"
     # Aus is one step too, and its undo brings back the trace and the fading together.
     choose(page, "off")
@@ -127,7 +153,7 @@ def test_each_choice_is_one_undo_step(editor, kind):
     ["text", "shape", "table", "lineatur", "karo", "group"],
 )
 def test_every_block_with_text_has_the_choice(editor, kind):
-    """B2: every block with text has the select; Umriss stores "outline" on it, or its member."""
+    """B2: every block with text has the switch; Umriss stores "outline" on it, or its member."""
     client = user()
     blocks = {
         "text": [box("a", "text", TEXT)],
@@ -146,14 +172,15 @@ def test_every_block_with_text_has_the_choice(editor, kind):
         expect(page.locator(".block.sel")).to_have_count(2)
     else:
         pick(page, "a")
-    expect(page.get_by_label("Nachspurtext", exact=True)).to_be_visible()
+    expect(switch(page)).to_be_visible()
     choose(page, "outline")
     assert trace_of(page, client, "a") == "outline"
 
 
 @pytest.mark.parametrize("which", ["first", "last"])
 def test_one_choice_sets_all_picked_blocks(editor, which):
-    """I1: one choice sets Umriss on every picked block with text; one Control+z undoes all."""
+    """I1: one switch turns the trace on in every picked block with text, one list sets Umriss
+    on all of them, and one Control+z undoes each for all."""
     client = user()
     page = editor(
         box("a", "text", TEXT),
@@ -168,6 +195,9 @@ def test_one_choice_sets_all_picked_blocks(editor, which):
     choose(page, "outline", which)
     for name in names:
         assert trace_of(page, client, name) == "outline"
+    step(page, lambda: page.keyboard.press("Control+z"))
+    for name in names:
+        assert trace_of(page, client, name) is True
     step(page, lambda: page.keyboard.press("Control+z"))
     for name in names:
         assert trace_of(page, client, name) is None

@@ -45,7 +45,7 @@ def test_a_linked_bubble_grows_until_its_words_stand_in_its_body(editor):
         box("a", "shape", {**BUBBLE, "list": False}, h=30, w=60), client=client, words=WORDS
     )
     pick(page, "a")
-    page.get_by_label(CHOICE).select_option(label="Text aus Lernwörtern")
+    page.get_by_label(CHOICE).click()
     expect(at(page, "a").locator(".frame.listed .rich p")).to_have_count(len(WORDS))
     saved(page, client)
     assert in_body(at(page, "a").evaluate(BODY))
@@ -62,7 +62,7 @@ def test_a_linked_bubble_prints_its_words_in_its_body(editor, browser, server):
         box("a", "shape", {**BUBBLE, "list": False}, h=30, w=60), client=client, words=WORDS
     )
     pick(page, "a")
-    page.get_by_label(CHOICE).select_option(label="Text aus Lernwörtern")
+    page.get_by_label(CHOICE).click()
     expect(at(page, "a").locator(".frame.listed .rich p")).to_have_count(len(WORDS))
     saved(page, client)
     paper = printed(browser, server, sheet_id(page))

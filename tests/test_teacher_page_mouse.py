@@ -273,11 +273,14 @@ def test_536_a_lineatur_font_and_its_trace_answer_to_their_names(editor):
     tool.click(page, "Schriftart auf den Zeilen")
     expect(page.get_by_role("listbox", name="Liste: Schriftart auf den Zeilen")).to_be_visible()
     tool.key(page, "Escape")
-    trace = page.get_by_label("Nachspurtext", exact=True)
+    # The switch turns the trace on, as Grau. The list of its kinds stands under it from then on.
     tool.click(page, "Nachspurtext")
+    expect(page.get_by_role("switch", name="Nachspurtext", exact=True)).to_be_checked()
+    trace = page.get_by_label("Art des Nachspurtexts", exact=True)
+    tool.click(page, "Art des Nachspurtexts")
     expect(trace).to_be_focused()
     tool.key(page, "ArrowDown")
-    expect(trace).to_have_value("grey")
+    expect(trace).to_have_value("outline")
     area = page.locator("textarea.written")
     expect(area).not_to_be_editable()
     # One Enter gives the keys back. The next one opens the Lineatur.

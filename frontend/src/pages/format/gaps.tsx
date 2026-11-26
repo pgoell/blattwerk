@@ -8,9 +8,10 @@ import { Num } from "./num";
 import { both, seedOf, solutions, worded } from "./words";
 import { Switch } from "../../components/Switch";
 
-// The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
-// have, the box of solution words, and every n-th word. Each switch is on unless all have it, as bold. With a table
-// cell open the switch is that cell's, and with a text open that of the picked words.
+// The gaps of a Lückentext for every selected block that holds words, under their heading: the switch of the gaps
+// and every n-th word, which make gaps, and once a block has a gap the width they all have and the box of solution
+// words. Each switch is on unless all have it, as bold. With a table cell open the switch is that cell's, and with a
+// text open that of the picked words.
 export function Gaps({ sel, part, cell, look, style, gap, every }: { sel: Block[]; part?: Picked; cell?: number; look: (props: object, key?: string) => void; style: (type: Block["type"], props: object, key?: string, only?: string[]) => void; gap: (on: boolean) => void; every: (n: number) => void }) {
   const held = sel.filter(worded);
   // The n of "Jedes n-te Wort", as typed.
@@ -28,12 +29,15 @@ export function Gaps({ sel, part, cell, look, style, gap, every }: { sel: Block[
   };
   // A linked text or shape has no gaps of its own, so only its width shows.
   const linked = held.every((b) => boxed(b)?.list === true);
+  // What is set for the gaps shows once there is one, or while such a setting is still stored.
+  const any = linked || same || bank || held.some((b) => (b.type === "table" ? (b.props.gaps ?? []).some((row) => row?.some(Boolean)) : parasOf(boxed(b)!).some((para) => para.runs.some((run) => run.gap))));
   return (
     <>
+      <h2>Lücken</h2>
       {!linked && (
         <Switch label="Lücke" on={lit} onChange={() => gap(!lit)} />
       )}
-      <Switch label="Lücken gleich breit" on={same} onChange={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")} />
+      {any && <Switch label="Lücken gleich breit" on={same} onChange={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")} />}
       {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
       {!linked && (
         <div className="seg">
@@ -42,7 +46,7 @@ export function Gaps({ sel, part, cell, look, style, gap, every }: { sel: Block[
           <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
         </div>
       )}
-      {!linked && (
+      {!linked && any && (
         <Switch label="Lösungswörter" on={bank} onChange={() => set({ bank: bank ? undefined : draw() }, "bank")} />
       )}
       {!linked && bank && (

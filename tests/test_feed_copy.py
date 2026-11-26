@@ -34,7 +34,7 @@ def test_eigener_text_cuts_the_block_loose_with_its_words(editor):
     page = editor(box("a", "text", linked), client=client, words=WORDS)
     pick(page, "a")
     choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Eigener Text"))
+    step(page, lambda: choice.click())
     stored = held(page, client)["a"]
     assert stored["text"] == "\n".join(WORDS)
     assert not {"list", "listCols", "holes", "holeSeed"} & set(stored)
@@ -68,7 +68,7 @@ def test_cut_loose_keeps_the_line_of_the_mixed_words(editor):
     page = editor(box("a", "text", {**LISTED, "mix": 7}), client=client, words=WORDS)
     pick(page, "a")
     choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Eigener Text"))
+    step(page, lambda: choice.click())
     assert held(page, client)["a"]["mixLine"] == "after"
     expect(at(page, "a").locator(".mix .gap.line")).to_have_count(len(WORDS))
 
@@ -129,7 +129,7 @@ def test_several_texts_link_in_one_step(editor):
     page = editor(box("a", "text", TEXT), box("b", "text", TEXT, z=2), client=client, words=WORDS)
     pick(page, "a", "b")
     choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Text aus Lernwörtern"))
+    step(page, lambda: choice.click())
     assert [b["props"].get("list") for b in saved(page, client)] == [True, True]
     step(page, lambda: undo(page))
     assert [b["props"].get("list") for b in saved(page, client)] == [None, None]
