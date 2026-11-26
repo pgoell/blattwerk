@@ -98,7 +98,7 @@ def screen_and_print(browser, server, client, sheet_id, page=0, hide_gaps=False,
     window = {"viewport": {"width": 1400, "height": 1400}, "device_scale_factor": 2}
     context = browser.new_context(**window)
     # The tour would lie over the sheet.
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     # The session cookie is Secure and this server speaks http, so it goes by hand.
     context.add_cookies([{"name": "session", "value": session, "url": server}])
     tab = context.new_page()

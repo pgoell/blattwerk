@@ -55,7 +55,7 @@ def test_a_tables_cells_lie_where_they_print(browser, server):
     mine = sheet(client, fuller("table", client))["id"]
     # A sharp screen, as an iPad has: there WebKit rounds a border under a pixel down to half.
     context = browser.new_context(device_scale_factor=2)
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     shown = context.new_page()
     shown.goto(f"{server}/blatt/{mine}")
@@ -199,7 +199,7 @@ def test_a_lines_baseline_lies_where_it_prints(browser, server, playwright):
     ]
     mine = sheet(client, blocks)["id"]
     context = browser.new_context(viewport={"width": 1400, "height": 1400})
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     shown = context.new_page()
     shown.goto(f"{server}/blatt/{mine}")

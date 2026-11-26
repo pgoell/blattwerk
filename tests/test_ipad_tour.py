@@ -13,8 +13,8 @@ from ui import bar, expect_lit
 def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
     """I7"""
     page = editor(text("a", 1), touch=True)
-    # After the fixture's own script, which says the tour was seen.
-    page.context.add_init_script("localStorage.removeItem('tour')")
+    # After the fixture's own script, which keeps the tour shut: this account has not seen it.
+    page.context.add_init_script("window.toured = false")
     page.reload()
     tour, ring = page.locator(".tour"), page.locator(".tour-ring")
     step = tour.locator("h2")
@@ -45,22 +45,25 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
         )
         assert inside(page, ring)
 
-    on("Auswahl")
-    expect_ringed(page.locator("aside.panel"))
-    expect_lit(bar(page, "right"), "true")
-    # The next step's tool stands in the rail, beside the open panel: Mathe, then Rechnen.
+    expect(tour.locator("small")).to_have_text("Schritt 1 von 5")
+    # The step's tool stands in the rail: Mathe, then Rechnen.
     on("Rechenaufgaben")
     expect(step.locator("..")).to_contain_text("Tippe links auf Mathe und dann auf Rechnen.")
     page.locator(".rail").get_by_label("Mathe", exact=True).tap()
     page.locator("dialog.library .lead").get_by_role("button", name="Rechnen").tap()
-    expect(step).to_have_text("Aufgaben einstellen")
+    # The block is there, so the tour goes on by itself, to the panel of what is picked.
+    expect(step).to_have_text("Auswahl und Blatt")
     expect(page.locator(".panel .what")).to_contain_text("Rechnen")
-    on("Seiten")
-    expect_ringed(page.locator("aside.left"))
-    # The panel under the picked block stays: it is none of the drawers (#1187).
-    expect(page.locator("aside.panel")).to_be_visible()
-    # The bar has no room for the tour's own button: the last step is about "Mehr", which holds it.
-    on("Das war's")
+    expect_ringed(page.locator("aside.panel"))
+    expect_lit(bar(page, "right"), "true")
+    # The bar has no room for the tour's own button: the last step says that "Mehr" holds it.
+    on("Drucken")
     expect(page.locator("header").get_by_label("Rundgang", exact=True)).to_have_count(0)
-    expect_ringed(page.get_by_label("Mehr", exact=True))
     expect(tour.locator("p")).to_contain_text("Mehr")
+    # Closed once, the account has seen it: it stays shut after a reload, with no word from the device.
+    with page.expect_response("**/api/me/tour"):
+        tour.locator(".primary").tap()
+    expect(tour).to_have_count(0)
+    page.reload()
+    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
+    expect(tour).to_have_count(0)

@@ -141,6 +141,11 @@ def in_bar(page, name):
     return page.locator("header .top").get_by_label(name, exact=True)
 
 
+def gesperrt(page):
+    """The switch "Gesperrt" of the panel's part "Lage": the bar has no button for the lock."""
+    return page.locator(".panel").get_by_role("switch", name="Gesperrt", exact=True)
+
+
 def command(page, road, name):
     """The command by that road: the bar's button, its item under "Mehr", or the menu's of a right
     click on the locked block. The last two open their menu."""
@@ -153,7 +158,7 @@ def command(page, road, name):
     return entry(page, name)
 
 
-# The window in which, under a long title, "Mehr" holds Ausschneiden, Kopieren, Löschen and Sperren.
+# The window in which, under a long title, "Mehr" holds Ausschneiden, Kopieren and Löschen.
 NARROW = {"width": 701, "height": 1000, "touch": False}
 ROADS = ["bar", "mehr", "right"]
 
@@ -405,15 +410,21 @@ def test_a_group_with_a_locked_block_takes_no_other_blocks_size(editor):
     unchanged(page, client, before)
 
 
-@pytest.mark.parametrize("road", ROADS)
+@pytest.mark.parametrize("road", ["panel", "right"])
 def test_entsperren_frees_a_locked_block_and_entf_then_deletes_it(editor, road):
-    """A10"""
-    page, client, _ = opened(editor, "text", **window(road))
+    """A10: by the panel's switch, or by the menu of a right click. The bar has neither button."""
+    page, client, _ = opened(editor, "text")
     # A click picks it.
     grab(page, "text")
-    command(page, road, "Entsperren").click()
-    expect(command(page, road, "Sperren")).to_be_visible()
-    if road != "bar":
+    for name in ("Sperren", "Entsperren"):
+        expect(in_bar(page, name)).to_have_count(0)
+    if road == "panel":
+        expect(gesperrt(page)).to_have_attribute("aria-checked", "true")
+        gesperrt(page).click()
+        expect(gesperrt(page)).to_have_attribute("aria-checked", "false")
+    else:
+        command(page, road, "Entsperren").click()
+        expect(command(page, road, "Sperren")).to_be_visible()
         # Shuts the menu again.
         page.keyboard.press("Escape")
     expect_picked(page, "fest")
@@ -430,8 +441,8 @@ def test_entsperren_frees_a_group_that_a_locked_block_holds(editor, whole):
         grab(page, "group")
     else:
         part(page)
-    in_bar(page, "Entsperren").click()
-    expect(in_bar(page, "Sperren")).to_be_visible()
+    gesperrt(page).click()
+    expect(gesperrt(page)).to_have_attribute("aria-checked", "false")
     assert [b["locked"] for b in doc(page, client)["pages"][0]["blocks"]] == [False, False]
     page.keyboard.press("Delete")
     assert len(doc(page, client)["pages"][0]["blocks"]) == (0 if whole else 1)
@@ -465,7 +476,7 @@ def test_ctrl_a_and_entf_leave_the_locked_blocks_picked(editor):
     expect_picked(page, "b", "d")
     assert doc(page, client) == without(before, "a", "c")
     # One click frees them, and then they go.
-    in_bar(page, "Entsperren").click()
+    gesperrt(page).click()
     page.keyboard.press("Delete")
     expect(page.locator(".block[data-id]")).to_have_count(0)
 

@@ -21,7 +21,7 @@ def shown(playwright, server):
         def start(*blocks):
             client = user()
             context = browser.new_context(viewport={"width": 1280, "height": 1024})
-            context.add_init_script("localStorage.setItem('tour', '1')")
+            context.add_init_script("window.toured = true")
             cookie = {"name": "session", "value": client.cookies["session"], "url": server}
             context.add_cookies([cookie])
             page = context.new_page()

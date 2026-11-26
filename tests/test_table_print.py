@@ -61,7 +61,7 @@ def open_both(browser, server, client, page):
     """The sheet of `page` in the editor and on its print page, as two tabs of one client."""
     mine = sheet(client, page)["id"]
     context = browser.new_context(device_scale_factor=2)
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     shown = context.new_page()
     shown.goto(f"{server}/blatt/{mine}")

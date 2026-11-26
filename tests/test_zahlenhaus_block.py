@@ -105,7 +105,7 @@ def test_locked_it_stays_put_by_drag_and_arrows_and_unlocked_it_moves(editor):
     expect(page.locator(".block.sel")).to_have_count(1)
     assert stored(client, page)["h"]["x"] == before["x"]
     assert stored(client, page)["h"]["y"] == before["y"]
-    page.get_by_label("Entsperren", exact=True).click()
+    page.get_by_role("switch", name="Gesperrt", exact=True).click()
     page.keyboard.press("ArrowDown")
     expect(page.locator(".block.sel")).to_have_count(1)
     assert stored(client, page)["h"]["y"] == before["y"] + 1

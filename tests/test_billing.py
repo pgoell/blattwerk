@@ -367,13 +367,15 @@ def test_an_old_account_keeps_its_rows_and_starts_free(data_dir):
     con.close()
     opened = db.open_db()
     try:
-        row = opened.execute("SELECT email, plan, paid_until, renewal FROM users").fetchone()
+        row = opened.execute("SELECT * FROM users").fetchone()
     finally:
         opened.close()
     assert row["email"] == "a@x.de"
     assert row["plan"] == "free"
     assert row["paid_until"] is None
     assert row["renewal"] == "none"
+    # The device remembered the tour until now: an account from before is not shown it again.
+    assert row["toured"] == 1
 
 
 def sqlite3_connect(data_dir):

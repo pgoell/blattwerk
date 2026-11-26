@@ -67,7 +67,7 @@ def print_page(browser, server, client, sheet_id):
     """The PDF's page of the sheet in a new window, once it has drawn."""
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     printed = context.new_page()
     printed.set_extra_http_headers({"X-Render-Token": pdf.new_token(sheet_id)})
     printed.goto(f"{server}/druck/{sheet_id}")

@@ -42,16 +42,15 @@ def test_814_click_can_repeat_so_quick_maths_clicks_are_one_call():
     assert "#794" in bullet
 
 
-def test_814_the_second_teacher_gets_no_tour_in_the_same_window():
-    # The tour is remembered in the browser, so the second teacher never sees Beenden.
+def test_814_the_tour_is_the_accounts_so_beenden_is_clicked_only_when_it_is_open():
+    # The tour is remembered with the account: a teacher who closed it never sees Beenden again.
     how = section("## How the editor works")
-    assert "not per teacher" in how
-    assert "the same window" in how
+    assert "with the account, not in the browser" in how
     assert '`click "Beenden"` then finds nothing' in how
+    assert "Close it with `Beenden` only when it is open" in how
     step = next(line for line in section("## Two teachers").splitlines() if line.startswith("4. "))
-    assert "same window" in step
-    assert "do not click it" in step
-    assert '`click "Beenden"` finds nothing' in step
+    assert "only if this teacher has not closed it before" in step
+    assert 'close it with `click "Beenden"` when it is open' in step
 
 
 def test_814_two_read_only_where_verbs_are_two_shell_calls():

@@ -34,10 +34,13 @@ def test_a_command_in_mehr_is_off_where_its_button_is_off(editor):
     """A3"""
     page = sized(editor, text("a"), text("b", 2), width=701, height=1000, touch=False)
     expect_fitted(page)
-    needs = ["Format übertragen", "Duplizieren", "Löschen", "Sperren"]
+    needs = ["Format übertragen", "Duplizieren", "Löschen"]
     more(page).click()
-    for name in (*needs, "Gruppieren", "Gruppierung aufheben"):
+    for name in needs:
         expect(item(page, name)).to_be_disabled()
+    # The lock and the group are the right click's and the panel's, not the bar's.
+    for name in ("Sperren", "Gruppieren", "Gruppierung aufheben"):
+        expect(item(page, name)).to_have_count(0)
     for name in (*ZOOM, *LAST):
         expect(item(page, name)).to_be_enabled()
     page.keyboard.press("Escape")
@@ -45,12 +48,6 @@ def test_a_command_in_mehr_is_off_where_its_button_is_off(editor):
     more(page).click()
     for name in needs:
         expect(item(page, name)).to_be_enabled()
-    expect(item(page, "Gruppieren")).to_be_disabled()
-    page.keyboard.press("Escape")
-    pick(page, "a", "b")
-    more(page).click()
-    expect(item(page, "Gruppieren")).to_be_enabled()
-    expect(item(page, "Gruppierung aufheben")).to_be_disabled()
 
 
 def test_commands_run_from_mehr_do_what_their_buttons_do(editor):
@@ -212,12 +209,4 @@ def test_mehr_shows_what_is_on(editor):
     # The brush goes down again before the next pick.
     item(page, "Format übertragen").click()
     more(page).click()
-    expect(item(page, "Sperren")).to_be_visible()
-    page.keyboard.press("Escape")
-    pick(page, "b")
-    more(page).click()
-    expect(item(page, "Entsperren")).to_be_enabled()
-    expect(item(page, "Sperren")).to_have_count(0)
-    item(page, "Entsperren").click()
-    more(page).click()
-    expect(item(page, "Sperren")).to_be_enabled()
+    expect(item(page, "Format übertragen")).to_have_attribute("aria-checked", "false")

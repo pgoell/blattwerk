@@ -7,7 +7,7 @@ export type Entry = { label: string; words: string; make: (seed: number) => Fres
 // The groups in the order they show, each with its blocks.
 export const LIBRARY: { name: string; entries: Entry[] }[] = [
   {
-    name: "Rechnen",
+    name: "Rechenformate",
     entries: [
       { label: "Zahlenmauer", words: "mauer steine addieren plus", make: INSERTS.zahlenmauer },
       { label: "Zahlenhaus", words: "haus zerlegen verliebte zahlen", make: INSERTS.zahlenhaus },

@@ -10,6 +10,9 @@ import { Named, Tool } from "./Tool";
 import { MORE_SHAPES, SHAPES, TYPES, span } from "./palette";
 import { useMenus } from "./useMenus";
 
+// A screen that takes a finger. There "Mehrere" stands among the tools: a mouse has Shift and the frame it drags.
+const TOUCH = matchMedia("(any-pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+
 export function useTools(session: ReturnType<typeof useMenus>) {
   const brush = session.brush;
   const setBrush = session.setBrush;
@@ -43,8 +46,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const openVariants = session.openVariants;
   const clips = session.clips;
   const copies = session.copies;
-  const lockIt = session.lockIt;
-  const groups = session.groups;
   const zoomBy = session.zoomBy;
   const fitPage = session.fitPage;
   const setMenu = session.setMenu;
@@ -55,8 +56,6 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     ...clips,
     { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, on: brush > 0, run: () => (brush ? setBrush(0) : (dip(part?.marks), setBrush(2))) },
     ...copies,
-    lockIt,
-    ...groups,
     ...(leaf
       ? []
       : [
@@ -103,14 +102,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   // What can go on the page. A divider's name is its group's heading in the wide window's left panel.
   const tools = (
     <>
-      <Tool
-        icon={SquareDashedMousePointer}
-        label="Mehrere"
-        data-tour="multi"
-        className={multi ? "on" : ""}
-        aria-pressed={multi}
-        onClick={() => setMulti(!multi)}
-      />
+      {TOUCH && <Tool icon={SquareDashedMousePointer} label="Mehrere" className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)} />}
       <i className="sep" data-name="Einfügen" />
       <Tool icon={Type} label="Text" data-tour="text" onClick={() => addInsert(INSERTS.text())} />
       <Tool icon={Heading} label="Überschrift" onClick={() => addInsert(INSERTS.heading())} />
@@ -182,7 +174,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   };
   const rail = (
     <>
-      <Named icon={SquareDashedMousePointer} label="Mehrere" data-tour="multi" className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)} />
+      {TOUCH && <Named icon={SquareDashedMousePointer} label="Mehrere" className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)} />}
       <Named
         icon={Type}
         label="Einfügen"

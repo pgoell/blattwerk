@@ -185,7 +185,7 @@ def full(token: str) -> None:
         context = browser.new_context(viewport={"width": 1400, "height": 1000})
         context.set_default_timeout(WAIT)
         # The tour would open on the first visit and lie over the sheet.
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies([{"name": "session", "value": session, "url": args.url}])
         page = context.new_page()

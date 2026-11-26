@@ -53,7 +53,7 @@ def test_a_press_on_the_sheet_takes_the_focus_from_an_input(editor):
 def test_a_button_pressed_with_the_mouse_takes_no_focus(editor):
     page = editor(box("a", "text", TEXT), box("b", "text", TEXT, z=2))
     pick(page, "a")
-    for label in ("Sperren", "Entsperren", "Größer", "Schrift größer", "Rechteck", "Rückgängig"):
+    for label in ("Gesperrt", "Gesperrt", "Größer", "Schrift größer", "Rechteck", "Rückgängig"):
         page.get_by_label(label, exact=True).click()
         assert page.evaluate("document.activeElement === document.body")
     expect(page.locator(".block")).to_have_count(2)

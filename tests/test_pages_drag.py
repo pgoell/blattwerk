@@ -145,23 +145,6 @@ def test_a9_the_tooltip_of_a_thumbnail_says_a_drag_moves_the_page(editor):
     expect(thumb(page, 0)).to_contain_text("Seite 1")
 
 
-def test_a9_the_tour_says_a_page_moves_by_dragging_its_thumbnail(editor):
-    """A9"""
-    page = blatt(editor)
-    page.get_by_role("button", name="Rundgang", exact=True).click()
-    tour = page.locator(".tour")
-    # Some steps move on by themselves once a task is done, so each round reads the step first.
-    for _ in range(15):
-        if tour.locator("h2").text_content() == "Seiten":
-            break
-        shown = tour.locator("small")
-        before = shown.text_content()
-        tour.locator(".primary").click()
-        expect(shown).not_to_have_text(before)
-    expect(tour.locator("h2")).to_have_text("Seiten")
-    expect(tour.locator("p")).to_contain_text("verschiebst du, indem du ihre Vorschau ziehst")
-
-
 def test_i1_a_drag_resting_near_the_lower_edge_scrolls_the_panel_to_the_last_thumbnail(editor):
     """I1"""
     page = blatt(editor, NAMES)

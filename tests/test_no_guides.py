@@ -34,7 +34,7 @@ def opened(browser, server):
         session = {"name": "session", "value": client.cookies["session"], "url": server}
         context.add_cookies([session])
         context.add_init_script("window.saveAfter = 1100")
-        context.add_init_script("localStorage.setItem('tour', '1')")
+        context.add_init_script("window.toured = true")
         page = context.new_page()
         page.goto(f"{server}/blatt/{sheet_id}")
         expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
@@ -72,7 +72,7 @@ def test_print_and_thumbnail_draw_a_sheet_with_no_guides(browser, server):
     mine = raw(client)
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     page = context.new_page()
     page.set_extra_http_headers({"X-Render-Token": pdf.new_token(mine)})
     page.goto(f"{server}/druck/{mine}")

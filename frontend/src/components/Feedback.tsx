@@ -1,5 +1,6 @@
 // Feedback from any page: a button that opens a form for text, voice notes and pictures.
 import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type MouseEvent, type Ref } from "react";
+import { Link } from "react-router";
 import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
@@ -139,6 +140,10 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
               />
               <label>Bilder</label>
               <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
+              {/* The second kind of feedback: sheets a teacher likes, photographed, on a page of their own. */}
+              <p className="lead">
+                Ein Blatt, das dir gefällt? <Link to="/feedback/fotos" onClick={shut}>Fotos von Blättern schicken</Link>
+              </p>
               <div className="row">
                 <button type="button" onClick={shut}>Schließen</button>
                 <button className="primary" disabled={busy}>Abschicken</button>

@@ -364,13 +364,13 @@ def test_on_the_empty_page_only_einfuegen_can_run(editor):
     expect(page.locator("[role=menuitem]:enabled")).to_have_count(1)
 
 
-def test_gruppieren_and_gruppierung_aufheben_follow_their_buttons(editor):
-    """I4"""
+def test_gruppieren_and_gruppierung_aufheben_follow_the_pick(editor):
+    """I4: the menu is their one place, the bar has no button for them."""
     page = editor(*boxes(*"abcd", grouped="cd"))
     right(page, "a")
     for name in ("Gruppieren", "Gruppierung aufheben"):
         expect(item(page, name)).to_be_disabled()
-        expect(page.get_by_role("button", name=name, exact=True)).to_be_disabled()
+        expect(page.get_by_role("button", name=name, exact=True)).to_have_count(0)
     page.keyboard.press("Escape")
     pick(page, "a", "b")
     right(page, "a")
@@ -436,6 +436,7 @@ def test_an_entrys_change_is_one_undo_step_right_after_the_menu(editor, entry):
 
 
 def several(page):
+    """The tool "Mehrere", which a screen for fingers has."""
     return page.get_by_label("Mehrere", exact=True)
 
 

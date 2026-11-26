@@ -335,7 +335,7 @@ def test_a_font_that_comes_in_late_moves_the_bows_with_its_letters(browser, serv
     shape = {**TEXT, "kind": "rect", "fill": "none", "text": "Banane", "syllables": True}
     mine = sheet(client, [box("a", "shape", shape)])["id"]
     context = browser.new_context(viewport={"width": 1400, "height": 1000})
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     held = []
     context.route("**/fonts/andika/**", lambda route: held.append(route))
@@ -358,7 +358,7 @@ def opened(browser, server, client, mine, path="blatt", **more):
     """A page of a window of its own, where the splitter's chunk fails to load, on the sheet
     `mine`; and the errors the page throws."""
     context = browser.new_context(viewport={"width": 1400, "height": 1000}, **more)
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     page = context.new_page()
     errors = []

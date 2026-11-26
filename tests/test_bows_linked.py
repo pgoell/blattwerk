@@ -75,7 +75,7 @@ def test_a_linked_lineatur_prints_its_bows(browser, server):
     context = browser.new_context(
         viewport={"width": 1400, "height": 1000}, extra_http_headers=token
     )
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_init_script("window.toured = true")
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     page = context.new_page()
     page.goto(f"{server}/druck/{mine}")

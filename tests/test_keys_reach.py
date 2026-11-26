@@ -106,7 +106,9 @@ def test_f6_goes_from_the_sheet_to_the_bar(editor, name):
     was = picked(page)
     # The browser's own F6 would go to its address bar.
     assert stopped(page, "F6")
-    expect(page.get_by_role("toolbar", name="Einfügen").get_by_label("Mehrere")).to_be_focused()
+    expect(
+        page.get_by_role("toolbar", name="Einfügen").get_by_label("Text", exact=True)
+    ).to_be_focused()
     assert page.evaluate(FIRST, BAR)
     assert picked(page) == was
 
@@ -115,9 +117,9 @@ def test_f6_finds_the_tools_of_a_narrow_window(editor):
     page = opened(editor, "text")
     # The row of tools at the foot is what a window under 1024 px has.
     page.set_viewport_size({"width": 1000, "height": 900})
-    expect(page.locator(".dock").get_by_label("Mehrere")).to_be_visible()
+    expect(page.locator(".dock").get_by_label("Text", exact=True)).to_be_visible()
     page.keyboard.press("F6")
-    expect(page.locator(".dock").get_by_label("Mehrere")).to_be_focused()
+    expect(page.locator(".dock").get_by_label("Text", exact=True)).to_be_focused()
     expect_picked(page, "text")
 
 
@@ -191,7 +193,7 @@ def test_f6_back_to_the_sheet_gives_an_open_text_its_caret(editor):
 CONTROLS = {
     "button of the header": lambda page: page.get_by_label("Lösungen zeigen", exact=True),
     "title": lambda page: page.get_by_label("Titel"),
-    "button of the bar": lambda page: page.get_by_role("toolbar").get_by_label("Mehrere"),
+    "button of the bar": lambda page: page.get_by_role("toolbar").get_by_label("Text", exact=True),
     "button of the panel": lambda page: page.get_by_label("Schrift größer"),
     "select": lambda page: page.get_by_label("Schriftart"),
     "number": lambda page: page.get_by_label("X", exact=True),

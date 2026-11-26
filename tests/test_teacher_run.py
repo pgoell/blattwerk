@@ -43,7 +43,6 @@ LABELS = [
     "Titel",
     "Rückgängig",
     "Wiederholen",
-    "Mehrere",
     "Y",
     "Höhe",
     "Füllung",

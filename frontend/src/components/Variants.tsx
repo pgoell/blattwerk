@@ -297,6 +297,7 @@ export default function Variants({ id, title, doc, count, setCount, letters, set
               </label>
             ))}
           </fieldset>
+          <p className="lead">Jede Variante hat andere Zahlen.</p>
           <Switch label="Buchstabe auf jedem Blatt" on={many > 1 && letters} disabled={many < 2} onChange={(on) => setLetters(on)} />
           {many > 1 && <p className="lead">Die Lösungen tragen den Buchstaben immer.</p>}
           <Switch label="Mit Lösungen" on={solved} onChange={setSolved} />
