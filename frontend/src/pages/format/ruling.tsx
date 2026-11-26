@@ -11,9 +11,10 @@ import { Tracking } from "./tracking";
 import { syllabled } from "./words";
 import { Switch } from "../../components/Switch";
 import { Pane } from "./pane";
+import { WordList, type Listing } from "./wordlist";
 
 export function RulingPanel({
-  sel, style, place, words, lineaturen, list, toList, part, look, mendWord, doc, traced, W, H,
+  sel, style, place, words, lineaturen, list, listing, part, look, mendWord, doc, traced, W, H,
 }: {
   sel: Block[];
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
@@ -21,7 +22,7 @@ export function RulingPanel({
   words: string[];
   lineaturen: RulingBlock[];
   list: (mode?: ListMode) => void;
-  toList: () => void;
+  listing: Listing;
   part?: Picked;
   look: (props: object, key?: string) => void;
   mendWord: (keys: string[], counts: number[] | undefined, id: string) => void;
@@ -120,15 +121,23 @@ export function RulingPanel({
           </div>
       </Pane>
       <Pane tab="Aufgaben">
-          {/* The text of a Lineatur: its own, or the sheet's Lernwörter in one of three modes. A mode shows only when
-              every picked Lineatur has it. */}
-          <select aria-label="Text der Lineatur" value={mode ?? "own"} onChange={(e) => list(e.target.value === "own" ? undefined : (e.target.value as ListMode))}>
-            <option value="own">Eigener Text</option>
-            <option value="copy">Lernwörter abschreiben</option>
-            <option value="trace">Lernwörter nachspuren</option>
-            <option value="row">Lernwörter, ganze Zeile nachspuren</option>
-            <option value="fold">Lernwörter als Knickblatt</option>
-          </select>
+          {/* A Lineatur shows its own text or the sheet's Lernwörter. The switch is on only when every picked Lineatur
+              shows them; then the list stands here, and under it what the children do with the words. */}
+          <Switch label="Lernwörter des Blatts" on={!!mode} onChange={() => list(mode ? undefined : "copy")} />
+          {mode && (
+            <>
+              <WordList doc={doc} listing={listing} short={n} />
+              <label className="over">
+                Die Kinder sollen
+                <select aria-label="Die Kinder sollen" value={mode} onChange={(e) => list(e.target.value as ListMode)}>
+                  <option value="copy">abschreiben</option>
+                  <option value="trace">nachspuren</option>
+                  <option value="row">ganze Zeile nachspuren</option>
+                  <option value="fold">Knickblatt</option>
+                </select>
+              </label>
+            </>
+          )}
           {mode === "fold" && (
             <div className="seg">
               {[2, 3].map((n) => (
@@ -138,12 +147,11 @@ export function RulingPanel({
               ))}
             </div>
           )}
-          {n > 0 && (
+          {!mode && n > 0 && (
             <p className="hint" role="status">
               {n === 1 ? "1 Wort passt nicht in die Zeilen." : `${n} Wörter passen nicht in die Zeilen.`}
             </p>
           )}
-          {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
       </Pane>
       <Pane tab="Aussehen">

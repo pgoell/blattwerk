@@ -24,6 +24,8 @@
 .fontlist [role=option]:hover, .fontlist .hi { background: var(--field); }
 /* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
 .panel .wordlist { display: block; box-sizing: border-box; width: 100%; margin: 0 0 8px; resize: vertical; background: var(--field); border-color: transparent; font: inherit; }
+/* A label whose words are too long for the narrow column stands over its control. */
+.panel label.over { grid-template-columns: minmax(0, 1fr); margin: 0 0 8px; }
 /* Buttons that act at once, in equal shares of a row. */
 .acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .acts .ib { width: auto; }

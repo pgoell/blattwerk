@@ -1,14 +1,15 @@
 // The sheet's Lernwörter for a text or a shape: as its own text or as the list.
 import { draw, moves } from "../../bank";
 import { holed } from "../../holes";
-import { boxed, holesOf, listColsOf } from "../../sheet";
-import type { Block } from "../../sheet";
+import { boxed, holesOf, listColsOf, tied } from "../../sheet";
+import type { Block, Doc } from "../../sheet";
+import { WordList, type Listing } from "./wordlist";
 import { seedOf } from "./words";
 import { Switch } from "../../components/Switch";
 
 // The sheet's Lernwörter for a text or a shape: as its own text or as the list, in 1 to 4 columns, with letters hidden as
 // gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew, in "one" only: the other two modes do not depend on the seed.
-export function Fed({ sel, words, toList, look, link, feed }: { sel: Block[]; words: string[]; toList: () => void; look: (props: object, key?: string) => void; link: (on: boolean) => void; feed: (props: object, key?: string) => void }) {
+export function Fed({ sel, words, doc, listing, look, link, feed }: { sel: Block[]; words: string[]; doc: Doc; listing: Listing; look: (props: object, key?: string) => void; link: (on: boolean) => void; feed: (props: object, key?: string) => void }) {
   const held = sel.flatMap((b) => {
     const p = boxed(b);
     return p ? [p] : [];
@@ -26,6 +27,8 @@ export function Fed({ sel, words, toList, look, link, feed }: { sel: Block[]; wo
       </select>
       {linked && (
         <>
+          {/* A picked Lineatur that shows the list has the field already. */}
+          {!sel.some((b) => b.type === "ruling" && tied(b)) && <WordList doc={doc} listing={listing} />}
           <div className="seg">
             {[1, 2, 3, 4].map((n) => (
               <button key={n} className={cols === n ? "on" : ""} aria-label={n === 1 ? "1 Spalte" : `${n} Spalten`} aria-pressed={cols === n} onClick={() => look({ listCols: n === 1 ? undefined : n }, "listCols")}>
@@ -33,7 +36,6 @@ export function Fed({ sel, words, toList, look, link, feed }: { sel: Block[]; wo
               </button>
             ))}
           </div>
-          <button onClick={toList}>Lernwörter bearbeiten</button>
           <Switch label="Lückenwörter" on={holes} onChange={() => feed(holes ? { holes: undefined } : { holes: "one", holeSeed: seedOf(held[0].holeSeed) ?? draw(), mix: undefined }, "holes")} />
           {holes && mode && (
             <>

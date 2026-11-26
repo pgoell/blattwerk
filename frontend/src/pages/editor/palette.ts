@@ -116,7 +116,7 @@ export const NAMES: Record<Block["type"], string> = {
   uhr: "Uhr",
   selbstkontrolle: "Selbstkontrolle",
   name: "Namenszeile",
-  points: "Punkte",
+  points: "Punktefeld",
   maths: "Rechnen",
   formula: "Formel",
   shape: "Form",
@@ -177,7 +177,7 @@ export function pickName(sel: Block[], blocks: Block[]): string {
   return loose.every((b) => b.type === type) ? `${loose.length} ${PLURALS[type] ?? "Blöcke"}` : `${loose.length} Blöcke`;
 }
 // The right panel's tabs.
-export const TABS = ["Format", "Ansicht", "Lernwörter"];
+export const TABS = ["Format", "Ansicht"];
 export const whenTurned = (heard: () => void) => {
   DRAWERS.addEventListener("change", heard);
   return () => DRAWERS.removeEventListener("change", heard);

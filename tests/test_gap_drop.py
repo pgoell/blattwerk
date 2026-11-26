@@ -15,8 +15,8 @@ import pypdfium2
 import pytest
 from playwright.sync_api import expect
 from test_desk_scroll import PAGE, on_page, press
-from test_fix_blatt import pdf_pages
 from test_height_turned import corners
+from test_words import pdf_pages
 from ui import (
     LINE,
     RECT,

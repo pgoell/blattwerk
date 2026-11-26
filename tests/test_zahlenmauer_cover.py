@@ -2,8 +2,8 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_fix_blatt import pdf_pages
 from test_gaps import panel, step
+from test_words import pdf_pages
 from ui import RECT, RULING, TABLE, TEXT, at, box, maths, pick, picture, saved, upload, user
 
 MAUER = {

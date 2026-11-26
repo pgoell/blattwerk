@@ -143,12 +143,13 @@ export const INSERTS = {
       },
     };
   },
-  // The Lernwörter-Liste, a ruling of page width that folds the words, a row for each word that fits.
-  wordList: (words: number, [W, H]: number[], row: number): Fresh => ({
-    w: W - 2 * MARGIN,
-    h: Math.max(1, Math.min(words, Math.floor((H - 2 * MARGIN) / row))) * row,
+  // "Lernwörter": writing lines that show the sheet's words to copy, a row for each word that fits and five at least,
+  // so a sheet without words yet gets lines to look at.
+  learn: (words: number, [, H]: number[], row: number): Fresh => ({
+    w: 180,
+    h: Math.max(1, Math.min(Math.max(words, 5), Math.floor((H - 2 * MARGIN) / row))) * row,
     type: "ruling",
-    props: { kind: "l3", color: "#222222", list: "fold", folds: 2 },
+    props: { kind: "l1", color: "#555555", list: "copy" },
   }),
 };
 

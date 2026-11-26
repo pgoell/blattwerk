@@ -9,10 +9,12 @@ from test_words import (
     editor,  # noqa: F401
     field,
     go,
-    list_tab,
+    lernen,
+    link,
     ready,
     redo,
     rulings,
+    sollen,
     state,
     store_words,
     undo,
@@ -35,20 +37,16 @@ from ui import (
 def test_undo_and_redo_walk_the_list_the_link_the_mode_and_the_cut(editor):
     client = user()
     page = editor(box("r", "ruling", RULING), client=client)
-    list_tab(page)
+    pick(page, "r")
+    link(page, "copy")
     field(page).click()
     page.keyboard.type("Hund")
     expect(field(page)).to_have_value("Hund")
-    pick(page, "r")
-    page.get_by_role("tab", name="Format").click()
-    select = page.get_by_label("Text der Lineatur")
-    select.select_option("copy")
-    select.select_option("row")
-    select.select_option("own")
-    expect(select).to_have_value("own")
+    link(page, "row")
+    link(page, "own")
     steps = [
         (None, None, None, None),
-        (["Hund"], None, None, None),
+        (None, "copy", None, None),
         (["Hund"], "copy", None, None),
         (["Hund"], "row", None, None),
         (["Hund"], None, "Hund", True),
@@ -64,8 +62,8 @@ def test_undo_and_redo_walk_the_list_the_link_the_mode_and_the_cut(editor):
 
 def test_a_run_of_typing_in_the_list_is_one_undo_step(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    list_tab(page)
+    page = editor(box("r", "ruling", LINKED), client=client)
+    pick(page, "r")
     field(page).click()
     page.keyboard.type("Hund")
     page.keyboard.press("Enter")
@@ -78,8 +76,8 @@ def test_a_run_of_typing_in_the_list_is_one_undo_step(editor):
 
 def test_ctrl_z_in_the_list_undoes_the_sheet(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    list_tab(page)
+    page = editor(box("r", "ruling", LINKED), client=client)
+    pick(page, "r")
     field(page).click()
     page.keyboard.type("Hund")
     expect(field(page)).to_have_value("Hund")
@@ -97,16 +95,16 @@ def test_several_lineaturen_link_in_one_step(editor):
     )
     store_words(page, client, ["Hund", "Katze"])
     pick(page, "a", "b")
-    select = page.get_by_label("Text der Lineatur")
-    expect(select).to_have_value("own")
-    select.select_option("copy")
+    # One of the two shows the list only: the switch is off, and a press links both.
+    expect(lernen(page)).to_have_attribute("aria-checked", "false")
+    link(page, "copy")
     assert [r["props"]["list"] for r in rulings(doc(page, client))] == ["copy", "copy"]
     undo(page)
     assert [r["props"].get("list") for r in rulings(doc(page, client))] == ["trace", None]
-    select.select_option("row")
+    link(page, "row")
     unpick(page)
     pick(page, "a", "b")
-    expect(page.get_by_label("Text der Lineatur")).to_have_value("row")
+    expect(sollen(page)).to_have_value("row")
 
 
 @pytest.mark.parametrize("how", ["dblclick", "enter", "typing"])
@@ -141,9 +139,9 @@ def test_a_sheet_without_a_list_saves_back_as_it_was(editor):
 
 def test_emptying_the_list_removes_it(editor):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
+    page = editor(box("r", "ruling", LINKED), client=client)
     store_words(page, client, ["Hund"])
-    list_tab(page)
+    pick(page, "r")
     field(page).fill("")
     assert "words" not in doc(page, client)
 
@@ -151,11 +149,10 @@ def test_emptying_the_list_removes_it(editor):
 @pytest.mark.parametrize("junk", ["Hund", 7])
 def test_garbage_in_words_shows_an_empty_list(editor, junk):
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
+    page = editor(box("r", "ruling", LINKED), client=client)
     store_words(page, client, junk)
-    list_tab(page)
+    pick(page, "r")
     expect(field(page)).to_have_value("")
-    expect(page.get_by_role("button", name="Lernwörter-Blatt")).to_be_disabled()
     field(page).click()
     page.keyboard.type("Reh")
     assert doc(page, client)["words"] == ["Reh"]

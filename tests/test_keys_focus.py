@@ -203,7 +203,7 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
     # so what holds for a control beside a text being written does not hold for it. test_words.py
     # and test_feed.py test them.
     # "von" moves the place X shows, so it has a test of its own below.
-    own = ("Text der Lineatur", "Text des Textfelds", "von")
+    own = ("Die Kinder sollen", "Text des Textfelds", "von")
     assert [label for label in found if label not in own] == CONTROLS[name]
 
     control = choose(page, label)

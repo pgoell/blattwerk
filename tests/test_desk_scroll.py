@@ -6,7 +6,7 @@ page under the pointer, and the whole drag with its scroll is one undo step.
 """
 
 from playwright.sync_api import expect
-from test_fix_blatt import pdf_pages
+from test_words import pdf_pages
 from ui import TEXT, at, box, centre, doc, pick, reload, user
 
 DESK = ".desk"

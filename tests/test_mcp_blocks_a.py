@@ -16,7 +16,7 @@ LABELS = {
     "shape": "Rechteck",
     "ruling": "Lineatur",
     "name": "Namenszeile",
-    "points": "Punkte",
+    "points": "Punktefeld",
     "symbol": "Symbol",
     "table": "Tabelle",
 }

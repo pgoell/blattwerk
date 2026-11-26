@@ -263,9 +263,10 @@ def test_the_bar_and_mehr_hold_every_command_once(editor, width, height, touch):
     in_menu = listed(page)
     assert in_bar + in_menu == want
     assert all(name in in_bar for name in ZOOM) or not any(name in in_bar for name in ZOOM)
-    # No command is in the page twice, by any name.
+    # No command is in the page twice, by any name. The tools are no commands: the rail has a group
+    # "Einfügen" of its own.
     for name in want:
-        named = f'button:is([aria-label="{name}"], .zoom[title="{name}"]):not(.dock *)'
+        named = f'button:is([aria-label="{name}"], .zoom[title="{name}"]):not(.dock *, .rail *)'
         assert page.locator(named).count() == (name in in_bar)
 
 

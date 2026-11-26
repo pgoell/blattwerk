@@ -124,20 +124,6 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number; up?: boolean }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
-  // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
-  const idKey = ids.join();
-  useEffect(() => {
-    if (idKey) setTab((now) => (now === "Lernwörter" ? "Format" : now));
-  }, [idKey]);
-  // So does a click on a block that is picked already: the pick does not change then.
-  useEffect(() => {
-    if (tab !== "Lernwörter") return;
-    const down = (e: Event) => {
-      if (e.target instanceof Element && e.target.closest(".block") && sheet.current?.contains(e.target)) setTab("Format");
-    };
-    document.addEventListener("pointerdown", down, true);
-    return () => document.removeEventListener("pointerdown", down, true);
-  }, [tab]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   const [pane, setPane] = useState(true);
@@ -151,5 +137,5 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   const [drawer, setDrawer] = useState<"left" | "right">();
   // The finger on a drawer's swipe: where it came down, which drawer it may open or shut, and whether it has.
   const swipe = useRef<{ x: number; y: number; open?: "left" | "right"; shut?: "left" | "right"; decided?: boolean } | undefined>(undefined);
-    return Object.assign(session, { own, setOwn, at, setAt, chosen, setChosen, haul, setHaul, ids, setIds, targets, setTargets, rest, setRest, coat, setCoat, brush, setBrush, wet, openNow, editing, setEditing, stone, setStone, finger, setFinger, grips, setGrips, slot, setSlot, reach, setReach, cellDrag, brushing, brushed, laid, setLaid, caret, clicked, entire, words, setWords, wordsKept, nameWriting, field, part, setPart, inPanel, accent, stays, sheet, written, back, MOVES, act, multi, setMulti, menu, setMenu, mathMenu, setMathMenu, lens, setLens, tab, setTab, idKey, onPage, setOnPage, pane, setPane, leafy, side, setSide, drawers, drawer, setDrawer, swipe });
+    return Object.assign(session, { own, setOwn, at, setAt, chosen, setChosen, haul, setHaul, ids, setIds, targets, setTargets, rest, setRest, coat, setCoat, brush, setBrush, wet, openNow, editing, setEditing, stone, setStone, finger, setFinger, grips, setGrips, slot, setSlot, reach, setReach, cellDrag, brushing, brushed, laid, setLaid, caret, clicked, entire, words, setWords, wordsKept, nameWriting, field, part, setPart, inPanel, accent, stays, sheet, written, back, MOVES, act, multi, setMulti, menu, setMenu, mathMenu, setMathMenu, lens, setLens, tab, setTab, onPage, setOnPage, pane, setPane, leafy, side, setSide, drawers, drawer, setDrawer, swipe });
 }

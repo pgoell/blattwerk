@@ -452,10 +452,27 @@ BUILT_IN = [
         "doc": doc(
             [
                 block("name", 15, 15, 180, 10, {}),
-                heading(32, "Lernwörter"),
-                # Six words, one row of Lineatur 1 (20 mm) each.
                 block(
-                    "ruling", 15, 55, 180, 120, {"kind": "l1", "color": "#555555", "list": "copy"}
+                    "text",
+                    15,
+                    30,
+                    180,
+                    12,
+                    {"text": "Lernwörter", "size": 20, "align": "left", "bold": True},
+                ),
+                # Three exercises on the sheet's list, six rows of Lineatur 3 (11.5 mm) each, 6 mm
+                # apart: to copy, to trace, and to trace along the row. They grow together, and a
+                # list longer than the page holds runs on to a page more.
+                *(
+                    block(
+                        "ruling",
+                        15,
+                        47 + 75 * n,
+                        180,
+                        69,
+                        {"kind": "l3", "color": "#222222", "list": mode},
+                    )
+                    for n, mode in enumerate(("copy", "trace", "row"))
                 ),
             ]
         ),

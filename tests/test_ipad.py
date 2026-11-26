@@ -355,7 +355,8 @@ def test_upright_a_tap_in_the_rail_inserts_a_block(editor):
     expect_wide(page)
     rail = page.locator(".rail")
     assert inside(page, rail)
-    rail.get_by_label("Tabelle", exact=True).tap()
+    rail.get_by_label("Einfügen", exact=True).tap()
+    page.get_by_role("menuitem", name="Tabelle", exact=True).tap()
     expect(page.locator(".block[data-id]")).to_have_count(2)
     # So does a tool of a group, by the group's list.
     rail.get_by_label("Formen", exact=True).tap()

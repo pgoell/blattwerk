@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock, type TextBlock, type TextProps } from "./sheet";
-import { blatt, filled, follow, landed, linked, loose, looseText, pasted, short, unshown } from "./words";
+import { filled, follow, landed, linked, loose, looseText, pasted, short, unshown } from "./words";
 
 const block = (kind: Ruling, h: number, props: Partial<RulingBlock["props"]> = {}, extra: Partial<RulingBlock> = {}): RulingBlock => ({
   id: "r",
@@ -278,59 +278,6 @@ describe("landed", () => {
   });
 });
 
-describe("blatt", () => {
-  const rulings = (out: ReturnType<typeof blatt>) => out[0].slice(2) as RulingBlock[];
-
-  it("gives 3 words the l2 Lineatur, three blocks of 3 rows", () => {
-    const out = rulings(blatt(words(3), 210, 297));
-    expect(out.map((b) => b.props.kind)).toEqual(["l2", "l2", "l2"]);
-    expect(out.map((b) => b.h)).toEqual([48, 48, 48]);
-  });
-
-  it("gives 6 words the l3 Lineatur", () => {
-    expect(rulings(blatt(words(6), 210, 297))[0].props.kind).toBe("l3");
-  });
-
-  it("gives 30 words the lines, as many rows as fit a third, and runs on to a second page", () => {
-    const pages = blatt(words(30), 210, 297);
-    expect(pages.length).toBe(4);
-    expect(rulings(pages).map((b) => b.props.kind)).toEqual(["lines", "lines", "lines"]);
-    expect(rulings(pages).map((b) => b.h)).toEqual([72, 72, 72]);
-  });
-
-  it("gives a run-on page the next words of each mode, with no heading", () => {
-    const pages = blatt(words(30), 210, 297);
-    const second = pages[1] as RulingBlock[];
-    expect(second.map((b) => b.type)).toEqual(["ruling", "ruling", "ruling"]);
-    expect(second.map((b) => b.props.list)).toEqual(["copy", "trace", "row"]);
-    expect(second.map((b) => b.props.from)).toEqual([9, 9, 9]);
-    expect(pages[0].slice(2).map((b) => (b as RulingBlock).props.from)).toEqual([undefined, undefined, undefined]);
-  });
-
-  it("gives a page of rows for every word, once, in each mode", () => {
-    const pages = blatt(words(30), 210, 297);
-    for (const mode of ["copy", "trace", "row"]) {
-      const shown = pages.flatMap((page) => page.filter((b) => b.type === "ruling" && (b.props as RulingBlock["props"]).list === mode)).map((b) => (b.props as RulingBlock["props"]).from ?? 0);
-      expect(shown).toEqual(pages.map((_, p) => p * 9));
-    }
-  });
-
-  it.each([3, 6, 30])("ends every block above the bottom margin with %i words, portrait and landscape", (n) => {
-    for (const [W, H] of [[210, 297], [297, 210]]) {
-      for (const b of blatt(words(n), W, H).flat()) expect(b.y + b.h).toBeLessThanOrEqual(H - MARGIN);
-    }
-  });
-
-  it("puts no two blocks over each other", () => {
-    for (const out of blatt(words(30), 210, 297)) {
-      for (let i = 1; i < out.length; i++) expect(out[i - 1].y + out[i - 1].h).toBeLessThanOrEqual(out[i].y);
-    }
-  });
-
-  it("takes the modes copy, trace and row in order", () => {
-    expect(rulings(blatt(words(3), 210, 297)).map((b) => b.props.list)).toEqual(["copy", "trace", "row"]);
-  });
-});
 
 describe("filled", () => {
   it("fills a block to the bottom margin in whole rows", () => {

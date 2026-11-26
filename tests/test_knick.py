@@ -9,7 +9,7 @@ import pytest
 from playwright.sync_api import expect
 from test_feed_print import pdf_text, printed, sheet_id
 from test_gaps import panel
-from test_words import list_tab, rulings, undo
+from test_words import link, list_tab, rulings, undo
 from ui import RULING, TEXT, at, box, doc, pick, thumb, user
 
 WORDS = ["Hund", "Katze", "Maus", "Vogel", "Pferd", "Schule"]
@@ -32,33 +32,26 @@ def across(locator):
     return found["x"] + found["width"] / 2
 
 
-def test_the_button_adds_a_knickblatt(editor):
-    """A6: the button "Knickblatt" on the Lernwörter tab adds a fold Lineatur, six rows high."""
+def test_the_tool_and_the_choice_make_a_knickblatt(editor):
+    """A6: the tool "Lernwörter" adds a Lineatur with a row to a word, and "Knickblatt" among what
+    the children do folds it, with two columns to write in."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client, words=WORDS)
     list_tab(page)
-    page.get_by_role("button", name="Knickblatt", exact=True).click()
+    link(page, "fold")
     [blatt] = rulings(doc(page, client))
     assert blatt["props"]["list"] == "fold"
-    assert blatt["props"]["folds"] == 2
-    assert blatt["h"] == pytest.approx(6 * 11.5)
-
-
-def test_the_button_is_off_without_words(editor):
-    """A6: with no words in the sheet the button "Knickblatt" is off."""
-    page = editor(box("a", "text", TEXT))
-    list_tab(page)
-    expect(page.get_by_role("button", name="Knickblatt", exact=True)).to_be_disabled()
+    assert blatt["h"] == 6 * 20
+    expect(at(page, blatt["id"]).locator("line.col")).to_have_count(1)
+    expect(panel(page, "2 Spalten zum Schreiben")).to_have_attribute("aria-pressed", "true")
 
 
 def test_the_lineatur_choice_makes_a_knickblatt(editor):
-    """A6: the Lineatur's text "Lernwörter als Knickblatt" makes the Lineatur a Knickblatt."""
+    """A6: the choice "Knickblatt" makes the Lineatur a Knickblatt."""
     client = user()
     page = editor(box("r", "ruling", RULING), client=client, words=WORDS)
     pick(page, "r")
-    choice = page.get_by_label("Text der Lineatur")
-    choice.select_option(label="Lernwörter als Knickblatt")
-    expect(choice).to_have_value("fold")
+    link(page, "fold")
     assert rulings(doc(page, client))[0]["props"]["list"] == "fold"
 
 
@@ -128,7 +121,7 @@ def test_a_knickblatt_cut_loose_keeps_the_words_untraced(editor):
     client = user()
     page = editor(box("k", "ruling", KNICK, w=180, h=69), client=client, words=WORDS)
     pick(page, "k")
-    page.get_by_label("Text der Lineatur").select_option(label="Eigener Text")
+    link(page, "own")
     props = rulings(doc(page, client))[0]["props"]
     assert props["text"] == "\n".join(WORDS)
     assert not {"list", "folds", "trace"} & set(props)

@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_words import list_tab, rulings, undo
+from test_words import blatt, rulings, undo
 from ui import RULING, at, box, doc, expect_lit, pick, sheet, user
 
 from blattwerk import pdf
@@ -23,9 +23,7 @@ def editor(editor):
 
 def test_a_linked_lineatur_has_the_syllable_buttons_and_they_draw_bows(editor):
     client = user()
-    page = editor(client=client, words=WORDS)
-    list_tab(page)
-    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    page = editor(*blatt(3), client=client, words=WORDS)
     first = rulings(doc(page, client))[0]["id"]
     pick(page, first)
     bows = page.get_by_role("switch", name="Silbenbögen")

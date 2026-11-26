@@ -17,7 +17,7 @@ export function Pane({ tab, children }: { tab: PaneName; children: ReactNode }) 
 }
 
 // The blocks that set no task: their panel opens on Aussehen.
-const LOOKS: Block["type"][] = ["text", "shape", "image", "symbol", "ruling"];
+const LOOKS: Block["type"][] = ["text", "shape", "image", "symbol"];
 // The tab each kind of selection was left on, until the page is loaded again.
 const left = new Map<string, PaneName>();
 // The suite sets this: it reaches for a field of any tab right after a pick, so there the panel shows all three
