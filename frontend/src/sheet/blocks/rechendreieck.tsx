@@ -36,7 +36,7 @@ export function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k:
                 const [cx, cy] = j < 3 ? inner[j] : outer[j - 3];
                 const shows = !p.empty && (tri.given[j] || (solved && !tri.wrong));
                 return (
-                  <g key={j} className="field" data-field={j}>
+                  <g key={j} className="field" data-own={`${t},${j}`} data-field={j}>
                     {j < 3
                       ? <circle cx={cx} cy={cy} r={RING} fill="white" stroke="#222" strokeWidth={0.4} />
                       : <rect x={cx - BOX[0] / 2} y={cy - BOX[1] / 2} width={BOX[0]} height={BOX[1]} fill="white" stroke="#222" strokeWidth={0.4} />}

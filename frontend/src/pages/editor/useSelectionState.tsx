@@ -34,8 +34,9 @@ export function useSelectionState(session: ReturnType<typeof useDocument>) {
   // Opens a text's field for a drag of the brush, from the latest render: the drag's listeners outlive the press.
   const openNow = useRef((_id: string, _el: Element) => {});
   const [editing, setEditing] = useState("");
-  // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
-  const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
+  // The box of a maths block opened by a double click for a number of the teacher's own: its block, its place in the
+  // block as the view's `data-own` says, the number as typed, and its box in the block.
+  const [stone, setStone] = useState<{ id: string; cell: string[]; text: string; box: number[] } | null>(null);
   // Whether the last press was a finger's, and where the handles of the picked table's range stand.
   const [finger, setFinger] = useState(false);
   const [grips, setGrips] = useState<{ corner: string; x: number; y: number }[]>([]);

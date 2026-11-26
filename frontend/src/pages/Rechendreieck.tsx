@@ -1,5 +1,4 @@
 // The format panel's settings for a Rechendreieck block: its triangles, its numbers and which fields are given.
-import { useRef, useState } from "react";
 import type { RechendreieckBlock } from "../sheet";
 import { draw } from "../bank";
 import { fixes, made, NAMES, sane, ZAHLENRAUM, type RechendreieckProps } from "../rechendreieck";
@@ -17,22 +16,7 @@ const SHAPE = [
 export default function Rechendreieck({ block, apply }: { block: RechendreieckBlock; apply: (props: Partial<RechendreieckProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const w = Math.min(which, m.triangles.length - 1);
-
-  function setTyped(field: number, text: string) {
-    // The stored entries as they are, so that the triangles beyond `count` keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== w || t[1] !== field));
-    const key = `typed:${w}:${field}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [w, field, Number(text)]] }, key);
-  }
 
   return (
     <>
@@ -104,52 +88,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
         </>
       )}
       <Switch label="Leer" on={p.empty} onChange={() => apply({ empty: !p.empty })} />
-      <select aria-label="Dreieck für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>
-        {m.triangles.map((_, i) => (
-          <option key={i} value={i}>
-            {`Dreieck ${i + 1}`}
-          </option>
-        ))}
-      </select>
-      <div className="dreieck">
-        {SHAPE.map((row, r) => (
-          <div key={r} className="dreieck-row">
-            {row.map((i, c) => {
-              if (i === null) return <span key={c} />;
-              const key = `${w},${i}`;
-              return (
-                <input
-                  key={c}
-                  className="typed"
-                  inputMode="numeric"
-                  aria-label={`Zahl im Feld ${NAMES[i]}`}
-                  value={draft?.key === key ? draft.text : String(m.triangles[w].numbers[i])}
-                  onFocus={() => {
-                    fresh.current = true;
-                    setDraft({ key, text: String(m.triangles[w].numbers[i]) });
-                  }}
-                  onMouseUp={(e) => {
-                    if (!fresh.current) return;
-                    fresh.current = false;
-                    e.preventDefault();
-                    e.currentTarget.select();
-                  }}
-                  onBlur={() => setDraft(null)}
-                  onKeyDown={(e) => {
-                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                  }}
-                  onChange={(e) => {
-                    if (!/^\d{0,4}$/.test(e.target.value)) return;
-                    setDraft({ key, text: e.target.value });
-                    setTyped(i, e.target.value);
-                  }}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.triangles.map((t, i) =>
         t.wrong ? (
           <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>
@@ -160,7 +99,6 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined });
           }}
         >

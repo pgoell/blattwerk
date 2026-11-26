@@ -59,7 +59,7 @@ export function Operatorfeld({ block, solved }: { block: OperatorfeldBlock; k: n
                 const [bx, by] = mid(j);
                 const shows = field.given[j] || (solved && !field.wrong);
                 return (
-                  <g key={j} className="box" data-box={j}>
+                  <g key={j} className="box" data-own={`${i},${j}`} data-box={j}>
                     <rect x={bx - D / 2} y={by - D / 2} width={D} height={D} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={bx} y={by} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"

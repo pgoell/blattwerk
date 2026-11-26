@@ -1,8 +1,7 @@
 // The format panel's settings for a Rechenrad block: its Rechenräder, rings, segments, Zahlenraum, Rechenart, Aufgabe and the numbers typed in.
-import { useRef, useState } from "react";
 import type { RechenradBlock } from "../sheet";
 import { draw } from "../bank";
-import { made, sane, type Op, type RechenradProps, type RechenradTyped } from "../rechenrad";
+import { made, sane, type Op, type RechenradProps } from "../rechenrad";
 import { Pane } from "./format/pane";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
@@ -16,58 +15,7 @@ const RECHENART = [
 export default function Rechenrad({ block, apply }: { block: RechenradBlock; apply: (props: Partial<RechenradProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, m.wheels.length - 1);
-  const wheel = m.wheels[c];
-
-  function setTyped(ring: number, segment: number, text: string) {
-    // The stored entries as they are, so that the other boxes and wheels keep their numbers.
-    const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== ring || t[2] !== segment));
-    const key = `typed:${c}:${ring}:${segment}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [c, ring, segment, Number(text)] as RechenradTyped] }, key);
-  }
-
-  // A number field for the box of ring `ring` (0 is the centre) and segment `segment`.
-  function numberField(ring: number, segment: number, n: number, label: string) {
-    const key = `${c},${ring},${segment}`;
-    return (
-      <input
-        key={key}
-        className="typed"
-        inputMode="numeric"
-        aria-label={label}
-        value={draft?.key === key ? draft.text : String(n)}
-        onFocus={() => {
-          fresh.current = true;
-          setDraft({ key, text: String(n) });
-        }}
-        // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-        onMouseUp={(e) => {
-          if (!fresh.current) return;
-          fresh.current = false;
-          e.preventDefault();
-          e.currentTarget.select();
-        }}
-        onBlur={() => setDraft(null)}
-        onKeyDown={(e) => {
-          // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-          if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-        }}
-        onChange={(e) => {
-          if (!/^\d{0,4}$/.test(e.target.value)) return;
-          setDraft({ key, text: e.target.value });
-          setTyped(ring, segment, e.target.value);
-        }}
-      />
-    );
-  }
 
   return (
     <>
@@ -149,24 +97,7 @@ export default function Rechenrad({ block, apply }: { block: RechenradBlock; app
           <option value="mixed">Gemischt: ein leeres Feld je Segment</option>
         </select>
       </label>
-      <label>
-        Eigene Zahlen
-        <select aria-label="Rechenrad für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-          {m.wheels.map((_, i) => (
-            <option key={i} value={i}>
-              {`Rechenrad ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        <div className="mauer-row">{numberField(0, 0, wheel?.centre ?? 0, "Zahl im Zentrum")}</div>
-        {wheel?.rings.map((ring, ri) => (
-          <div className="mauer-row" key={ri}>
-            {ring.map((n, s) => numberField(ri + 1, s, n, `Ring ${ri + 1}, Feld ${s + 1}`))}
-          </div>
-        ))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.wheels.map((w, i) =>
         w.wrong ? (
           <p key={i} className="hint" role="status">{`Rechenrad ${i + 1}: Die Zahlen passen nicht zum Zentrum.`}</p>
@@ -175,7 +106,6 @@ export default function Rechenrad({ block, apply }: { block: RechenradBlock; app
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined });
           }}
         >

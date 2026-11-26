@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, expect_lit, insert, pick, user
+from ui import box, doc, expect_lit, insert, open_own, pick, type_own, user
 
 WALL = {
     "base": 3,
@@ -22,7 +22,8 @@ WALL = {
 }
 FREE = [True, True, True, False, False, False]
 TYPED = [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 5, 5]]
-ONE_STONE = "Zahl im Stein 1 der Reihe 1"
+# The first stone of the base row of Mauer 1, as the sheet marks it: wall, then stone.
+ONE_STONE = "0,0"
 
 
 @pytest.fixture
@@ -171,9 +172,7 @@ def test_typing_a_number_stores_it_and_one_undo_takes_both_digits_back(editor):
     """Z6: 15 typed into the first stone stores [[0, 0, 15]]; one Ctrl+Z removes it whole."""
     client = user()
     page = editor(zw("w", WALL), client=client)
-    pick(page, "w")
-    stone = field(page, ONE_STONE)
-    step(page, lambda: stone.fill("15"))
+    step(page, lambda: type_own(page, "w", ONE_STONE, "15"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 15]]
     undo(page)
     assert "typed" not in props_of(doc(page, client))
@@ -185,7 +184,7 @@ def test_numbers_of_a_hidden_wall_stay_when_the_count_goes_back(editor):
     page = editor(zw("w", {**WALL, "typed": [[3, 0, 9]]}), client=client)
     pick(page, "w")
     step(page, lambda: panel(page, "Eine Mauer weniger").click())
-    step(page, lambda: field(page, ONE_STONE).fill("7"))
+    step(page, lambda: type_own(page, "w", ONE_STONE, "7"))
     step(page, lambda: panel(page, "Eine Mauer mehr").click())
     assert sorted(props_of(doc(page, client))["typed"]) == [[0, 0, 7], [3, 0, 9]]
 
@@ -195,8 +194,8 @@ def test_each_stone_is_its_own_undo_step(editor):
     client = user()
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
-    step(page, lambda: field(page, ONE_STONE).fill("7"))
-    step(page, lambda: field(page, "Zahl im Stein 2 der Reihe 1").fill("8"))
+    step(page, lambda: type_own(page, "w", ONE_STONE, "7"))
+    step(page, lambda: type_own(page, "w", "0,1", "8"))
     undo(page)
     assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
 
@@ -206,7 +205,7 @@ def test_emptying_a_number_field_removes_its_entry(editor):
     client = user()
     page = editor(zw("w", {**WALL, "typed": [[0, 0, 15]]}), client=client)
     pick(page, "w")
-    step(page, lambda: field(page, ONE_STONE).fill(""))
+    step(page, lambda: type_own(page, "w", ONE_STONE, ""))
     assert "typed" not in props_of(doc(page, client))
 
 
@@ -231,10 +230,11 @@ def type_and_remove(page, client):
 
     Returns the number the stone showed before typing and the number typed.
     """
-    stone = field(page, ONE_STONE)
+    stone = open_own(page, "w", ONE_STONE)
     shown = stone.input_value()
     digit = "7" if shown == "6" else "6"
-    step(page, lambda: stone.fill(digit))
+    stone.fill(digit)
+    step(page, lambda: stone.press("Enter"))
     for _ in range(50):
         if props_of(doc(page, client)).get("typed") == [[0, 0, int(digit)]]:
             break
@@ -245,25 +245,25 @@ def type_and_remove(page, client):
 
 
 def test_910_after_remove_own_numbers_the_typed_box_shows_the_walls_number(editor):
-    """#910: after "Eigene Zahlen entfernen" the box that had focus shows the number the sheet shows in it."""
+    """#910: after "Eigene Zahlen entfernen" the stone opens on the number the wall has again."""
     client = user()
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
     shown, _ = type_and_remove(page, client)
-    expect(field(page, ONE_STONE)).to_have_value(shown)
+    expect(open_own(page, "w", ONE_STONE)).to_have_value(shown)
 
 
 def test_910_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
-    """#910: Ctrl+Z with the focus in a box is the sheet's undo: the typed number comes back and the box shows it."""
+    """#910: Ctrl+Z with the stone open is the sheet's undo: the typed number comes back, and the stone shows it."""
     client = user()
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
     _, digit = type_and_remove(page, client)
-    field(page, ONE_STONE).focus()
+    open_own(page, "w", ONE_STONE)
     step(page, lambda: page.keyboard.press("Control+z"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, int(digit)]]
     expect(panel(page, "Eigene Zahlen entfernen")).to_be_visible()
-    expect(field(page, ONE_STONE)).to_have_value(digit)
+    expect(open_own(page, "w", ONE_STONE)).to_have_value(digit)
 
 
 def test_910_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
@@ -272,8 +272,9 @@ def test_910_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
     type_and_remove(page, client)
-    field(page, ONE_STONE).focus()
+    open_own(page, "w", ONE_STONE)
     step(page, lambda: page.keyboard.press("Control+z"))
+    open_own(page, "w", ONE_STONE)
     step(page, lambda: page.keyboard.press("Control+y"))
     assert "typed" not in props_of(doc(page, client))
 
@@ -305,10 +306,11 @@ def test_a_number_over_four_digits_is_refused(editor):
     client = user()
     page = editor(zw("w", WALL), client=client)
     pick(page, "w")
-    stone = field(page, ONE_STONE)
-    step(page, lambda: stone.fill("1234"))
+    stone = open_own(page, "w", ONE_STONE)
+    stone.fill("1234")
     stone.press("5")
     expect(stone).to_have_value("1234")
+    step(page, lambda: stone.press("Enter"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 1234]]
 
 
@@ -324,7 +326,6 @@ def test_the_lists_of_the_panel_say_what_they_set(editor):
         "Grundsteine": "Grundsteine",
         "Zahlenraum": "Zahlenraum",
         "Gegebene Steine": "Gegebene Steine",
-        "Mauer für eigene Zahlen": "Eigene Zahlen",
     }
     for name, heading in headings.items():
         assert page.locator(f'.panel select[aria-label="{name}"]').evaluate(HEADING) == heading, (

@@ -1,8 +1,7 @@
 // The format panel's settings for a Rechentabelle block: its tables, rows and columns, Rechenart, Zahlenraum, Reihen, Farbe and the numbers typed in.
-import { useRef, useState } from "react";
 import type { RechentabelleBlock } from "../sheet";
 import { draw } from "../bank";
-import { FIRST, made, sane, type CarryRule, type Op, type RechentabelleProps, type RechentabelleTyped, type Tint } from "../rechentabelle";
+import { FIRST, made, sane, type CarryRule, type Op, type RechentabelleProps, type Tint } from "../rechentabelle";
 import { Reihen } from "./Reihen";
 import { Pane } from "./format/pane";
 
@@ -43,74 +42,8 @@ function stepper(less: string, more: string, text: string, n: number, lo: number
 export default function Rechentabelle({ block, apply }: { block: RechentabelleBlock; apply: (props: Partial<RechentabelleProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, p.count - 1);
-  const table = m.tables?.[c];
-  const raw = Array.isArray(block.props.typed) ? block.props.typed : [];
 
-  // The number the teacher typed for a box of table c, if any: as the sheet takes it (sane keeps the last valid one).
-  const stored = (r: number, s: number) => p.typed?.find((e) => e[0] === c && e[1] === r && e[2] === s)?.[3];
-
-  // The text a box shows: the typed number, else the table's number (a struck or made up cell shows nothing).
-  function shownText(r: number, s: number): string {
-    const typed = stored(r, s);
-    if (typed !== undefined) return String(typed);
-    if (!table) return "";
-    if (r === 0) return String(table.cols[s - 1] ?? "");
-    if (s === 0) return String(table.rows[r - 1] ?? "");
-    if (table.struck[r - 1]?.[s - 1] || table.madeUp[r - 1]?.[s - 1]) return "";
-    const v = table.cells[r - 1]?.[s - 1];
-    return v === undefined ? "" : String(v);
-  }
-
-  function setTyped(r: number, s: number, text: string) {
-    // The stored entries as they are, so that the other boxes and tables keep their numbers.
-    const others = raw.filter((e) => Array.isArray(e) && (e[0] !== c || e[1] !== r || e[2] !== s));
-    const key = `typed:${c}:${r}:${s}`;
-    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
-    apply({ typed: [...others, [c, r, s, Number(text)] as RechentabelleTyped] }, key);
-  }
-
-  // A number field for the box of row r and column s (r 0 holds the column values, s 0 the row values).
-  function numberField(r: number, s: number, label: string) {
-    const key = `${c},${r},${s}`;
-    const text = shownText(r, s);
-    return (
-      <input
-        key={key}
-        className="typed"
-        inputMode="numeric"
-        aria-label={label}
-        value={draft?.key === key ? draft.text : text}
-        onFocus={() => {
-          fresh.current = true;
-          setDraft({ key, text });
-        }}
-        // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-        onMouseUp={(e) => {
-          if (!fresh.current) return;
-          fresh.current = false;
-          e.preventDefault();
-          e.currentTarget.select();
-        }}
-        onBlur={() => setDraft(null)}
-        onKeyDown={(e) => {
-          // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-          if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-        }}
-        onChange={(e) => {
-          if (!/^\d{0,4}$/.test(e.target.value)) return;
-          setDraft({ key, text: e.target.value });
-          setTyped(r, s, e.target.value);
-        }}
-      />
-    );
-  }
 
   const mal = p.op === "*" || p.op === ":";
 
@@ -248,28 +181,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
         </select>
       </label>
       </Pane>
-      <label>
-        Eigene Zahlen
-        <select aria-label="Rechentabelle für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-          {Array.from({ length: p.count }, (_, i) => (
-            <option key={i} value={i}>
-              {`Rechentabelle ${i + 1}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="mauer">
-        <div className="mauer-row">
-          <span />
-          {Array.from({ length: p.cols }, (_, j) => numberField(0, j + 1, `Spaltenwert ${j + 1}`))}
-        </div>
-        {Array.from({ length: p.rows }, (_, i) => (
-          <div className="mauer-row" key={i}>
-            {numberField(i + 1, 0, `Zeilenwert ${i + 1}`)}
-            {Array.from({ length: p.cols }, (_, j) => numberField(i + 1, j + 1, `Zeile ${i + 1}, Spalte ${j + 1}`))}
-          </div>
-        ))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.tables?.map((t, i) =>
         t.wrong ? (
           <p key={i} className="hint" role="status">{`Rechentabelle ${i + 1}: Die Zahlen passen nicht zusammen.`}</p>
@@ -293,7 +205,6 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined });
           }}
         >

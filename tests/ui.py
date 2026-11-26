@@ -32,6 +32,15 @@ from uuid import uuid4
 import uvicorn
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
+from ui_own import (
+    open_own as open_own,
+)
+from ui_own import (
+    own_field as own_field,
+)
+from ui_own import (
+    type_own as type_own,
+)
 from ui_panels import (
     bar as bar,
 )
@@ -260,6 +269,8 @@ def pick(page, *names):
     expect_picked(page, *names)
 
 
+# The middle of a box of a maths block on the screen: of its `data-own-box`, or of its first shape. A ring's
+# segment has its middle outside it, so the box says where its number stands.
 def picked(page):
     return page.eval_on_selector_all(".block.sel", "els => els.map((el) => el.dataset.id)")
 

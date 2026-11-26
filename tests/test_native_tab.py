@@ -122,8 +122,8 @@ ORDER = {
             "Neu würfeln",
         ],
     ),
-    # The base row is given, so the free choice's stones are not there. The fields run from the
-    # top stone down.
+    # The base row is given, so the free choice's stones are not there. The numbers of her own are typed on
+    # the sheet, not in the panel.
     "zahlenmauer": (
         {**WALL, "base": 3},
         [
@@ -138,18 +138,9 @@ ORDER = {
             "Mal",
             "Gegebene Steine",
             "Leer",
-            "Mauer für eigene Zahlen",
-            "Zahl im Stein 1 der Reihe 3",
-            "Zahl im Stein 1 der Reihe 2",
-            "Zahl im Stein 2 der Reihe 2",
-            "Zahl im Stein 1 der Reihe 1",
-            "Zahl im Stein 2 der Reihe 1",
-            "Zahl im Stein 3 der Reihe 1",
             "Neu würfeln",
         ],
     ),
-    # The given fields are the inner ones, so the free choice's buttons are not there. The inputs
-    # run in the drawing's order: the top, then the outer left, the outer right, and so on.
     "zahlenstrahl": (
         {
             "start": 2,
@@ -185,6 +176,7 @@ ORDER = {
             "Sprungbögen",
         ],
     ),
+    # The given fields are the inner ones, so the free choice's buttons are not there.
     "rechendreieck": (
         {"count": 3, "columns": 2, "max": 20, "given": "inner", "empty": False, "seed": 7},
         [
@@ -198,13 +190,6 @@ ORDER = {
             "Mal",
             "Gegebene Felder",
             "Leer",
-            "Dreieck für eigene Zahlen",
-            "Zahl im Feld innen oben",
-            "Zahl im Feld außen links",
-            "Zahl im Feld außen rechts",
-            "Zahl im Feld innen links",
-            "Zahl im Feld außen unten",
-            "Zahl im Feld innen rechts",
             "Neu würfeln",
         ],
     ),

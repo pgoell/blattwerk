@@ -5,6 +5,9 @@ import { numberSize } from "../../zahlenhaus";
 import { SvgInk } from "../places";
 import type { RechenradBlock } from "../tasks";
 
+// A square about a point, as the box of the field that a double click opens there.
+const ownBox = (x: number, y: number, side: number) => `${x - side / 2},${y - side / 2},${side},${side}`;
+
 // A Rechenrad: its wheels in columns. Each wheel has a centre with its operator and number, and rings of segments; a
 // box shows its number when it is given, or in the key when the wheel is solved and not wrong.
 export function Rechenrad({ block, solved }: { block: RechenradBlock; solved: boolean }) {
@@ -31,8 +34,9 @@ export function Rechenrad({ block, solved }: { block: RechenradBlock; solved: bo
                   const digits = String(n).length;
                   const chord = 2 * (C0 + (r - 0.5) * W) * Math.sin(Math.PI / S);
                   const [tx, ty] = cellAt(r, s, S, cx, cy, C0, W);
+                  // The field a double click opens stands where the number does, as wide as the segment leaves room.
                   return (
-                    <g key={`${r}:${s}`} className="box" data-ring={r} data-segment={s}>
+                    <g key={`${r}:${s}`} className="box" data-own={`${i},${r},${s}`} data-own-box={ownBox(tx, ty, Math.min(chord, W) * 0.9)} data-ring={r} data-segment={s}>
                       <path d={path} fill="white" stroke="#222" strokeWidth={0.4} />
                       {shows && (
                         <text x={tx} y={ty} fontSize={numberSize(digits, Math.min(chord, W) * 0.8, 4.4)} textAnchor="middle" dominantBaseline="central"
@@ -42,7 +46,7 @@ export function Rechenrad({ block, solved }: { block: RechenradBlock; solved: bo
                   );
                 });
               })}
-              <g className="centre">
+              <g className="centre" data-own={`${i},0,0`}>
                 <circle cx={cx} cy={cy} r={C0} fill="white" stroke="#222" strokeWidth={0.4} />
                 <text x={cx} y={cy} fontSize={numberSize(wheelLabel(p.op, wheel.centre).length, 2 * C0 * 0.75, 4.6)} textAnchor="middle" dominantBaseline="central"
                   fill="#222" className="given"><SvgInk text={wheelLabel(p.op, wheel.centre)} /></text>

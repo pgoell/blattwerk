@@ -39,6 +39,7 @@ export function useKeyCommands(session: ReturnType<typeof useKeys>) {
   const inView = (...a: any[]) => (session as Record<string, any>).inView(...a);
   const typed = (...a: any[]) => (session as Record<string, any>).typed(...a);
   const edit = (...a: any[]) => (session as Record<string, any>).edit(...a);
+  const openStone = (...a: any[]) => (session as Record<string, any>).openStone(...a);
   const writable = (...a: any[]) => (session as Record<string, any>).writable(...a);
   const place = (...a: any[]) => (session as Record<string, any>).place(...a);
   const paint = (...a: any[]) => (session as Record<string, any>).paint(...a);
@@ -184,7 +185,11 @@ onKey.current = (e) => {
     const flip = (name: "bold" | "italic" | "underline") => mark && sel.some(boxed) && (() => paint({ [name]: !has(sel, part, name) }));
     // Enter and F2 open the one selected block to write in it, with all its text picked, as in PowerPoint. A
     // picture is not cropped, and a locked block stays shut as it does for a double click.
-    const write = sel.length === 1 && free[0] && free[0].type !== "image" && (() => edit(free[0].id, undefined, true));
+    // A maths block that takes numbers of the teacher's own opens its first box.
+    const write = sel.length === 1 && free[0] && free[0].type !== "image" && (() => {
+      const box = sheet.current?.querySelector(`[data-id="${free[0].id}"] [data-own]`);
+      if (!box || !openStone(box)) edit(free[0].id, undefined, true);
+    });
     // Tab picks the next block from back to front and Shift+Tab the one before, as in PowerPoint. A group is one stop.
     const next = () => {
       const order = [...blocks].sort((a, b) => a.z - b.z);

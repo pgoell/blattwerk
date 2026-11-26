@@ -29,7 +29,7 @@ export function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlo
                   const [x, y] = [x0 + c * CELL, y0 + top + r * CELL];
                   const state = s.given[r][c] ? "given" : open ? "answer" : null;
                   return (
-                    <g key={`${r}:${c}`} className="cell" data-row={r + 1} data-col={c + 1}>
+                    <g key={`${r}:${c}`} className="cell" data-own={`${i},${r + 1},${c + 1}`} data-row={r + 1} data-col={c + 1}>
                       <rect x={x} y={y} width={CELL} height={CELL} fill="white" stroke="#222" strokeWidth={0.4} />
                       {state && (
                         <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(n).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"

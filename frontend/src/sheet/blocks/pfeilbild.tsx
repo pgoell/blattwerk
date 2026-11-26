@@ -49,7 +49,7 @@ export function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number;
               {!pic.over && pic.numbers.map((n, j) => {
                 const shows = pic.given[j] || (solved && !pic.wrong);
                 return (
-                  <g key={j} className="box" data-box={j}>
+                  <g key={j} className="box" data-own={`${i},${j}`} data-box={j}>
                     <rect x={left(j)} y={y + A} width={D} height={D} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={mid(j)} y={y + A + D / 2} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"
@@ -62,7 +62,7 @@ export function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number;
                 const fwd = arc(mid(j), mid(j + 1), y + A, -1);
                 const shows = pic.opGiven[j] || (solved && !pic.wrong);
                 return (
-                  <g key={j} className="arrow" data-arrow={j}>
+                  <g key={j} className="arrow" data-own={`op,${i},${j}`} data-own-box={`${fwd.apex[0] - 5},${fwd.apex[1] - 2.6},10,5.2`} data-arrow={j}>
                     <path d={fwd.curve} fill="none" stroke="#222" strokeWidth={0.4} />
                     <path d={fwd.head} fill="#222" />
                     {label(fwd.apex, opLabel(step), pic.opGiven[j], shows)}

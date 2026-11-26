@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, expect_lit, insert, pick, user
+from ui import box, doc, expect_lit, insert, open_own, pick, type_own, user
 
 DREIECK = {
     "count": 4,
@@ -20,7 +20,8 @@ DREIECK = {
 }
 FREE = [True, True, True, False, False, False]
 TYPED = [[0, 0, 1], [0, 1, 1], [0, 2, 1], [0, 5, 5]]
-INNER_TOP = "Zahl im Feld innen oben"
+# The top inner field of Dreieck 1, as the sheet marks it: triangle, then field.
+INNER_TOP = "0,0"
 
 
 @pytest.fixture
@@ -134,9 +135,7 @@ def test_typing_a_number_stores_it_and_one_undo_takes_both_digits_back(editor):
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
-    number = field(page, INNER_TOP)
-    # The field shows the generated number: select it, so that the two keys replace it.
-    step(page, lambda: (number.press("Control+a"), number.press_sequentially("15")))
+    step(page, lambda: type_own(page, "d", INNER_TOP, "15"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 15]]
     undo(page)
     assert "typed" not in props_of(doc(page, client))
@@ -147,8 +146,8 @@ def test_each_field_is_its_own_undo_step(editor):
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
-    step(page, lambda: field(page, INNER_TOP).fill("7"))
-    step(page, lambda: field(page, "Zahl im Feld innen links").fill("8"))
+    step(page, lambda: type_own(page, "d", INNER_TOP, "7"))
+    step(page, lambda: type_own(page, "d", "0,1", "8"))
     undo(page)
     assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
 
@@ -194,10 +193,7 @@ def test_new_dice_store_another_seed_and_keep_the_settings_and_typed(editor):
         ),
         (
             DREIECK,
-            lambda p: (
-                field(p, INNER_TOP).press("Control+a"),
-                field(p, INNER_TOP).press_sequentially("15"),
-            ),
+            lambda p: type_own(p, "d", INNER_TOP, "15"),
             "typed",
         ),
         ({**DREIECK, "typed": [[0, 0, 15]]}, lambda p: panel(p, "Neu würfeln").click(), "seed"),
@@ -230,7 +226,7 @@ def test_numbers_of_a_hidden_triangle_stay_when_the_count_goes_back(editor):
     page = editor(dz("d", {**DREIECK, "typed": [[3, 0, 9]]}), client=client)
     pick(page, "d")
     step(page, lambda: panel(page, "Ein Dreieck weniger").click())
-    step(page, lambda: field(page, INNER_TOP).fill("7"))
+    step(page, lambda: type_own(page, "d", INNER_TOP, "7"))
     step(page, lambda: panel(page, "Ein Dreieck mehr").click())
     assert sorted(props_of(doc(page, client))["typed"]) == [[0, 0, 7], [3, 0, 9]]
 
@@ -251,10 +247,11 @@ def type_and_remove(page, client):
 
     Returns the number the field showed before typing and the number typed.
     """
-    number = field(page, INNER_TOP)
+    number = open_own(page, "d", INNER_TOP)
     shown = number.input_value()
     digit = "7" if shown == "6" else "6"
-    step(page, lambda: (number.press("Control+a"), number.press_sequentially(digit)))
+    number.fill(digit)
+    step(page, lambda: number.press("Enter"))
     for _ in range(50):
         if props_of(doc(page, client)).get("typed") == [[0, 0, int(digit)]]:
             break
@@ -265,46 +262,45 @@ def type_and_remove(page, client):
 
 
 def test_910_after_remove_own_numbers_the_typed_box_shows_the_triangles_number(editor):
-    """#910: after "Eigene Zahlen entfernen" the box that had focus shows the number the sheet shows in it."""
+    """#910: after "Eigene Zahlen entfernen" the field opens on the number the triangle has again."""
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
     shown, _ = type_and_remove(page, client)
-    expect(field(page, INNER_TOP)).to_have_value(shown)
+    expect(open_own(page, "d", INNER_TOP)).to_have_value(shown)
 
 
 def test_910_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
-    """#910: Ctrl+Z with the focus in a box is the sheet's undo: the typed number comes back and the box shows it."""
+    """#910: Ctrl+Z with the field open is the sheet's undo: the typed number comes back, and the field shows it."""
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
     _, digit = type_and_remove(page, client)
-    field(page, INNER_TOP).focus()
+    open_own(page, "d", INNER_TOP)
     step(page, lambda: page.keyboard.press("Control+z"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, int(digit)]]
     expect(panel(page, "Eigene Zahlen entfernen")).to_be_visible()
-    expect(field(page, INNER_TOP)).to_have_value(digit)
+    expect(open_own(page, "d", INNER_TOP)).to_have_value(digit)
 
 
 def test_910_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
-    """#910: Ctrl+Y with the focus in a box is the sheet's redo: the removal comes back after the undo."""
+    """#910: Ctrl+Y with the field open is the sheet's redo: the removal comes back after the undo."""
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
     type_and_remove(page, client)
-    field(page, INNER_TOP).focus()
+    open_own(page, "d", INNER_TOP)
     step(page, lambda: page.keyboard.press("Control+z"))
+    open_own(page, "d", INNER_TOP)
     step(page, lambda: page.keyboard.press("Control+y"))
     assert "typed" not in props_of(doc(page, client))
 
 
 def test_typing_goes_to_the_picked_triangle(editor):
-    """Own case: with "Dreieck 2" picked, a typed number goes to that triangle."""
+    """Own case: a number typed into a field of Dreieck 2 on the sheet goes to that triangle."""
     client = user()
     page = editor(dz("d", DREIECK), client=client)
-    pick(page, "d")
-    field(page, "Dreieck für eigene Zahlen").select_option("1")
-    step(page, lambda: field(page, INNER_TOP).fill("6"))
+    step(page, lambda: type_own(page, "d", "1,0", "6"))
     assert props_of(doc(page, client))["typed"] == [[1, 0, 6]]
 
 
@@ -313,8 +309,9 @@ def test_a_number_over_four_digits_is_refused(editor):
     client = user()
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
-    number = field(page, INNER_TOP)
-    step(page, lambda: number.fill("1234"))
+    number = open_own(page, "d", INNER_TOP)
+    number.fill("1234")
     number.press("5")
     expect(number).to_have_value("1234")
+    step(page, lambda: number.press("Enter"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 1234]]

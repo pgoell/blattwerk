@@ -15,14 +15,13 @@ from test_pfeilbild import (
     PF,
     back_labels,
     editor,  # noqa: F401
-    field,
     hint,
     op_labels,
     pfeil,
     props_of,
 )
 from test_words import undo
-from ui import at, doc, pick, tool, user
+from ui import at, doc, open_own, pick, tool, user
 
 
 def type_op(field_op, text):
@@ -32,11 +31,11 @@ def type_op(field_op, text):
 
 
 def test_eigene_operatoren_each_keystroke_stores_but_one_ctrl_z_takes_all_back(editor):
-    """Eigene Operatoren: "+", "1", "2" into "Operator an Pfeil 2" store +1 then +12 as one undo step; one Ctrl+Z removes typedOps, Ctrl+Y gives [[0, 1, "+", 12]] back."""
+    """Eigene Operatoren: "+", "1", "2" into arrow 2 store +1 then +12 as one undo step; one Ctrl+Z removes typedOps, Ctrl+Y gives [[0, 1, "+", 12]] back."""
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 2")
+    op_field = open_own(page, "d", "op,0,1")
     step(
         page,
         lambda: (
@@ -46,9 +45,9 @@ def test_eigene_operatoren_each_keystroke_stores_but_one_ctrl_z_takes_all_back(e
         ),
     )
     assert props_of(doc(page, client))["typedOps"] == [[0, 1, "+", 12]]
-    op_field.press("Control+z")
+    step(page, lambda: op_field.press("Control+z"))
     assert "typedOps" not in props_of(doc(page, client))
-    op_field.press("Control+y")
+    step(page, lambda: page.keyboard.press("Control+y"))
     assert props_of(doc(page, client))["typedOps"] == [[0, 1, "+", 12]]
 
 
@@ -62,7 +61,7 @@ def test_eigene_operatoren_spellings_store_the_normalised_op(editor, text, op, n
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 1")
+    op_field = open_own(page, "d", "op,0,0")
     step(page, lambda: (type_op(op_field, ""), op_field.press_sequentially(text)))
     assert props_of(doc(page, client))["typedOps"] == [[0, 0, op, n]]
 
@@ -72,14 +71,13 @@ def test_eigene_operatoren_a_sign_alone_keeps_focus_and_stores_nothing(editor):
     client = user()
     page = editor(pfeil("d", PF), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 2")
-    op_field.click()
+    op_field = open_own(page, "d", "op,0,1")
     type_op(op_field, MINUS)
     expect(op_field).to_be_focused()
     expect(op_field).to_have_value(MINUS)
     assert "typedOps" not in props_of(doc(page, client))
     op_field.evaluate("el => el.blur()")
-    expect(op_field).to_have_value(op_labels(page)[1])
+    expect(open_own(page, "d", "op,0,1")).to_have_value(op_labels(page)[1])
 
 
 def test_eigene_zahlen_entfernen_clears_typed_and_typed_ops_in_one_undo_step(editor):
@@ -127,9 +125,9 @@ def test_eigene_operatoren_two_fields_are_two_undo_steps(editor):
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    first = field(page, "Operator an Pfeil 1")
-    second = field(page, "Operator an Pfeil 2")
+    first = open_own(page, "d", "op,0,0")
     step(page, lambda: (type_op(first, "+"), first.press_sequentially("2")))
+    second = open_own(page, "d", "op,0,1")
     step(page, lambda: (type_op(second, "+"), second.press_sequentially("3")))
     assert props_of(doc(page, client))["typedOps"] == [[0, 0, "+", 2], [0, 1, "+", 3]]
     undo(page)
@@ -141,32 +139,30 @@ def test_eigene_operatoren_with_pfeile_both_show_the_back_arrow_inverse(editor):
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100, "arrows": "both"}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 1")
+    op_field = open_own(page, "d", "op,0,0")
     step(page, lambda: (type_op(op_field, DOT), op_field.press_sequentially("2")))
     assert back_labels(page)[0] == ":2"
     assert op_labels(page)[0] == DOT + "2"
 
 
 def test_eigene_operatoren_ctrl_z_in_the_field_shows_the_undone_operator(editor):
-    """Eigene Operatoren: Ctrl+Z inside the field after "+5" shows the text from before, and the field keeps focus."""
+    """Eigene Operatoren: Ctrl+Z inside the field after "+5" is the sheet's undo: the field shuts, and opened again it shows the text from before."""
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 1")
+    op_field = open_own(page, "d", "op,0,0")
     before = op_field.input_value()
     step(page, lambda: (type_op(op_field, "+"), op_field.press_sequentially("5")))
-    op_field.press("Control+z")
-    expect(op_field).to_have_value(before)
-    expect(op_field).to_be_focused()
+    step(page, lambda: op_field.press("Control+z"))
+    expect(open_own(page, "d", "op,0,0")).to_have_value(before)
 
 
-def test_eigene_operatoren_a_click_selects_the_whole_text(editor):
-    """Eigene Operatoren: a click on "Operator an Pfeil 1" selects its whole text, so "7" alone replaces it and stores [[0, 0, "+", 7]] (no Control+a)."""
+def test_eigene_operatoren_the_opened_field_holds_the_whole_text_selected(editor):
+    """Eigene Operatoren: a double click on arrow 1 opens its field with the whole text selected, so "7" alone replaces it and stores [[0, 0, "+", 7]] (no Control+a)."""
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 1")
-    op_field.click()
+    op_field = open_own(page, "d", "op,0,0")
     step(page, lambda: op_field.press_sequentially("7"))
     assert props_of(doc(page, client))["typedOps"] == [[0, 0, "+", 7]]
 
@@ -176,8 +172,7 @@ def test_eigene_operatoren_field_keeps_focus_and_text_while_the_block_redraws(ed
     client = user()
     page = editor(pfeil("d", {**PF, "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 2")
-    op_field.click()
+    op_field = open_own(page, "d", "op,0,1")
     step(
         page,
         lambda: (
@@ -206,11 +201,10 @@ def test_a_typed_operator_against_the_typed_numbers_gives_the_hint_and_no_key(ed
 
 
 def test_eigene_operatoren_of_pfeilbild_2_store_under_picture_1(editor):
-    """Eigene Operatoren: with Pfeilbild 2 picked, "-" then "3" into "Operator an Pfeil 1" store [1, 0, "-", 3]."""
+    """Eigene Operatoren: "-" then "3" into arrow 1 of Pfeilbild 2 store [1, 0, "-", 3]."""
     client = user()
     page = editor(pfeil("d", PF), client=client)
     pick(page, "d")
-    field(page, "Pfeilbild für eigene Zahlen").select_option("1")
-    op_field = field(page, "Operator an Pfeil 1")
+    op_field = open_own(page, "d", "op,1,0")
     step(page, lambda: (type_op(op_field, "-"), op_field.press_sequentially("3")))
     assert props_of(doc(page, client))["typedOps"] == [[1, 0, "-", 3]]

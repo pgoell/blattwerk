@@ -74,8 +74,8 @@
 // "Rechenart", "Zahlenraum" (Plus and Minus), two selects "Zehnerübergang" and "Hunderterübergang" (shown with max 1000),
 // each with the options "either" "Egal", "required" "Mit", "none" "Ohne";
 // "Anordnung" and "Erstfaktor" (Mal and Geteilt), "Farbe";
-// checkboxes "2er-Reihe" and so on (Mal and Geteilt; the last checked one is disabled); select "Rechentabelle für
-// eigene Zahlen"; number fields "Spaltenwert j", "Zeilenwert i", "Zeile i, Spalte j" (from 1). Hints (p.hint,
+// checkboxes "2er-Reihe" and so on (Mal and Geteilt; the last checked one is disabled); the hint that own numbers are
+// typed on the sheet: a head or cell of a table opens a field "Eigene Zahl" on a double click. Hints (p.hint,
 // role=status): per wrong table "Rechentabelle i: Die Zahlen passen nicht zusammen."; loose "carry" "Mit dieser
 // Übertrag-Regel gibt es nicht genug verschiedene Zahlen: manche Werte kommen zweimal vor."; loose "distinct" "Der
 // Zahlenraum ist zu klein: manche Werte kommen zweimal vor."; Mal and Geteilt with cols > reihen or rows > the Erstfaktoren "Mehr Zeilen oder

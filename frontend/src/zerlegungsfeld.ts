@@ -74,10 +74,9 @@
 // "Zahlenraum" ("bis 20", "bis 100", "bis 1000"; a change that changes u, so from or to bis 1000 with "hunderter"
 // stored, drops `typed` in the same undo step); with bis 1000 select "Übergang" ("Zehner", "Hunderter"; a change
 // drops `typed` in the same undo step); switch "Zweite Zahl mehrstellig"; select "Aufgabentyp" ("Nur die Aufgabe",
-// "Aufgabe und Zerlegung", "Erste Zahl und Ergebnis"); select "Aufgabe für eigene Zahlen" (with 2 or more tasks,
-// "Aufgabe 1" ...); number fields "Erste Zahl", "Zweite Zahl", "Ergebnis", "Zerlegung links", "Zerlegung rechts",
-// "Zwischenergebnis" showing the given numbers (typed or drawn), the other fields empty; each field is one undo step
-// (key `typed:i:p`). Hints (p.hint, role=status): per wrong task "Aufgabe i: Die Zahlen passen nicht zusammen."; per
+// "Aufgabe und Zerlegung", "Erste Zahl und Ergebnis"); own numbers are typed on the sheet: a
+// box opens a field "Eigene Zahl" on a double click, showing its given number (typed or drawn); each box is one undo
+// step (key `typed:i:p`). Hints (p.hint, role=status): per wrong task "Aufgabe i: Die Zahlen passen nicht zusammen."; per
 // task with many and not wrong "Aufgabe i: Es gibt mehr als eine Lösung." Buttons "Eigene Zahlen entfernen" (with
 // typed), "Neu würfeln" (changes only the seed).
 

@@ -1,9 +1,8 @@
 // The format panel's settings for a Malquadrat block: its squares, their size, Rechenart, Reihen or Zahlenraum, Aufgabentyp
 // and the numbers typed in.
-import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
 import type { MalquadratBlock } from "../sheet";
 import { draw } from "../bank";
-import { made, sane, type MalquadratProps, type MalquadratTyped } from "../malquadrat";
+import { made, sane, type MalquadratProps } from "../malquadrat";
 import { Reihen } from "./Reihen";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
@@ -26,78 +25,8 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
   const p = sane(block.props);
   const m = made(p);
   const n = p.size;
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, p.count - 1);
-  const square = m.squares[c];
-  const raw = Array.isArray(block.props.typed) ? block.props.typed : [];
 
-  // Every box of the (n + 2) × (n + 2) grid is a position but the three corners.
-  const isPosition = (i: number, j: number) => i >= 0 && j >= 0 && i <= n + 1 && j <= n + 1 && !((i === 0 && j === 0) || (i === 0 && j === n + 1) || (i === n + 1 && j === 0));
-
-  // Stores the number of the box in row i and column j of square c. The first number typed into a square keeps the drawn
-  // given numbers of that square as typed entries too.
-  function setTyped(i: number, j: number, text: string) {
-    const own = (p.typed ?? []).some((e) => e[0] === c && isPosition(e[1], e[2]));
-    const drawn: MalquadratTyped[] = [];
-    if (!own && square) {
-      square.given.forEach((row, r) =>
-        row.forEach((given, s) => {
-          if (given && isPosition(r, s)) drawn.push([c, r, s, square.cells[r][s]]);
-        }),
-      );
-    }
-    const list = [...raw, ...drawn].filter((e) => Array.isArray(e) && (e[0] !== c || e[1] !== i || e[2] !== j));
-    if (text !== "") list.push([c, i, j, Number(text)] as MalquadratTyped);
-    apply({ typed: list.length ? list : undefined }, `typed:${c}:${i}:${j}`);
-  }
-
-  // The focus, mouseup and undo handling shared by the number fields.
-  function fieldHandlers(key: string, text: string, change: (text: string) => void) {
-    return {
-      onFocus: () => {
-        fresh.current = true;
-        setDraft({ key, text });
-      },
-      // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-      onMouseUp: (e: MouseEvent<HTMLInputElement>) => {
-        if (!fresh.current) return;
-        fresh.current = false;
-        e.preventDefault();
-        e.currentTarget.select();
-      },
-      onBlur: () => setDraft(null),
-      onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
-        // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-        if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-      },
-      onChange: (e: ChangeEvent<HTMLInputElement>) => {
-        if (!/^\d{0,4}$/.test(e.target.value)) return;
-        setDraft({ key, text: e.target.value });
-        change(e.target.value);
-      },
-    };
-  }
-
-  // A number field for the box of row i and column j.
-  function numberField(i: number, j: number) {
-    const key = `${c},${i},${j}`;
-    const text = square?.given[i]?.[j] ? String(square.cells[i][j]) : "";
-    return (
-      <input
-        key={`${i},${j}`}
-        className="typed"
-        inputMode="numeric"
-        aria-label={`Zeile ${i}, Spalte ${j}`}
-        value={draft?.key === key ? draft.text : text}
-        {...fieldHandlers(key, text, (value) => setTyped(i, j, value))}
-      />
-    );
-  }
 
   return (
     <>
@@ -167,25 +96,7 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
           <option value="knobel">Knobelaufgabe über die Summen</option>
         </select>
       </label>
-      {p.count >= 2 && (
-        <label>
-          Eigene Zahlen
-          <select aria-label="Malquadrat für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-            {Array.from({ length: p.count }, (_, k) => (
-              <option key={k} value={k}>
-                {`Malquadrat ${k + 1}`}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <div className="mauer" style={{ display: "grid", gridTemplateColumns: `repeat(${n + 2}, auto)`, gap: 4 }}>
-        {Array.from({ length: (n + 2) * (n + 2) }, (_, k) => {
-          const i = Math.floor(k / (n + 2));
-          const j = k % (n + 2);
-          return isPosition(i, j) ? numberField(i, j) : <span key={`${i},${j}`} />;
-        })}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.squares.map((s, k) => {
         if (s.unsure) return null;
         if (s.wrong) return <p key={k} className="hint" role="status">{`Malquadrat ${k + 1}: Die Zahlen passen nicht zusammen.`}</p>;
@@ -195,7 +106,6 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined }, "clear");
           }}
         >

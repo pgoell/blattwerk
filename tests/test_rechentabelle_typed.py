@@ -13,13 +13,12 @@ from test_gaps import panel, step
 from test_rechentabelle import (
     RT,
     editor,  # noqa: F401
-    field,
     props_of,
     rt,
     values,
 )
 from test_words import undo
-from ui import at, doc, pick, user
+from ui import at, doc, open_own, pick, user
 
 
 def hint(page):
@@ -27,12 +26,11 @@ def hint(page):
 
 
 def test_typing_a_column_value_is_one_undo_step_and_changes_the_column(editor):
-    """Eigene Zahlen: typing 7 into "Spaltenwert 1" stores [0, 0, 1, 7], the column shows 7, and one Ctrl+Z in the field takes it back."""
+    """Eigene Zahlen: typing 7 into column value 1 stores [0, 0, 1, 7], the column shows 7, and one Ctrl+Z in the field takes it back."""
     client = user()
     page = editor(rt("d", RT), client=client)
     pick(page, "d")
-    number = field(page, "Spaltenwert 1")
-    number.click()
+    number = open_own(page, "d", "0,0,1")
     step(page, lambda: page.keyboard.type("7"))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 1, 7]]
     assert values(page, "col")[0] == 7
@@ -41,12 +39,11 @@ def test_typing_a_column_value_is_one_undo_step_and_changes_the_column(editor):
 
 
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
-    """Eigene Zahlen: typing "17" into "Zeile 1, Spalte 3" keeps the focus and the digits, and stores [0, 1, 3, 17]."""
+    """Eigene Zahlen: typing "17" into row 1, column 3 keeps the focus and the digits, and stores [0, 1, 3, 17]."""
     client = user()
     page = editor(rt("d", RT), client=client)
     pick(page, "d")
-    number = field(page, "Zeile 1, Spalte 3")
-    number.click()
+    number = open_own(page, "d", "0,1,3")
     step(page, lambda: page.keyboard.type("17"))
     expect(number).to_be_focused()
     expect(number).to_have_value("17")
@@ -103,10 +100,10 @@ def test_the_box_shows_the_number_the_sheet_uses_when_stored_entries_repeat(edit
     """Eigene Zahlen (review of #930): with two stored entries for one box the field shows the last one, as the sheet takes it; with a typed 12000 (out of range, dropped) the field shows the cell the sheet works out, row plus column, and no "Eigene Zahlen entfernen" button is left."""
     page = editor(rt("d", {**RT, "typed": [[0, 1, 1, 5], [0, 1, 1, 7]]}))
     pick(page, "d")
-    expect(field(page, "Zeile 1, Spalte 1")).to_have_value("7")
+    expect(open_own(page, "d", "0,1,1")).to_have_value("7")
     page = editor(rt("d", {**RT, "typed": [[0, 1, 1, 12000]]}))
     pick(page, "d")
-    number = field(page, "Zeile 1, Spalte 1")
+    number = open_own(page, "d", "0,1,1")
     expect(number).to_have_value(re.compile(r"^\d+$"))
     value = number.input_value()
     assert value != "12000", value

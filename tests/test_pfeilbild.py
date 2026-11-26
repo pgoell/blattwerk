@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import at, box, doc, insert, pick, reload, user
+from ui import at, box, doc, insert, open_own, pick, reload, user
 
 PF = {
     "count": 4,
@@ -247,11 +247,11 @@ def test_operatoren_zeichnen_off_removes_the_ellipses(editor):
 
 
 def test_typing_two_digits_into_a_box_stores_them_and_one_undo_takes_both_back(editor):
-    """Eigene Zahlen: "1" then "2" into "Zahl in Kästchen 1" store [[0, 0, 12]]; one Ctrl+Z removes both."""
+    """Eigene Zahlen: "1" then "2" into box 1 store [[0, 0, 12]]; one Ctrl+Z removes both."""
     client = user()
     page = editor(pfeil("d", PF), client=client)
     pick(page, "d")
-    number = field(page, "Zahl in Kästchen 1")
+    number = open_own(page, "d", "0,0")
 
     def type_twelve():
         number.press("Control+a")
@@ -323,7 +323,7 @@ def test_a_typed_mal_in_gemischt_grows_the_block_by_the_note_line_in_one_undo(ed
     client = user()
     page = editor(pfeil("d", {**PF, "given": "mixed", "max": 100}), client=client)
     pick(page, "d")
-    op_field = field(page, "Operator an Pfeil 1")
+    op_field = open_own(page, "d", "op,0,0")
     step(page, lambda: (op_field.press("Control+a"), op_field.press_sequentially("*2")))
     grown = block_of(doc(page, client))
     assert grown["props"]["typedOps"] == [[0, 0, "*", 2]]
@@ -335,12 +335,11 @@ def test_a_typed_mal_in_gemischt_grows_the_block_by_the_note_line_in_one_undo(ed
 
 
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
-    """Eigene Zahlen: typing "17" into "Zahl in Kästchen 3" keeps the focus and the digits, and stores [0, 2, 17]."""
+    """Eigene Zahlen: typing "17" into box 3 keeps the focus and the digits, and stores [0, 2, 17]."""
     client = user()
     page = editor(pfeil("d", PF), client=client)
     pick(page, "d")
-    number = field(page, "Zahl in Kästchen 3")
-    number.click()
+    number = open_own(page, "d", "0,2")
     step(page, lambda: page.keyboard.type("17"))
     expect(number).to_be_focused()
     expect(number).to_have_value("17")

@@ -1,9 +1,8 @@
 // The format panel's settings for a Zerlegungsfeld block: its tasks, their columns, Rechenart, Zahlenraum, Übergang,
 // Aufgabentyp and the numbers typed in.
-import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
 import type { ZerlegungsfeldBlock } from "../sheet";
 import { draw } from "../bank";
-import { NAMES, made, sane, type ZerlegungsfeldProps, type ZerlegungsfeldTyped } from "../zerlegungsfeld";
+import { made, sane, type ZerlegungsfeldProps } from "../zerlegungsfeld";
 import { clean } from "../zerlegungsfeld/pattern";
 import { Switch } from "../components/Switch";
 
@@ -26,73 +25,7 @@ function stepper(less: string, more: string, text: string, n: number, lo: number
 export default function Zerlegungsfeld({ block, apply }: { block: ZerlegungsfeldBlock; apply: (props: Partial<ZerlegungsfeldProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
-  const [which, setWhich] = useState(0);
-  // The number field with focus keeps its own text, so that typing is not fought by the re-render.
-  const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
-  // Set when a number field gets focus, until the mouseup of that click has selected its number.
-  const fresh = useRef(false);
 
-  const c = Math.min(which, p.count - 1);
-  const task = m.tasks[c];
-  const raw = Array.isArray(block.props.typed) ? block.props.typed : [];
-
-  // Stores the number at position pos of task c. The first number typed into a task keeps the drawn given positions of
-  // that task as typed entries too.
-  function setTyped(pos: number, text: string) {
-    const own = (p.typed ?? []).some((e) => e[0] === c);
-    const drawn: ZerlegungsfeldTyped[] = [];
-    if (!own && task) {
-      task.given.forEach((given, q) => {
-        if (given) drawn.push([c, q, task.values[q]]);
-      });
-    }
-    const list = [...raw, ...drawn].filter((e) => Array.isArray(e) && (e[0] !== c || e[1] !== pos));
-    if (text !== "") list.push([c, pos, Number(text)] as ZerlegungsfeldTyped);
-    apply({ typed: list.length ? list : undefined }, `typed:${c}:${pos}`);
-  }
-
-  // The focus, mouseup and undo handling shared by the number fields.
-  function fieldHandlers(key: string, text: string, change: (text: string) => void) {
-    return {
-      onFocus: () => {
-        fresh.current = true;
-        setDraft({ key, text });
-      },
-      // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-      onMouseUp: (e: MouseEvent<HTMLInputElement>) => {
-        if (!fresh.current) return;
-        fresh.current = false;
-        e.preventDefault();
-        e.currentTarget.select();
-      },
-      onBlur: () => setDraft(null),
-      onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
-        // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-        if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-      },
-      onChange: (e: ChangeEvent<HTMLInputElement>) => {
-        if (!/^\d{0,4}$/.test(e.target.value)) return;
-        setDraft({ key, text: e.target.value });
-        change(e.target.value);
-      },
-    };
-  }
-
-  // A number field for position pos of task c.
-  function numberField(pos: number) {
-    const key = `${c},${pos}`;
-    const text = task?.given[pos] ? String(task.values[pos]) : "";
-    return (
-      <input
-        key={pos}
-        className="typed"
-        inputMode="numeric"
-        aria-label={NAMES[pos]}
-        value={draft?.key === key ? draft.text : text}
-        {...fieldHandlers(key, text, (value) => setTyped(pos, value))}
-      />
-    );
-  }
 
   return (
     <>
@@ -171,21 +104,7 @@ export default function Zerlegungsfeld({ block, apply }: { block: Zerlegungsfeld
           <option value="result">Erste Zahl und Ergebnis</option>
         </select>
       </label>
-      {p.count >= 2 && (
-        <label>
-          Eigene Zahlen
-          <select aria-label="Aufgabe für eigene Zahlen" value={c} onChange={(e) => setWhich(Number(e.target.value))}>
-            {Array.from({ length: p.count }, (_, k) => (
-              <option key={k} value={k}>
-                {`Aufgabe ${k + 1}`}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 4 }}>
-        {Array.from({ length: 6 }, (_, pos) => numberField(pos))}
-      </div>
+      <p className="hint">Eigene Zahlen tippst du ins Blatt: Doppelklick auf ein Feld, Tab geht zum nächsten.</p>
       {m.tasks.map((t, k) => {
         if (t.wrong) return <p key={k} className="hint" role="status">{`Aufgabe ${k + 1}: Die Zahlen passen nicht zusammen.`}</p>;
         if (t.many) return <p key={k} className="hint" role="status">{`Aufgabe ${k + 1}: Es gibt mehr als eine Lösung.`}</p>;
@@ -194,7 +113,6 @@ export default function Zerlegungsfeld({ block, apply }: { block: Zerlegungsfeld
       {p.typed && (
         <button
           onClick={() => {
-            setDraft(null);
             apply({ typed: undefined }, "clear");
           }}
         >

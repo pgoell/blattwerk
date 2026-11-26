@@ -35,7 +35,7 @@ export function Rechentabelle({ block, solved }: { block: RechentabelleBlock; so
               {t.cols.map((n, j) => {
                 const [x, y] = [x0 + (j + 1) * CELL, y0];
                 return (
-                  <g key={`c${j}`} className="head" data-row={0} data-col={j + 1}>
+                  <g key={`c${j}`} className="head" data-own={`${i},0,${j + 1}`} data-row={0} data-col={j + 1}>
                     <rect x={x} y={y} width={CELL} height={CELL} fill={tint ? tint[0] : "white"} stroke="#222" strokeWidth={0.4} />
                     {text(n, x, y, stateOf(t.colShown[j]))}
                   </g>
@@ -44,7 +44,7 @@ export function Rechentabelle({ block, solved }: { block: RechentabelleBlock; so
               {t.rows.map((n, r) => {
                 const [x, y] = [x0, y0 + (r + 1) * CELL];
                 return (
-                  <g key={`r${r}`} className="head" data-row={r + 1} data-col={0}>
+                  <g key={`r${r}`} className="head" data-own={`${i},${r + 1},0`} data-row={r + 1} data-col={0}>
                     <rect x={x} y={y} width={CELL} height={CELL} fill={tint ? tint[0] : "white"} stroke="#222" strokeWidth={0.4} />
                     {text(n, x, y, stateOf(t.rowShown[r]))}
                   </g>
@@ -54,7 +54,7 @@ export function Rechentabelle({ block, solved }: { block: RechentabelleBlock; so
                 row.map((n, c) => {
                   const [x, y] = [x0 + (c + 1) * CELL, y0 + (r + 1) * CELL];
                   return (
-                    <g key={`${r}:${c}`} className="cell" data-row={r + 1} data-col={c + 1}>
+                    <g key={`${r}:${c}`} className="cell" data-own={`${i},${r + 1},${c + 1}`} data-row={r + 1} data-col={c + 1}>
                       <rect x={x} y={y} width={CELL} height={CELL} fill="white" stroke="#222" strokeWidth={0.4} />
                       {t.struck[r][c] ? (
                         <line className="strike" x1={x} y1={y} x2={x + CELL} y2={y + CELL} stroke="#222" strokeWidth={0.4} />

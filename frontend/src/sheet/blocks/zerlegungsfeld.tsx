@@ -27,7 +27,7 @@ export function Zerlegungsfeld({ block, solved }: { block: ZerlegungsfeldBlock; 
                       const x = x0 + dx;
                       const state = t.given[pos] ? "given" : open ? "answer" : null;
                       return (
-                        <g key={pos} className="box" data-pos={pos} data-line={l}>
+                        <g key={pos} className="box" data-own={`${i},${pos}`} data-pos={pos} data-line={l}>
                           <rect x={x} y={y} width={BW} height={BH} fill="white" stroke="#222" strokeWidth={0.4} />
                           {state && (
                             <text x={x + BW / 2} y={y + BH / 2} fontSize={numberSize(String(t.values[pos]).length, BW * 0.85, 5)} textAnchor="middle" dominantBaseline="central"

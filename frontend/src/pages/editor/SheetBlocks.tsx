@@ -5,6 +5,7 @@ import Field from "../Field";
 import { GroundView } from "../../ground";
 import { EDGE, heightsOf, next } from "../../cells";
 import { round } from "./palette";
+import { ownOf } from "./own";
 import { useTools } from "./useTools";
 
 export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof useTools>; p: Page; n: number }) {
@@ -52,6 +53,9 @@ export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof
   const trimming = session.trimming;
   const typeRuling = session.typeRuling;
   const typeStone = session.typeStone;
+  const openStone = session.openStone;
+  const undo = session.undo;
+  const redo = session.redo;
   const words = session.words;
   return (
     <>
@@ -183,7 +187,7 @@ export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof
                       <input
                         className="stone-field"
                         inputMode="numeric"
-                        aria-label="Zahl im Stein"
+                        aria-label="Eigene Zahl"
                         autoFocus
                         value={stone.text}
                         style={{ left: stone.box[0], top: stone.box[1], width: stone.box[2], height: stone.box[3], fontSize: stone.box[3] * 0.6 }}
@@ -192,12 +196,26 @@ export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof
                           // The keys are the field's: the sheet's own keys do not take the digits or the Enter.
                           e.stopPropagation();
                           if (e.key === "Enter" || e.key === "Escape") setStone(null);
+                          // Ctrl+Z and Ctrl+Y are the sheet's, as in a panel field: the field shuts on what the step gives.
+                          if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) {
+                            e.preventDefault();
+                            setStone(null);
+                            (e.key.toLowerCase() === "z" && !e.shiftKey ? undo : redo)();
+                          }
+                          // Tab goes on to the block's next box, Shift+Tab back, as in a table. The last one shuts the field.
+                          if (e.key === "Tab") {
+                            e.preventDefault();
+                            const boxes = [...(e.currentTarget.parentElement?.querySelectorAll("[data-own]") ?? [])];
+                            const here = boxes.findIndex((el) => (el as HTMLElement).dataset.own === stone.cell.join(","));
+                            const to = boxes[here + (e.shiftKey ? -1 : 1)];
+                            if (!to || !openStone(to)) setStone(null);
+                          }
                         }}
                         onBlur={() => setStone(null)}
                         onChange={(e) => {
-                          if (!/^\d{0,4}$/.test(e.target.value)) return;
+                          if (!ownOf(b)?.takes.test(e.target.value)) return;
                           setStone({ ...stone, text: e.target.value });
-                          typeStone(b, stone.wall, stone.at, e.target.value);
+                          typeStone(b, stone.cell, e.target.value);
                         }}
                       />
                     )}
