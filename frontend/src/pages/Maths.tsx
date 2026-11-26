@@ -127,6 +127,13 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
               </option>
             ))}
           </select>
+        </>
+      )}
+      {/* What few sheets change lies folded, so Aufgaben fits a 1280 x 800 window: the kind of sum, the range of the numbers,
+          the carry and the format stay in view. */}
+      <Fold title="Weitere Einstellungen" id="Rechnen: Weitere Einstellungen">
+      {p.format === "compare" && (
+        <>
           <h2>Abstand</h2>
           <div className="seg">
             <button className={p.close ? "" : "on"} aria-pressed={!p.close} onClick={() => limit({ close: false })}>Beliebig</button>
@@ -139,9 +146,6 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
           </div>
         </>
       )}
-      {/* What few sheets change lies folded, so Aufgaben fits a 1280 x 800 window: the kind of sum, the range of the numbers,
-          the carry and the format stay in view. */}
-      <Fold title="Weitere Einstellungen" id="Rechnen: Weitere Einstellungen">
       <Switch label="Aufgaben mit 0" on={p.zero !== false} onChange={() => limit({ zero: p.zero === false })} />
       <Switch label="Aufgaben mit 1 beim Malnehmen und Teilen" on={p.one !== false} disabled={!times} onChange={() => limit({ one: p.one === false })} />
       <Switch label="Kleines Einmaleins" on={!!p.small} disabled={!times || three} onChange={() => limit({ small: !p.small })} />

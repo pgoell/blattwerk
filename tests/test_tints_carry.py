@@ -55,10 +55,8 @@ def test_tab_reaches_the_colour_switch_and_its_settings_and_space_and_enter_pres
     client = user()
     page = editor(box("a", "text", WORDS), client=client)
     pick(page, "a")
-    page.get_by_label("Zeilenabstand").focus()
-    # Zeichenabstand, then Nachspurtext, then Silbenbögen.
-    page.keyboard.press("Tab")
-    page.keyboard.press("Tab")
+    page.locator(".panel").get_by_label("Nachspurtext").focus()
+    # Silbenbögen is the next stop after Nachspurtext.
     page.keyboard.press("Tab")
     expect(knob(page.locator(".panel"), "Silbenbögen")).to_be_focused()
     page.keyboard.press("Tab")
