@@ -451,15 +451,15 @@ BUILT_IN = [
         "group": "Deutsch",
         "doc": doc(
             [
+                block("name", 15, 15, 180, 10, {}),
                 block(
                     "text",
                     15,
-                    15,
+                    30,
                     180,
                     12,
                     {"text": "Lernwörter", "size": 20, "align": "left", "bold": True},
                 ),
-                block("name", 15, 31, 180, 10, {}),
                 # Three exercises on the sheet's list, six rows of Lineatur 3 (11.5 mm) each, 6 mm
                 # apart: to copy, to trace, and to trace along the row. They grow together, and a
                 # list longer than the page holds runs on to a page more.

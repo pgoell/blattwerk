@@ -18,6 +18,7 @@ from ui import (
     BROWSER,
     PASSWORD,
     RECT,
+    RULING,
     TEXT,
     box,
     pick,
@@ -128,9 +129,14 @@ def copy_in_text(page):
     page.keyboard.press("Escape")
 
 
+# A Lineatur that shows the sheet's list: its panel holds the list's field.
+LIST = box("l", "ruling", {**RULING, "list": "copy"}, z=9, y=200)
+
+
 def open_list(page):
-    """Opens the Lernwörter panel with nothing picked and gives its field."""
-    page.locator(".insert").get_by_role("button", name="Lernwörter", exact=True).click()
+    """Picks the Lineatur "l" (LIST), which shows the sheet's list, and gives the list's field
+    in its panel. The sheet stays as it was."""
+    pick(page, "l")
     return page.get_by_role("textbox", name="Lernwörter", exact=True)
 
 
@@ -146,13 +152,14 @@ def in_b_sheet():
         box("x", "shape", RECT, w=40),
         box("t", "text", {**TEXT, "text": "Bleibt"}, z=2),
         box("c", "table", {**CELLS, "size": 14}, z=3, h=60),
+        LIST,
     ]
 
 
 def next_list_paste_nothing(page):
     """Logs in as the next account, pastes into its Lernwörter list; its sheet stays as it was."""
     b, email = someone()
-    login(page, email, sheet(b, in_b_sheet()), 3)
+    login(page, email, sheet(b, in_b_sheet()), 4)
     before = stored(page, b)
     field = open_list(page)
     field.press("Control+v")

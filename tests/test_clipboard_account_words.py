@@ -12,6 +12,7 @@ from test_clipboard import (
 from test_clipboard_account import (
     CELLS,
     GAPPED,
+    LIST,
     copy_in_text,
     copy_key,
     in_b_sheet,
@@ -46,7 +47,7 @@ def test_words_copied_in_an_open_text_paste_nothing_for_the_next_account(editor,
     copy_in_text(page)
     logout(page)
     b, email = someone()
-    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40), LIST]), 2)
     before = stored(page, b)
     if by == "keys":
         field = open_list(page)
@@ -54,10 +55,10 @@ def test_words_copied_in_an_open_text_paste_nothing_for_the_next_account(editor,
         expect(field).to_have_value("")
     else:
         button(page, "Einfügen").click()
-    expect(blocks(page)).to_have_count(1)
+    expect(blocks(page)).to_have_count(2)
     assert stored(page, b) == before
     # A paste still on its way, as the button's is while it reads the clipboard, would show here.
-    assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
+    assert sorted(b["type"] for b in own(page, b, 3)) == ["ruling", "shape", "shape"]
 
 
 @chromium_only
@@ -85,7 +86,7 @@ def test_the_same_account_after_a_new_login_pastes_no_words_of_an_open_text(edit
 
 def test_the_same_session_pastes_its_own_words_of_an_open_text_into_a_field(editor):
     a = user()
-    page = editor(the_text_box(), client=a)
+    page = editor(the_text_box(), LIST, client=a)
     copy_in_text(page)
     field = open_list(page)
     field.press("Control+v")
@@ -113,7 +114,7 @@ def test_the_next_account_pastes_no_words_of_the_one_before_into_any_target(edit
     copy_in_text(page)
     logout(page)
     b, email = someone()
-    login(page, email, sheet(b, in_b_sheet()), 3)
+    login(page, email, sheet(b, in_b_sheet()), 4)
     before = stored(page, b)
     if target == "list":
         field = open_list(page)
@@ -139,9 +140,9 @@ def test_the_next_account_pastes_no_words_of_the_one_before_into_any_target(edit
         field.press("Control+v")
         expect(field).to_have_value("")
         page.go_back()
-        ready(page, 3)
+        ready(page, 4)
     if target != "key":
-        expect(blocks(page)).to_have_count(3)
+        expect(blocks(page)).to_have_count(4)
     assert stored(page, b) == before
 
 
@@ -178,7 +179,7 @@ def test_two_table_cells_copied_paste_nothing_for_the_next_account(editor):
 def test_words_picked_in_the_list_field_paste_nothing_for_the_next_account(editor):
     """#757: a copy in the side panel's Lernwörter field is a copy in a field of the editor."""
     a, _ = someone()
-    page = editor(box("x", "shape", RECT, w=40), client=a)
+    page = editor(box("x", "shape", RECT, w=40), LIST, client=a)
     field = open_list(page)
     field.fill("Hund\nKatze")
     field.press("Control+a")
@@ -228,7 +229,7 @@ def test_words_copied_in_a_table_cell_paste_nothing_for_the_next_account(editor)
     assert page.evaluate("navigator.clipboard.readText()") == "Katze"
     logout(page)
     b, email = someone()
-    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40), LIST]), 2)
     before = stored(page, b)
     field = open_list(page)
     field.press("Control+v")
