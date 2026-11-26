@@ -13,6 +13,7 @@ from test_bar import (
     ZOOM,
     expect_fitted,
     listed,
+    long_title,
     menu,
     more,
     resize,
@@ -71,6 +72,8 @@ def test_where_all_fits_there_is_no_mehr(editor):
 def test_a_turn_of_the_ipad_shuts_mehr_and_fits_the_bar_anew(editor):
     """I4"""
     page = editor(text("a"), touch=True)
+    # A long title takes the bar's room, so that "Mehr" is there in the turned window too.
+    long_title(page)
     expect_fitted(page)
     upright = page.evaluate(BAR)["names"]
     for size in (TURNED, IPAD):
