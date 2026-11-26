@@ -28,7 +28,8 @@ import "./styles/panel.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
+    {/* The page swaps in the same step as the address: in a transition the old page stays a moment under the new address. */}
+    <BrowserRouter useTransitions={false}>
       <App />
     </BrowserRouter>
   </StrictMode>,
