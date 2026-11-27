@@ -1,11 +1,15 @@
 """The time each test file took on CI, for the split of the shards (tests/shards.py).
 
-    uv run python scripts/shard-times.py <run id>
-    uv run python scripts/shard-times.py --logs <folder>
+    uv run python scripts/shard-times.py <run id> [<run id> ...]
+    uv run python scripts/shard-times.py --logs <folder> [<folder> ...]
 
 Reads the logs of the shard jobs of that CI run (through gh, logged in) and writes tests/times.json:
 per lane, the seconds of each test file, its tests' three phases added up. With --logs it reads
 the run's log archive instead, unpacked into the folder (one "<n>_<job name>.txt" per job).
+
+A runner can be twice as slow as another, so one run's times put a file's weight off by as much.
+Given several runs, each file weighs its mean over them, each run first scaled to the last run's
+total for the lane.
 """
 
 import argparse
@@ -14,6 +18,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from statistics import mean
 
 REPO = "pgoell/blattwerk"
 OUT = Path(__file__).resolve().parents[1] / "tests" / "times.json"
@@ -64,7 +69,8 @@ def logs_of_folder(folder):
         yield path.stem.partition("_")[2], path.read_text(errors="replace")
 
 
-def main(logs, source):
+def one_run(logs, source):
+    """Seconds per file and lane in one run."""
     seconds = {"chromium": {}, "webkit": {}, "native": {}}
     for name, log in logs:
         for prefix, browser in JOBS.items():
@@ -73,19 +79,37 @@ def main(logs, source):
     empty = [browser for browser, found in seconds.items() if not found]
     if empty:
         sys.exit(f"no durations for {', '.join(empty)} in {source}: nothing written")
-    times = {browser: per_file(found) for browser, found in seconds.items()}
+    return {browser: per_file(found) for browser, found in seconds.items()}
+
+
+def averaged(runs):
+    """Per lane, the mean of each file over the runs that ran it, each run scaled to the last."""
+    times = {}
+    for lane in runs[-1]:
+        total = sum(runs[-1][lane].values())
+        found = {}
+        for run in runs:
+            scale = total / (sum(run[lane].values()) or 1)
+            for name, took in run[lane].items():
+                found.setdefault(name, []).append(took * scale)
+        times[lane] = {name: round(mean(took), 1) for name, took in found.items()}
+    return times
+
+
+def main(runs):
+    times = averaged(runs)
     OUT.write_text(json.dumps(times, indent=1, sort_keys=True) + "\n")
     print(f"wrote {OUT}: {', '.join(f'{b} {len(t)} files' for b, t in times.items())}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("run_id", nargs="?")
-    parser.add_argument("--logs", help="an unpacked log archive of the run, read instead of gh")
+    parser.add_argument("run_ids", nargs="*")
+    parser.add_argument("--logs", nargs="+", help="unpacked log archives, read instead of gh")
     args = parser.parse_args()
     if args.logs:
-        main(logs_of_folder(args.logs), args.logs)
-    elif args.run_id:
-        main(logs_of_run(args.run_id), f"run {args.run_id}")
+        main([one_run(logs_of_folder(f), f) for f in args.logs])
+    elif args.run_ids:
+        main([one_run(logs_of_run(r), f"run {r}") for r in args.run_ids])
     else:
         parser.error("give a run id or --logs")
