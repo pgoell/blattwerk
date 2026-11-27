@@ -64,7 +64,7 @@ def test_ci_has_the_checks_the_merge_needs():
     shards = part(CI, "shards")
     assert "needs: changes" in shards
     assert "needs.changes.outputs.suite == 'true'" in shards
-    assert "name: Test shard ${{ matrix.shard }}/13" in shards
+    assert "name: Test shard ${{ matrix.shard }}/${{ " in shards
     assert "run: mise run test " in shards
 
 
@@ -74,8 +74,7 @@ def test_a_chromium_shard_ends_well_before_its_limit():
     Eight shards take three quarters of that; the limit leaves the slowest job half again.
     """
     shards = part(CI, "shards")
-    (listed,) = re.findall(r"shard: \[([\d, ]+)\]", shards)
-    n = len(listed.split(","))
+    n = min(counts(shards).values())
     (limit,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", shards, re.M))
     slowest = 504 * 6 / n
     assert limit * 60 >= 1.5 * slowest + 60
@@ -249,19 +248,41 @@ def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
         assert "--durations=0" in run
 
 
-def test_the_suite_is_split_into_thirteen_and_twenty_three_shards():
-    """Run 39783927061: eight and sixteen shards left pytest at about ten minutes, and twelve and
-    twenty-four at about six. PR #1212 made a shard cheaper to start and its tests cheaper to
-    run; thirteen and twenty-three, weighed by the times of its first run, end together.
-    """
-    expected = {"shards": ("Test shard", 13), "webkit": ("WebKit shard", 23)}
-    for job, (name, n) in expected.items():
-        text = part(CI, job)
-        (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
+def counts(job):
+    """The number of shards of a job, on a pull request and on master: (event, n) -> its list."""
+    found = re.findall(
+        r"fromJSON\(github.event_name == 'pull_request' && '\[([\d, ]+)\]' \|\| '\[([\d, ]+)\]'\)",
+        job,
+    )
+    if found:
+        ((pr, master),) = found
+    else:
+        ((pr,),) = [re.findall(r"shard: \[([\d, ]+)\]", job)]
+        master = pr
+    shards = {}
+    for event, listed in (("pull_request", pr), ("push", master)):
         numbers = [int(k) for k in listed.split(",")]
-        assert numbers == list(range(1, n + 1))
-        assert f"name: {name} ${{{{ matrix.shard }}}}/{n}" in text
-        assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in text
+        assert numbers == list(range(1, len(numbers) + 1))
+        shards[event] = len(numbers)
+    return shards
+
+
+def test_a_pull_request_runs_twenty_six_chromium_shards_and_no_webkit():
+    """Pascal, 2026-11-27 (PR #1212): WebKit, two thirds of the work, runs on master only, before
+    the deploy. A pull request spends the job slots it frees on Chromium shards of half the size.
+    Master keeps thirteen and twenty-three: the account runs about forty jobs at once."""
+    shards = part(CI, "shards")
+    assert counts(shards) == {"pull_request": 26, "push": 13}
+    n = "${{ github.event_name == 'pull_request' && 26 || 13 }}"
+    assert f"name: Test shard ${{{{ matrix.shard }}}}/{n}" in shards
+    assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in shards
+    webkit = part(CI, "webkit")
+    assert counts(webkit) == {"pull_request": 23, "push": 23}
+    assert "name: WebKit shard ${{ matrix.shard }}/23" in webkit
+    assert "SHARD: ${{ matrix.shard }}/23" in webkit
+    assert "if: github.event_name != 'pull_request' && needs.changes.outputs.suite" in webkit
+    gate = part(CI, "test")
+    assert '[ "$EVENT" = pull_request ] && [ "$WEBKIT" = skipped ]' in gate
 
 
 def test_a_pull_request_skips_the_suite_only_for_docs_and_skills():
