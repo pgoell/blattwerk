@@ -124,6 +124,18 @@ def pytest_runtest_logfinish(nodeid, location):
         gc.collect()
 
 
+def pytest_collection_finish(session):
+    """Moves what is there once the tests are collected out of the collector's sight.
+
+    The collection `swept` asks for after each browser test went through every object of the
+    process, the collected tests and the imported modules among them: 0.2 s on an idle core with
+    the whole suite collected, 0.06 s with one shard's files. Frozen, those are left alone, and a
+    collection sees only what came since: a test's leftovers, which it still ends.
+    """
+    gc.collect()
+    gc.freeze()
+
+
 def _restart():
     if GUARD:
         GUARD.restart()

@@ -9,7 +9,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from shards import split
+import shards
+from shards import plan, runs
 
 REPO = Path(__file__).resolve().parents[1]
 HOOKS = (REPO / ".config/lefthook.yaml").read_text()
@@ -63,7 +64,7 @@ def test_ci_has_the_checks_the_merge_needs():
     shards = part(CI, "shards")
     assert "needs: changes" in shards
     assert "needs.changes.outputs.suite == 'true'" in shards
-    assert "name: Test shard ${{ matrix.shard }}/12" in shards
+    assert "name: Test shard ${{ matrix.shard }}/${{ " in shards
     assert "run: mise run test " in shards
 
 
@@ -73,8 +74,7 @@ def test_a_chromium_shard_ends_well_before_its_limit():
     Eight shards take three quarters of that; the limit leaves the slowest job half again.
     """
     shards = part(CI, "shards")
-    (listed,) = re.findall(r"shard: \[([\d, ]+)\]", shards)
-    n = len(listed.split(","))
+    n = min(counts(shards).values())
     (limit,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", shards, re.M))
     slowest = 504 * 6 / n
     assert limit * 60 >= 1.5 * slowest + 60
@@ -171,36 +171,73 @@ def test_a_webkit_shard_ends_well_before_its_limit():
     assert limit <= 15
 
 
-IDS = [f"tests/test_x.py::test_{k}[{k} ä b]" for k in range(40)] + [
-    f"tests/test_y.py::test_{k}" for k in range(7)
-]
-SECONDS = {f"tests/test_x.py::test_{k}": 0.5 + k for k in range(0, 40, 2)}
+FILES = [f"tests/test_{k}.py" for k in range(40)]
+SECONDS = {f"tests/test_{k}.py": 0.5 + k for k in range(0, 40, 2)}
+IDS = [f"{f}::test_{c}[{c} ä b]" for f in FILES for c in range(30)]
 
 
-@pytest.mark.parametrize("n", [1, 6, 12, 16])
+def ran(shards, ids):
+    return [[i for i in ids if runs(shard, i)] for shard in shards]
+
+
+@pytest.mark.parametrize("n", [1, 6, 12, 16, 24])
 def test_a_split_puts_every_test_in_exactly_one_shard(n):
-    shards = split(IDS, SECONDS, n)
+    shards = plan(FILES, SECONDS, n)
     assert len(shards) == n
-    assert sorted(i for shard in shards for i in shard) == sorted(IDS)
+    assert {f for shard in shards for f in shard} == set(FILES)
+    assert sorted(i for found in ran(shards, IDS) for i in found) == sorted(IDS)
 
 
 def test_a_split_weighs_the_shards_alike():
-    seconds = {f"tests/test_f.py::f{k}": k + 1.0 for k in range(30)}
-    ids = [f"tests/test_f.py::f{k}[{c}]" for k in range(30) for c in range(10)]
-    loads = [sum(seconds[i.split("[")[0]] for i in shard) for shard in split(ids, seconds, 12)]
+    seconds = {f"tests/test_{k}.py": k % 30 + 1.0 for k in range(300)}
+    loads = [
+        sum(seconds[f] * len(parts) / k for f, (k, parts) in shard.items())
+        for shard in plan(sorted(seconds), seconds, 12)
+    ]
     assert max(loads) <= 1.05 * min(loads)
 
 
+def test_a_heavy_file_is_cut_into_parts_that_shards_share():
+    seconds = {"tests/test_big.py": 100.0, **{f"tests/test_{k}.py": 1.0 for k in range(20)}}
+    shards = plan(sorted(seconds), seconds, 4)
+    holding = [shard for shard in shards if "tests/test_big.py" in shard]
+    assert len(holding) == 4
+    ids = [f"tests/test_big.py::t[{c}]" for c in range(400)]
+    counts = [len(found) for found in ran(shards, ids)]
+    assert sum(counts) == 400
+    assert min(counts) > 50
+
+
 def test_a_split_is_the_same_each_time_and_in_any_order():
-    assert split(IDS, SECONDS, 6) == split(list(reversed(IDS)), SECONDS, 6)
+    assert plan(FILES, SECONDS, 6) == plan(list(reversed(FILES)), SECONDS, 6)
 
 
-def test_a_test_never_measured_weighs_the_median():
-    seconds = {"tests/t.py::a": 1.0, "tests/t.py::b": 5.0, "tests/t.py::c": 9.0}
-    ids = [*seconds, *(f"tests/t.py::u{k}" for k in range(6))]
-    # The median of the three is 5 s: the six unmeasured weigh that much each.
-    loads = [sum(seconds.get(i, 5.0) for i in shard) for shard in split(ids, seconds, 3)]
-    assert loads == [15.0, 15.0, 15.0]
+def test_a_file_never_measured_weighs_the_median():
+    seconds = {"tests/test_a.py": 3.0, "tests/test_b.py": 5.0, "tests/test_c.py": 7.0}
+    files = [*seconds, *(f"tests/test_u{k}.py" for k in range(6))]
+    # The median of the three is 5 s: the six unmeasured weigh that much each, and the 45 s of all
+    # nine make three shards of 15 s.
+    shards = plan(files, seconds, 3)
+    loads = [
+        sum(seconds.get(f, 5.0) * len(parts) / k for f, (k, parts) in shard.items())
+        for shard in shards
+    ]
+    assert loads == pytest.approx([15.0, 15.0, 15.0])
+
+
+def test_a_file_only_the_other_browser_ran_weighs_nothing(tmp_path, monkeypatch):
+    times = tmp_path / "times.json"
+    times.write_text(
+        json.dumps(
+            {
+                "chromium": {"tests/test_a.py": 3.0, "tests/test_b.py": 2.0},
+                "webkit": {"tests/test_a.py": 4.0},
+            }
+        )
+    )
+    monkeypatch.setattr(shards, "TIMES", times)
+    assert shards.times("webkit") == {"tests/test_a.py": 4.0, "tests/test_b.py": 0.0}
+    assert shards.times("chromium") == {"tests/test_a.py": 3.0, "tests/test_b.py": 2.0}
 
 
 def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
@@ -211,19 +248,41 @@ def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
         assert "--durations=0" in run
 
 
-def test_the_suite_is_split_into_twelve_and_twenty_four_shards():
-    """Run 39783927061: eight and sixteen shards left pytest at about ten minutes.
-
-    Twelve and twenty-four, weighed by the times from that run, bring it to about six.
-    """
-    expected = {"shards": ("Test shard", 12), "webkit": ("WebKit shard", 24)}
-    for job, (name, n) in expected.items():
-        text = part(CI, job)
-        (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
+def counts(job):
+    """The number of shards of a job, on a pull request and on master: (event, n) -> its list."""
+    found = re.findall(
+        r"fromJSON\(github.event_name == 'pull_request' && '\[([\d, ]+)\]' \|\| '\[([\d, ]+)\]'\)",
+        job,
+    )
+    if found:
+        ((pr, master),) = found
+    else:
+        ((pr,),) = [re.findall(r"shard: \[([\d, ]+)\]", job)]
+        master = pr
+    shards = {}
+    for event, listed in (("pull_request", pr), ("push", master)):
         numbers = [int(k) for k in listed.split(",")]
-        assert numbers == list(range(1, n + 1))
-        assert f"name: {name} ${{{{ matrix.shard }}}}/{n}" in text
-        assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in text
+        assert numbers == list(range(1, len(numbers) + 1))
+        shards[event] = len(numbers)
+    return shards
+
+
+def test_a_pull_request_runs_twenty_six_chromium_shards_and_no_webkit():
+    """Pascal, 2026-11-27 (PR #1212): WebKit, two thirds of the work, runs on master only, before
+    the deploy. A pull request spends the job slots it frees on Chromium shards of half the size.
+    Master keeps thirteen and twenty-three: the account runs about forty jobs at once."""
+    shards = part(CI, "shards")
+    assert counts(shards) == {"pull_request": 26, "push": 13}
+    n = "${{ github.event_name == 'pull_request' && 26 || 13 }}"
+    assert f"name: Test shard ${{{{ matrix.shard }}}}/{n}" in shards
+    assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in shards
+    webkit = part(CI, "webkit")
+    assert counts(webkit) == {"pull_request": 23, "push": 23}
+    assert "name: WebKit shard ${{ matrix.shard }}/23" in webkit
+    assert "SHARD: ${{ matrix.shard }}/23" in webkit
+    assert "if: github.event_name != 'pull_request' && needs.changes.outputs.suite" in webkit
+    gate = part(CI, "test")
+    assert '[ "$EVENT" = pull_request ] && [ "$WEBKIT" = skipped ]' in gate
 
 
 def test_a_pull_request_skips_the_suite_only_for_docs_and_skills():

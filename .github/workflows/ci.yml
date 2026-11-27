@@ -52,7 +52,7 @@ jobs:
           fi
 
   shards:
-    name: Test shard ${{ matrix.shard }}/12
+    name: Test shard ${{ matrix.shard }}/${{ github.event_name == 'pull_request' && 26 || 13 }}
     needs: changes
     if: needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
@@ -60,13 +60,17 @@ jobs:
     # had passed. Run 39783927061, eight shards: pytest 418 s to 617 s, every shard the same
     # weight on paper, because tests/times.json had no time for most tests. Twelve shards and
     # times from that run bring the slowest step to about six minutes. The limit stays 12.
+    # PR #1212: a shard collects its own files only and the per-test collection of garbage is
+    # cheap, so thirteen shards of about four and a half minutes, by the times of its first run.
+    # A pull request runs no WebKit (below), so it has twenty-six of half that; master has
+    # thirteen beside the WebKit shards, as the account runs about forty jobs at once.
     # A hang ends itself after three silent minutes, from configure on (tests/conftest.py).
     timeout-minutes: 12
     strategy:
       # One flaky test then costs a rerun of its own shard, not of all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]' || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -88,12 +92,16 @@ jobs:
       - name: Pytest
         run: mise run test -- -n 8 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/12
+          SHARD: ${{ matrix.shard }}/${{ github.event_name == 'pull_request' && 26 || 13 }}
 
+  # On master only (Pascal, 2026-11-27, PR #1212): WebKit is two thirds of the suite's work, and a
+  # pull request without it takes under five minutes. The deploy waits for this whole run on
+  # master, so a test that fails in WebKit alone stops the deploy and turns master red, not a
+  # pull request. Before a change that touches layout, run `mise run test:webkit` on it.
   webkit:
-    name: WebKit shard ${{ matrix.shard }}/24
+    name: WebKit shard ${{ matrix.shard }}/23
     needs: changes
-    if: needs.changes.outputs.suite == 'true'
+    if: github.event_name != 'pull_request' && needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
     # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock: the newest
@@ -102,6 +110,8 @@ jobs:
     container: mcr.microsoft.com/playwright:v1.65.1-noble
     # Run 39783927061, sixteen shards: pytest 398 s to 639 s, same missing times as the Chromium
     # shards. Twenty-four shards and fresh times bring the slowest step to about six minutes.
+    # PR #1212: twenty-three, as the Chromium shards took one more; the account runs about forty
+    # jobs at once, and a run has forty-one.
     # The limit counts from the start of the job, and the pull of the image is part of it: it
     # takes half a minute, and on 2026-10-12 it took five to ten minutes four times, so a shard
     # whose tests had all passed was cancelled at ten (#439). The tests have a limit of their
@@ -112,7 +122,7 @@ jobs:
       # As the shards above: a failure costs a rerun of its own shard only.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -120,16 +130,17 @@ jobs:
       # shards before #552. Twenty-four take half of that, and the limit leaves room for a stall.
       - name: Pytest
         timeout-minutes: 12
-        # The runner has four cores, and WebKit is slower to start than Chromium.
-        run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0 --durations-min=0
+        # The runner has four cores. A WebKit test waits for its browser much of its time: six
+        # workers ran a twelfth of a shard in 84 s, four in 99 s (PR #1212).
+        run: mise run test:webkit -- -n 6 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/24
+          SHARD: ${{ matrix.shard }}/23
 
   # The lists, the colour picker and the file dialog in a real window. Not required yet: the gate
   # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
   # master to pass, and must not wait for a job no merge waits for. A docs-only PR skips it too.
   native:
-    name: Native
+    name: Native ${{ matrix.shard }}/2
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
@@ -139,6 +150,12 @@ jobs:
       # Chromium with a window wants more shared memory than a container has of its own.
       options: --ipc=host
     timeout-minutes: 6
+    # Two shards: alone the job took five minutes, the longest of the run. Six tests of the
+    # command line (tests/test_teacher_page*.py) take 15 s to 44 s each.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -150,7 +167,9 @@ jobs:
           install="uv run playwright install chromium"
           timeout -k 5 80 $install || timeout -k 5 80 $install
       - name: Pytest
-        run: mise run test:native -- --durations=20
+        run: mise run test:native -- -v --durations=0 --durations-min=0
+        env:
+          SHARD: ${{ matrix.shard }}/2
 
   # Branch protection requires the check named Test; the shards have other names.
   # Skipped shards pass only when this pull request did not ask for the suite.
@@ -166,11 +185,16 @@ jobs:
           SHARDS: ${{ needs.shards.result }}
           WEBKIT: ${{ needs.webkit.result }}
           SUITE: ${{ needs.changes.outputs.suite }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           if [ "$CHANGES" != success ]; then
             echo "changes job: $CHANGES"
             exit 1
+          fi
+          # A pull request runs no WebKit shard: on one, WebKit skipped passes.
+          if [ "$EVENT" = pull_request ] && [ "$WEBKIT" = skipped ]; then
+            WEBKIT=success
           fi
           for result in "$SHARDS" "$WEBKIT"; do
             case "$result" in

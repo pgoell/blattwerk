@@ -25,7 +25,7 @@ from fixtures.hang import (
 )
 from fixtures.hang import swept as swept
 from playwright.sync_api import expect
-from shards import split, times
+from shards import plan, runs, times
 from ui import BROWSER
 
 # How long an `expect` waits for what it expects. It ends the moment the page has it, so the limit
@@ -53,11 +53,8 @@ SLOWER = {
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-    """With SHARD=i/n, keeps the i-th of n shards: CI runs the shards side by side.
-
-    The shards split by measured time (tests/shards.py). Each xdist worker collects the same list
-    and reads the same variable, and the split is deterministic, so all agree.
-    """
+    """Marks the slow tests, keeps the tests of this lane, and with SHARD=i/n those of the i-th
+    of n shards: CI runs the shards side by side."""
 
     for test in items:
         name = getattr(test, "originalname", None)
@@ -73,19 +70,42 @@ def pytest_collection_modifyitems(config, items):
     config.hook.pytest_deselected(items=[t for t in items if other(t)])
     items[:] = [t for t in items if not other(t)]
     if WEBKIT:
-        # Only a test that opens the browser can differ there. Before the shards, so they split
-        # what is left evenly.
+        # Only a test that opens the browser can differ there.
         config.hook.pytest_deselected(items=[t for t in items if "browser" not in t.fixturenames])
         items[:] = [t for t in items if "browser" in t.fixturenames]
         for item in items:
             for mark in item.iter_markers("webkit_xfail"):
                 issue, why = mark.args
                 item.add_marker(pytest.mark.xfail(strict=True, reason=f"#{issue}: {why}"))
+    shard = mine(config)
+    if shard is None:
+        return
+    config.hook.pytest_deselected(items=[t for t in items if not runs(shard, t.nodeid)])
+    items[:] = [t for t in items if runs(shard, t.nodeid)]
+
+
+def mine(config):
+    """With SHARD=i/n, the files of the i-th of n shards (tests/shards.py); None without SHARD.
+
+    The split is by measured time. Each xdist worker computes the same split from the same
+    files and times, so all agree.
+    """
     shard = os.environ.get("SHARD")
     if not shard:
-        return
-    i, n = map(int, shard.split("/"))
-    assert 1 <= i <= n, f"SHARD={shard}: want i/n with 1 <= i <= n"
-    mine = set(split([t.nodeid for t in items], times(BROWSER), n)[i - 1])
-    config.hook.pytest_deselected(items=[t for t in items if t.nodeid not in mine])
-    items[:] = [t for t in items if t.nodeid in mine]
+        return None
+    if not hasattr(config, "_shard"):
+        i, n = map(int, shard.split("/"))
+        assert 1 <= i <= n, f"SHARD={shard}: want i/n with 1 <= i <= n"
+        files = sorted(f"tests/{p.name}" for p in (config.rootpath / "tests").glob("test_*.py"))
+        config._shard = plan(files, times("native" if NATIVE else BROWSER), n)[i - 1]
+    return config._shard
+
+
+def pytest_ignore_collect(collection_path, config):
+    """A shard collects only its own test files: the others cost each worker their import."""
+    shard = mine(config)
+    if shard is None or not collection_path.name.startswith("test_"):
+        return None
+    if collection_path.suffix != ".py" or collection_path.parent != config.rootpath / "tests":
+        return None
+    return True if f"tests/{collection_path.name}" not in shard else None

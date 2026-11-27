@@ -68,6 +68,24 @@ READ_PICTURE = """(() => {
 })();"""
 
 
+class Out(set):
+    """The requests of a page that have not ended, by method and address."""
+
+    def add(self, request):
+        super().add(f"{request.method} {request.url}")
+
+    def discard(self, request):
+        super().discard(f"{request.method} {request.url}")
+
+
+def watch(page):
+    out = Out()
+    page.on("request", out.add)
+    page.on("requestfinished", out.discard)
+    page.on("requestfailed", out.discard)
+    return out
+
+
 @pytest.fixture(scope="session")
 def playwright():
     with sync_playwright() as p:
@@ -144,12 +162,22 @@ def editor(browser, server, playwright):
             [{"name": "session", "value": client.cookies["session"], "url": server}]
         )
         page = context.new_page()
+        out = watch(page)
         rest = [*([more] if more else []), *pages]
         page.goto(f"{server}/blatt/{sheet(client, blocks, *rest, words=words)['id']}")
         # The editor listens for keys once the sheet has loaded.
         # The first load of a cold browser takes more than the 5 s of every other wait when the
         # machine has more workers than cores.
-        expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+        try:
+            expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+        except AssertionError as e:
+            # PR #1212: once in 11,000 tests the page stood at "Lädt" for the whole wait. Say
+            # which of its requests never ended, so the next time names the cause.
+            raise AssertionError(f"{e}\nrequests still out: {sorted(out) or 'none'}") from None
+        finally:
+            page.remove_listener("request", out.add)
+            page.remove_listener("requestfinished", out.discard)
+            page.remove_listener("requestfailed", out.discard)
         # A thumbnail draws blocks too, with no name.
         count = len(blocks) + len(more) + sum(len(p["blocks"]) for p in pages)
         expect(page.locator(".block[data-id]")).to_have_count(count)
