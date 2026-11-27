@@ -96,8 +96,10 @@ jobs:
     if: needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
-    # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
-    container: mcr.microsoft.com/playwright:v1.64.0-noble
+    # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock: the newest
+    # tag whose WebKit build is the one uv.lock's Playwright wants (1.65.2 has no image; 1.65.1 has
+    # its WebKit 2388).
+    container: mcr.microsoft.com/playwright:v1.65.1-noble
     # Run 39783927061, sixteen shards: pytest 398 s to 639 s, same missing times as the Chromium
     # shards. Twenty-four shards and fresh times bring the slowest step to about six minutes.
     # The limit counts from the start of the job, and the pull of the image is part of it: it
@@ -133,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     # The image of the WebKit job: it has xvfb and the libraries a window needs.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
       # Chromium with a window wants more shared memory than a container has of its own.
       options: --ipc=host
     timeout-minutes: 6
@@ -190,7 +192,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           # As in .github/actions/setup-mise: `mise run` below keeps the job's token.
           persist_github_token: true
