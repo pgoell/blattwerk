@@ -1,9 +1,11 @@
 """The time each test file took on CI, for the split of the shards (tests/shards.py).
 
     uv run python scripts/shard-times.py <run id>
+    uv run python scripts/shard-times.py --logs <folder>
 
-Reads the logs of the shard jobs of that CI run (through gh) and writes tests/times.json: per
-browser, the seconds of each test file, its tests' three phases added up. Needs gh, logged in.
+Reads the logs of the shard jobs of that CI run (through gh, logged in) and writes tests/times.json:
+per lane, the seconds of each test file, its tests' three phases added up. With --logs it reads
+the run's log archive instead, unpacked into the folder (one "<n>_<job name>.txt" per job).
 """
 
 import argparse
@@ -28,11 +30,9 @@ def read(log_text):
     """Seconds per node id, the three phases of each test added up."""
     seconds = {}
     for line in log_text.splitlines():
-        # A log line is "job<TAB>step<TAB>timestamp message".
-        fields = line.split("\t", 2)
-        if len(fields) < 3:
-            continue
-        found = DURATION.fullmatch(fields[2].partition(" ")[2].strip())
+        # A line of `gh run view --log` is "job<TAB>step<TAB>timestamp message"; a line of the
+        # run's archive is "timestamp message".
+        found = DURATION.fullmatch(line.rpartition("\t")[2].partition(" ")[2].strip())
         if found:
             node = found.group(2).strip()
             seconds[node] = seconds.get(node, 0.0) + float(found.group(1))
@@ -48,17 +48,31 @@ def per_file(seconds):
     return {name: round(took, 1) for name, took in files.items()}
 
 
-def main(run_id):
+def logs_of_run(run_id):
+    """(job name, log) of each job of the run, through gh."""
     jobs = json.loads(gh("api", f"repos/{REPO}/actions/runs/{run_id}/jobs?per_page=100"))["jobs"]
-    seconds = {"chromium": {}, "webkit": {}, "native": {}}
     for job in jobs:
+        yield (
+            job["name"],
+            gh("run", "view", run_id, "--repo", REPO, "--job", str(job["id"]), "--log"),
+        )
+
+
+def logs_of_folder(folder):
+    """(job name, log) of each job in an unpacked log archive."""
+    for path in sorted(Path(folder).glob("*_*.txt")):
+        yield path.stem.partition("_")[2], path.read_text(errors="replace")
+
+
+def main(logs, source):
+    seconds = {"chromium": {}, "webkit": {}, "native": {}}
+    for name, log in logs:
         for prefix, browser in JOBS.items():
-            if job["name"].startswith(prefix):
-                log = gh("run", "view", run_id, "--repo", REPO, "--job", str(job["id"]), "--log")
+            if name.startswith(prefix):
                 seconds[browser].update(read(log))
     empty = [browser for browser, found in seconds.items() if not found]
     if empty:
-        sys.exit(f"no durations for {', '.join(empty)} in run {run_id}: nothing written")
+        sys.exit(f"no durations for {', '.join(empty)} in {source}: nothing written")
     times = {browser: per_file(found) for browser, found in seconds.items()}
     OUT.write_text(json.dumps(times, indent=1, sort_keys=True) + "\n")
     print(f"wrote {OUT}: {', '.join(f'{b} {len(t)} files' for b, t in times.items())}")
@@ -66,5 +80,12 @@ def main(run_id):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("run_id")
-    main(parser.parse_args().run_id)
+    parser.add_argument("run_id", nargs="?")
+    parser.add_argument("--logs", help="an unpacked log archive of the run, read instead of gh")
+    args = parser.parse_args()
+    if args.logs:
+        main(logs_of_folder(args.logs), args.logs)
+    elif args.run_id:
+        main(logs_of_run(args.run_id), f"run {args.run_id}")
+    else:
+        parser.error("give a run id or --logs")
