@@ -129,7 +129,7 @@ jobs:
   # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
   # master to pass, and must not wait for a job no merge waits for. A docs-only PR skips it too.
   native:
-    name: Native
+    name: Native ${{ matrix.shard }}/2
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
@@ -139,6 +139,12 @@ jobs:
       # Chromium with a window wants more shared memory than a container has of its own.
       options: --ipc=host
     timeout-minutes: 6
+    # Two shards: alone the job took five minutes, the longest of the run. Six tests of the
+    # command line (tests/test_teacher_page*.py) take 15 s to 44 s each.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -150,7 +156,9 @@ jobs:
           install="uv run playwright install chromium"
           timeout -k 5 80 $install || timeout -k 5 80 $install
       - name: Pytest
-        run: mise run test:native -- --durations=20
+        run: mise run test:native -- -v --durations=0 --durations-min=0
+        env:
+          SHARD: ${{ matrix.shard }}/2
 
   # Branch protection requires the check named Test; the shards have other names.
   # Skipped shards pass only when this pull request did not ask for the suite.
