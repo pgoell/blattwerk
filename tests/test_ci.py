@@ -64,7 +64,7 @@ def test_ci_has_the_checks_the_merge_needs():
     shards = part(CI, "shards")
     assert "needs: changes" in shards
     assert "needs.changes.outputs.suite == 'true'" in shards
-    assert "name: Test shard ${{ matrix.shard }}/12" in shards
+    assert "name: Test shard ${{ matrix.shard }}/13" in shards
     assert "run: mise run test " in shards
 
 
@@ -249,12 +249,12 @@ def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
         assert "--durations=0" in run
 
 
-def test_the_suite_is_split_into_twelve_and_twenty_four_shards():
-    """Run 39783927061: eight and sixteen shards left pytest at about ten minutes.
-
-    Twelve and twenty-four, weighed by the times from that run, bring it to about six.
+def test_the_suite_is_split_into_thirteen_and_twenty_three_shards():
+    """Run 39783927061: eight and sixteen shards left pytest at about ten minutes, and twelve and
+    twenty-four at about six. PR #1212 made a shard cheaper to start and its tests cheaper to
+    run; thirteen and twenty-three, weighed by the times of its first run, end together.
     """
-    expected = {"shards": ("Test shard", 12), "webkit": ("WebKit shard", 24)}
+    expected = {"shards": ("Test shard", 13), "webkit": ("WebKit shard", 23)}
     for job, (name, n) in expected.items():
         text = part(CI, job)
         (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
