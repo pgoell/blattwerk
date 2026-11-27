@@ -96,8 +96,10 @@ jobs:
     if: needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
-    # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
-    container: mcr.microsoft.com/playwright:v1.64.0-noble
+    # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock: the newest
+    # tag whose WebKit build is the one uv.lock's Playwright wants (1.65.2 has no image; 1.65.1 has
+    # its WebKit 2388).
+    container: mcr.microsoft.com/playwright:v1.65.1-noble
     # Run 39783927061, sixteen shards: pytest 398 s to 639 s, same missing times as the Chromium
     # shards. Twenty-four shards and fresh times bring the slowest step to about six minutes.
     # The limit counts from the start of the job, and the pull of the image is part of it: it
@@ -133,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     # The image of the WebKit job: it has xvfb and the libraries a window needs.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
       # Chromium with a window wants more shared memory than a container has of its own.
       options: --ipc=host
     timeout-minutes: 6
